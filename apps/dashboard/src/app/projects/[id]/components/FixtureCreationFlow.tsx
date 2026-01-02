@@ -28,6 +28,23 @@ const sectionVariants = {
   exit: { opacity: 0, y: -10, transition: { duration: 0.15 } },
 };
 
+/**
+ * Optional billing props for Cloud deployments.
+ * When provided, L3 generation will require a cost estimate before generating.
+ */
+export interface BillingProps {
+  /** Whether billing is enabled for this deployment */
+  enabled: boolean;
+  /** Render function for the cost estimate component */
+  renderCostEstimate: (props: {
+    schema: DemokitSchema;
+    narrative: DemoNarrative;
+    counts: Record<string, number>;
+    disabled: boolean;
+    onGenerate: (quoteId: string) => void;
+  }) => React.ReactNode;
+}
+
 interface FixtureCreationFlowProps {
   // Template state
   templates: DynamicNarrativeTemplate[];
@@ -53,7 +70,8 @@ interface FixtureCreationFlowProps {
   hasGenerated: boolean;
   isGenerating: boolean;
   missingRequirements: MissingRequirement[];
-  onGenerate: () => void;
+  /** Called when generation is triggered. quoteId is provided when billing is enabled (Cloud). */
+  onGenerate: (quoteId?: string) => void;
   onCancelGeneration: () => void;
 
   // Save state
@@ -64,6 +82,9 @@ interface FixtureCreationFlowProps {
 
   // AI generation settings
   onLevelChange: (level: GenerationLevel) => void;
+
+  // Optional billing (Cloud only)
+  billing?: BillingProps;
 }
 
 export function FixtureCreationFlow({
@@ -91,6 +112,7 @@ export function FixtureCreationFlow({
   isSaving,
   savedFixtureName,
   onLevelChange,
+  billing,
 }: FixtureCreationFlowProps) {
   const currentLevel = generation.level || "relationship-valid";
   const isL3 = currentLevel === "narrative-driven";
@@ -187,13 +209,24 @@ export function FixtureCreationFlow({
         )}
       </div>
 
-      <GenerateButton
-        canGenerate={canGenerate}
-        isGenerating={isGenerating}
-        hasGenerated={hasGenerated}
-        missingRequirements={missingRequirements}
-        onGenerate={onGenerate}
-      />
+      {/* For L3 with billing enabled, show CostEstimate; otherwise show regular GenerateButton */}
+      {isL3 && billing?.enabled ? (
+        billing.renderCostEstimate({
+          schema,
+          narrative,
+          counts: recordCounts,
+          disabled: !canGenerate || isGenerating,
+          onGenerate: (quoteId: string) => onGenerate(quoteId),
+        })
+      ) : (
+        <GenerateButton
+          canGenerate={canGenerate}
+          isGenerating={isGenerating}
+          hasGenerated={hasGenerated}
+          missingRequirements={missingRequirements}
+          onGenerate={() => onGenerate()}
+        />
+      )}
 
       <AnimatePresence>
         {isGenerating && (

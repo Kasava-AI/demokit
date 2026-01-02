@@ -28,7 +28,7 @@ export { GenerationRulesTabWrapper } from './GenerationRulesTabWrapper'
 export { IntegrationsTab } from './IntegrationsTab'
 
 // Fixture components
-export { FixtureCreationFlow } from './FixtureCreationFlow'
+export { FixtureCreationFlow, type BillingProps } from './FixtureCreationFlow'
 export { SelectedFixturePreview } from './SelectedFixturePreview'
 
 // Dialog components

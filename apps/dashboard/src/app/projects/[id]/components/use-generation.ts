@@ -22,6 +22,8 @@ interface UseGenerationOptions {
   recordCounts?: Record<string, number>
   /** Custom generation rules from project settings */
   generationRules?: GenerationRulesConfig
+  /** Quote ID for billing (Cloud only) */
+  quoteId?: string
 }
 
 /**
@@ -49,7 +51,7 @@ function toHistoryEntry(gen: FixtureGeneration): GenerationHistoryEntry {
   }
 }
 
-export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, recordCounts, generationRules }: UseGenerationOptions = {}) {
+export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, recordCounts, generationRules, quoteId }: UseGenerationOptions = {}) {
   const [generation, setGeneration] = useState<GenerationState>({
     status: 'idle',
     level: 'relationship-valid', // Default to L2 (relationship-valid) for better data quality
@@ -115,6 +117,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
             },
             counts: recordCounts,
             stream: false,
+            quoteId,
           }),
         })
 

@@ -21,18 +21,23 @@ import {
   useGeneration,
   getMissingRequirements,
 } from ".";
-import { FixtureCreationFlow } from "./FixtureCreationFlow";
+import { FixtureCreationFlow, type BillingProps } from "./FixtureCreationFlow";
 import { SelectedFixturePreview } from "./SelectedFixturePreview";
 import { SchemaUploadSheet } from "./overview";
 import type { DemokitSchema } from "./types";
 
 interface FixturesTabProps {
   project: ProjectWithRelations;
+  /** Optional billing props for Cloud deployments */
+  billing?: BillingProps;
 }
 
-export function FixturesTab({ project }: FixturesTabProps) {
+export function FixturesTab({ project, billing }: FixturesTabProps) {
   const projectId = project.id;
   const projectName = project.name;
+
+  // Quote ID for billing (Cloud only)
+  const [quoteId, setQuoteId] = useState<string | undefined>();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -118,6 +123,7 @@ export function FixturesTab({ project }: FixturesTabProps) {
       schema,
       recordCounts,
       generationRules,
+      quoteId,
     });
 
   // Derived state for progressive disclosure
@@ -225,8 +231,12 @@ export function FixturesTab({ project }: FixturesTabProps) {
     setSelectedTemplate(undefined);
   }, []);
 
-  const handleGeneration = useCallback(() => {
+  const handleGeneration = useCallback((newQuoteId?: string) => {
     setSavedFixtureName(undefined);
+    // Update quoteId if provided (from billing flow)
+    if (newQuoteId) {
+      setQuoteId(newQuoteId);
+    }
     handleGenerate(narrative);
   }, [handleGenerate, narrative]);
 
@@ -378,6 +388,7 @@ export function FixturesTab({ project }: FixturesTabProps) {
                     isSaving={isSaving}
                     savedFixtureName={savedFixtureName}
                     onLevelChange={setLevel}
+                    billing={billing}
                   />
                 ) : null}
               </>

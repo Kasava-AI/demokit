@@ -41,7 +41,18 @@ import {
 } from './components'
 import { SchemaUploadSheet } from './components/overview'
 
-export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+interface ProjectPageProps {
+  params: Promise<{ id: string }>
+  /**
+   * Optional custom FixturesTab component for deployments that need
+   * custom functionality (e.g., Cloud billing).
+   */
+  FixturesTabComponent?: typeof FixturesTab
+}
+
+export default function ProjectPage({ params, FixturesTabComponent }: ProjectPageProps) {
+  // Use custom component if provided, otherwise use default
+  const FixturesTabToRender = FixturesTabComponent || FixturesTab
   const { id } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -194,7 +205,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           onRegenerationStart={handleRegenerationStart}
         />
 
-        <FixturesTab
+        <FixturesTabToRender
           project={project}
         />
 

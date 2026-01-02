@@ -1,0 +1,248 @@
+@import "tailwindcss";
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/preflight" layer(base);
+@import "tailwindcss/utilities" layer(utilities);
+
+@theme {
+  /* Border radius */
+  --radius: 0.5rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Chart colors */
+  --color-chart-1: hsl(12 76% 61%);
+  --color-chart-2: hsl(173 58% 39%);
+  --color-chart-3: hsl(197 37% 24%);
+  --color-chart-4: hsl(43 74% 66%);
+  --color-chart-5: hsl(27 87% 67%);
+
+  /* Custom colors - light mode defaults */
+  --color-background: hsl(48 33.3% 97.1%);
+  --color-foreground: hsl(60 2.6% 7.6%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(60 2.6% 7.6%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(60 2.6% 7.6%);
+  --color-primary: hsl(320 55% 24%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(48 25% 92.2%);
+  --color-secondary-foreground: hsl(60 2.6% 7.6%);
+  --color-muted: hsl(48 25% 92.2%);
+  --color-muted-foreground: hsl(60 2.5% 23.3%);
+  --color-accent: hsl(320 55% 24%);
+  --color-accent-foreground: hsl(0 0% 100%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-success: hsl(142 71% 45%);
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(38 92% 50%);
+  --color-warning-foreground: hsl(0 0% 0%);
+  --color-border: hsl(48 20% 86%);
+  --color-input: hsl(48 20% 86%);
+  --color-ring: hsl(320 55% 24%);
+
+  /* Sidebar colors - light mode */
+  --color-sidebar: hsl(48 20% 92%);
+  --color-sidebar-foreground: hsl(60 2.6% 7.6%);
+  --color-sidebar-border: hsl(48 20% 86%);
+  --color-sidebar-accent: hsl(48 25% 88%);
+  --color-sidebar-accent-foreground: hsl(60 2.6% 7.6%);
+  --color-sidebar-ring: hsl(320 55% 24%);
+  --color-sidebar-primary: hsl(320 55% 24%);
+  --color-sidebar-primary-foreground: hsl(0 0% 100%);
+}
+
+/* Light mode CSS variables (legacy support) */
+:root {
+  /* Background Colors */
+  --bg-000: 0 0% 100%;
+  --bg-100: 48 33.3% 97.1%;
+  --bg-200: 53 28.6% 94.5%;
+  --bg-300: 48 25% 92.2%;
+  --bg-400: 50 20.7% 88.6%;
+
+  /* Border Colors */
+  --border-100: 48 20% 90%;
+  --border-200: 48 20% 88%;
+  --border-300: 48 20% 86%;
+  --border-400: 48 20% 84%;
+
+  /* Text Colors */
+  --text-000: 60 2.6% 7.6%;
+  --text-100: 60 2.6% 7.6%;
+  --text-200: 60 2.5% 23.3%;
+  --text-300: 60 2.5% 23.3%;
+  --text-400: 51 3.1% 43.7%;
+
+  /* Accent Colors */
+  --accent-main-200: 320 55% 24%;
+
+  /* Always Colors */
+  --always-black: 0 0% 0%;
+  --always-white: 0 0% 100%;
+
+  --background: 48 33.3% 97.1%;
+  --foreground: 60 2.6% 7.6%;
+  --card: 0 0% 100%;
+  --card-foreground: 60 2.6% 7.6%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 60 2.6% 7.6%;
+  --primary: 320 55% 24%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 48 25% 92.2%;
+  --secondary-foreground: 60 2.6% 7.6%;
+  --muted: 48 25% 92.2%;
+  --muted-foreground: 60 2.5% 23.3%;
+  --accent: 320 55% 24%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 0%;
+  --border: 48 20% 86%;
+  --input: 48 20% 86%;
+  --ring: 320 55% 24%;
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  --radius: 0.5rem;
+
+  /* Sidebar - light mode */
+  --sidebar: 48 20% 92%;
+  --sidebar-foreground: 60 2.6% 7.6%;
+  --sidebar-border: 48 20% 86%;
+  --sidebar-accent: 48 25% 88%;
+  --sidebar-accent-foreground: 60 2.6% 7.6%;
+  --sidebar-ring: 320 55% 24%;
+  --sidebar-primary: 320 55% 24%;
+  --sidebar-primary-foreground: 0 0% 100%;
+}
+
+/* Dark mode CSS variables - Warm toned dark theme matching Kasava frontend */
+.dark {
+  /* Background Colors - Warm dark grays */
+  --bg-000: 60 2.1% 18.4%;
+  --bg-100: 60 2.7% 14.5%;
+  --bg-200: 30 3.3% 11.8%;
+  --bg-300: 60 2.6% 7.6%;
+  --bg-400: 0 0% 0%;
+
+  /* Border Colors - Warm subtle borders */
+  --border-100: 60 3% 22%;
+  --border-200: 60 3% 26%;
+  --border-300: 60 3% 30%;
+  --border-400: 60 3% 34%;
+
+  /* Text Colors - Warm whites/creams */
+  --text-000: 48 33.3% 97.1%;
+  --text-100: 48 33.3% 97.1%;
+  --text-200: 50 9% 73.7%;
+  --text-300: 50 9% 73.7%;
+  --text-400: 48 4.8% 59.2%;
+
+  /* Accent Colors - Warm cream for dark mode */
+  --accent-main-200: 45 30% 75%;
+
+  --background: 30 3.3% 11.8%;
+  --foreground: 48 33.3% 97.1%;
+  --card: 60 2.1% 18.4%;
+  --card-foreground: 48 33.3% 97.1%;
+  --popover: 60 2.1% 18.4%;
+  --popover-foreground: 48 33.3% 97.1%;
+  --primary: 45 30% 75%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 60 2.6% 7.6%;
+  --secondary-foreground: 48 33.3% 97.1%;
+  --muted: 60 2.6% 7.6%;
+  --muted-foreground: 48 4.8% 59.2%;
+  --accent: 60 2.7% 14.5%;
+  --accent-foreground: 48 33.3% 97.1%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 48 33.3% 97.1%;
+  --success: 142 60% 35%;
+  --success-foreground: 48 33.3% 97.1%;
+  --warning: 38 80% 45%;
+  --warning-foreground: 0 0% 0%;
+  --border: 60 3% 26%;
+  --input: 60 3% 30%;
+  --ring: 45 30% 75%;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+
+  /* Update theme colors for dark mode */
+  --color-background: hsl(30 3.3% 11.8%);
+  --color-foreground: hsl(48 33.3% 97.1%);
+  --color-card: hsl(60 2.1% 18.4%);
+  --color-card-foreground: hsl(48 33.3% 97.1%);
+  --color-popover: hsl(60 2.1% 18.4%);
+  --color-popover-foreground: hsl(48 33.3% 97.1%);
+  --color-primary: hsl(45 30% 75%);
+  --color-primary-foreground: hsl(0 0% 0%);
+  --color-secondary: hsl(60 2.6% 7.6%);
+  --color-secondary-foreground: hsl(48 33.3% 97.1%);
+  --color-muted: hsl(60 2.6% 7.6%);
+  --color-muted-foreground: hsl(48 4.8% 59.2%);
+  --color-accent: hsl(60 2.7% 14.5%);
+  --color-accent-foreground: hsl(48 33.3% 97.1%);
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(48 33.3% 97.1%);
+  --color-success: hsl(142 60% 35%);
+  --color-success-foreground: hsl(48 33.3% 97.1%);
+  --color-warning: hsl(38 80% 45%);
+  --color-warning-foreground: hsl(0 0% 0%);
+  --color-border: hsl(60 3% 26%);
+  --color-input: hsl(60 3% 30%);
+  --color-ring: hsl(45 30% 75%);
+  --color-chart-1: hsl(220 70% 50%);
+  --color-chart-2: hsl(160 60% 45%);
+  --color-chart-3: hsl(30 80% 55%);
+  --color-chart-4: hsl(280 65% 60%);
+  --color-chart-5: hsl(340 75% 55%);
+
+  /* Sidebar colors - dark mode */
+  --color-sidebar: hsl(60 2.1% 18.4%);
+  --color-sidebar-foreground: hsl(48 33.3% 97.1%);
+  --color-sidebar-border: hsl(60 3% 26%);
+  --color-sidebar-accent: hsl(60 2.7% 14.5%);
+  --color-sidebar-accent-foreground: hsl(48 33.3% 97.1%);
+  --color-sidebar-ring: hsl(45 30% 75%);
+  --color-sidebar-primary: hsl(45 30% 75%);
+  --color-sidebar-primary-foreground: hsl(0 0% 0%);
+
+  /* Sidebar - dark mode (legacy) */
+  --sidebar: 60 2.1% 18.4%;
+  --sidebar-foreground: 48 33.3% 97.1%;
+  --sidebar-border: 60 3% 26%;
+  --sidebar-accent: 60 2.7% 14.5%;
+  --sidebar-accent-foreground: 48 33.3% 97.1%;
+  --sidebar-ring: 45 30% 75%;
+  --sidebar-primary: 45 30% 75%;
+  --sidebar-primary-foreground: 0 0% 0%;
+}
+
+/* Base styles */
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-width: 320px;
+  min-height: 100vh;
+}

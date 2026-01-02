@@ -1,0 +1,34 @@
+{
+  "name": "demokit",
+  "private": true,
+  "description": "AI-powered demo data generation - Full OSS with BYOK support",
+  "scripts": {
+    "dev": "pnpm build:packages && pnpm --filter @demokit-ai/dashboard dev",
+    "dev:packages": "pnpm build:packages && pnpm --filter './packages/*' --parallel dev",
+    "build": "pnpm build:packages && pnpm --filter @demokit-ai/dashboard build",
+    "build:packages": "pnpm --filter './packages/*' build",
+    "build:core": "pnpm --filter @demokit-ai/core build",
+    "build:react": "pnpm --filter @demokit-ai/core --filter @demokit-ai/react build",
+    "build:pkg": "pnpm --filter @demokit-ai/core --filter @demokit-ai/react --filter",
+    "setup": "./scripts/setup.sh",
+    "setup:db": "docker compose up -d && pnpm db:migrate",
+    "db:generate": "pnpm --filter @demokit-ai/dashboard db:generate",
+    "db:migrate": "pnpm --filter @demokit-ai/dashboard db:migrate",
+    "db:push": "pnpm --filter @demokit-ai/dashboard db:push",
+    "db:studio": "pnpm --filter @demokit-ai/dashboard db:studio",
+    "test": "pnpm --filter './packages/*' test",
+    "test:coverage": "pnpm --filter './packages/*' test:coverage",
+    "typecheck": "pnpm --filter './packages/*' --filter @demokit-ai/dashboard typecheck",
+    "clean": "pnpm --filter './packages/*' --filter @demokit-ai/dashboard clean",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "publish": "pnpm build:packages && changeset publish",
+    "release": "pnpm build:packages && pnpm -r --filter './packages/*' publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": { "node": ">=18" },
+  "packageManager": "pnpm@9.15.0"
+}

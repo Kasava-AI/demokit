@@ -1,0 +1,28 @@
+/* Shiki line numbers styling using CSS counters */
+.shiki-line-numbers code {
+  counter-reset: step;
+  counter-increment: step calc(var(--start, 1) - 1);
+}
+
+.shiki-line-numbers code > .line::before {
+  content: counter(step);
+  counter-increment: step;
+  display: inline-block;
+  width: 3ch;
+  margin-right: 1.5rem;
+  text-align: right;
+  color: var(--code-line-number, hsl(var(--muted-foreground)));
+  user-select: none;
+}
+
+/* Shiki wrapper styling */
+.shiki-wrapper pre {
+  margin: 0;
+  padding: 0.75rem 0;
+  padding-left: var(--shiki-padding-left, 1rem);
+}
+
+.shiki-wrapper code {
+  display: block;
+}
+

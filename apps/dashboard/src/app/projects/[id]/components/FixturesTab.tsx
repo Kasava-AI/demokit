@@ -45,6 +45,9 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
   // Track if user explicitly wants to create a new fixture (prevents auto-selection)
   const isCreatingNewRef = useRef(false);
 
+  // Ref to store the fixture created callback (set after updateFixtureUrl is defined)
+  const onFixtureCreatedRef = useRef<((fixtureId: string) => void) | undefined>(undefined);
+
   // Transform project to intelligence format
   const intelligence = useMemo(
     () => transformToIntelligence(project),
@@ -113,7 +116,14 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
     return settings?.generationRules as any;
   }, [project.settings]);
 
-  // Generation hook
+  // Generation hook - uses ref for onFixtureCreated callback (set after updateFixtureUrl is defined)
+  const handleFixtureCreatedFromRef = useCallback(
+    (fixtureId: string) => {
+      onFixtureCreatedRef.current?.(fixtureId);
+    },
+    []
+  );
+
   const { generation, setLevel, handleGenerate, handleCancelGeneration } =
     useGeneration({
       projectId,
@@ -121,6 +131,7 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
       schema,
       recordCounts,
       generationRules,
+      onFixtureCreated: handleFixtureCreatedFromRef,
     });
 
   // Derived state for progressive disclosure
@@ -185,6 +196,16 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
     },
     [router, projectId, searchParams]
   );
+
+  // Set up the onFixtureCreated callback now that updateFixtureUrl is defined
+  useEffect(() => {
+    onFixtureCreatedRef.current = (fixtureId: string) => {
+      // Navigate to the newly created fixture
+      updateFixtureUrl(fixtureId);
+      // Reset the creating new flag since we now have a fixture selected
+      isCreatingNewRef.current = false;
+    };
+  }, [updateFixtureUrl]);
 
   // Auto-select first fixture when tab is active and no fixture is selected
   // (but not when user explicitly clicked "New Fixture")

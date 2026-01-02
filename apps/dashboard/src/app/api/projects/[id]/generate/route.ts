@@ -16,7 +16,7 @@ import { unauthorized, notFound, handleError } from '@/lib/api/utils'
 import { projects, appIdentity, features, userJourneys, entityMaps, fixtures, fixtureGenerations } from '@db'
 import { eq } from 'drizzle-orm'
 import { generateNarrativeData, createNarrative, type SourceIntelligence } from '@demokit-ai/ai'
-import { inferAppContext, validateData } from '@demokit-ai/core'
+import { inferAppContext } from '@demokit-ai/core'
 import type { DemokitSchema } from '@demokit-ai/core'
 
 interface GenerateRequestBody {
@@ -176,24 +176,11 @@ export async function POST(
 
     const durationMs = Date.now() - startTime
 
-    // Validate the generated data
-    const validation = result.data
-      ? validateData(result.data as Record<string, Record<string, unknown>[]>, {
-          schema,
-          collectWarnings: true,
-        })
-      : null
+    // Use validation from the result (already computed by generateNarrativeData)
+    const validation = result.validation
 
-    // Calculate record counts
-    const recordsByModel: Record<string, number> = {}
-    let totalRecords = 0
-    if (result.data) {
-      for (const [model, records] of Object.entries(result.data)) {
-        const count = Array.isArray(records) ? records.length : 0
-        recordsByModel[model] = count
-        totalRecords += count
-      }
-    }
+    // Use metadata from the result
+    const { totalRecords, recordsByModel, tokensUsed } = result.metadata
 
     // Create the fixture in the database
     const name = fixtureName || generateFixtureName(narrative.scenario)
@@ -216,7 +203,7 @@ export async function POST(
         fixtureId: fixture.id,
         level: 'narrative-driven',
         data: result.data as Record<string, unknown[]>,
-        code: result.code || null,
+        code: result.fixtures || null,
         validationValid: validation?.valid ?? false,
         validationErrorCount: validation?.errors?.length ?? 0,
         validationWarningCount: validation?.warnings?.length ?? 0,
@@ -233,7 +220,7 @@ export async function POST(
         startedAt: new Date(startTime),
         completedAt: new Date(),
         durationMs,
-        tokensUsed: result.usage?.totalTokens,
+        tokensUsed,
       })
       .returning()
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { DemoNarrative, DemoData, ValidationResult, GenerationLevel, GenerationRulesConfig } from '@demokit-ai/core'
 import { generateDemoData, validateData } from '@demokit-ai/core'
 import type { DynamicNarrativeTemplate } from '@intelligence'
@@ -14,6 +15,28 @@ import {
   type FixtureGeneration,
 } from '@/hooks/use-fixtures'
 
+/** Response from the L3 generation API (now includes fixture info) */
+interface L3GenerationResponse {
+  data: DemoData
+  fixtures?: string
+  validation: ValidationResult
+  metadata: {
+    level: GenerationLevel
+    generatedAt: string
+    totalRecords: number
+    recordsByModel: Record<string, number>
+    usedIds: Record<string, string[]>
+    durationMs: number
+    tokensUsed?: number
+  }
+  /** Fixture ID - automatically created by the backend */
+  fixtureId: string
+  /** Generation ID - automatically created by the backend */
+  generationId: string
+  /** Fixture name - auto-generated or provided */
+  fixtureName: string
+}
+
 interface UseGenerationOptions {
   projectId?: string
   fixtureId?: string
@@ -24,6 +47,8 @@ interface UseGenerationOptions {
   generationRules?: GenerationRulesConfig
   /** Quote ID for billing (Cloud only) */
   quoteId?: string
+  /** Callback when a new fixture is created (L3 generation auto-saves) */
+  onFixtureCreated?: (fixtureId: string, fixtureName: string) => void
 }
 
 /**
@@ -51,7 +76,8 @@ function toHistoryEntry(gen: FixtureGeneration): GenerationHistoryEntry {
   }
 }
 
-export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, recordCounts, generationRules, quoteId }: UseGenerationOptions = {}) {
+export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, recordCounts, generationRules, quoteId, onFixtureCreated }: UseGenerationOptions = {}) {
+  const queryClient = useQueryClient()
   const [generation, setGeneration] = useState<GenerationState>({
     status: 'idle',
     level: 'relationship-valid', // Default to L2 (relationship-valid) for better data quality
@@ -107,6 +133,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
       const effectiveQuoteId = overrideQuoteId ?? quoteId
 
       // Use L3 (narrative-driven) API for narrative-driven level
+      // Note: L3 generation auto-saves the fixture to the database
       if (generation.level === 'narrative-driven' && projectId) {
         // Call the AI generation API
         const response = await fetch(`/api/projects/${projectId}/generate`, {
@@ -121,6 +148,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
             counts: recordCounts,
             stream: false,
             quoteId: effectiveQuoteId,
+            templateId: selectedTemplate?.id,
           }),
         })
 
@@ -133,7 +161,18 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
           throw new Error(errorData.error || `L3 generation failed: ${response.status}`)
         }
 
-        result = await response.json()
+        const l3Result: L3GenerationResponse = await response.json()
+        result = l3Result
+
+        // L3 auto-saves the fixture - invalidate the fixtures query so it appears in the sidebar
+        queryClient.invalidateQueries({
+          queryKey: ['projects', projectId, 'fixtures'],
+        })
+
+        // Notify the parent component about the new fixture
+        if (onFixtureCreated && l3Result.fixtureId) {
+          onFixtureCreated(l3Result.fixtureId, l3Result.fixtureName)
+        }
       } else {
         // Use L1/L2 generation locally
         // Small delay to show generating state
@@ -160,8 +199,9 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
       // Small delay to show validating state
       await new Promise((resolve) => setTimeout(resolve, 100))
 
-      // Persist to database if we have a fixture
-      if (projectId && fixtureId) {
+      // Persist to database if we have a fixture (only for L1/L2 - L3 auto-saves)
+      // Note: L3 generation already saves the fixture in the backend
+      if (projectId && fixtureId && generation.level !== 'narrative-driven') {
         const label = selectedTemplate?.name || narrativeInput.scenario.slice(0, 30) || 'Generation'
 
         try {
@@ -215,7 +255,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
         errors: [error instanceof Error ? error.message : 'Generation failed'],
       }))
     }
-  }, [generation.level, selectedTemplate, schema, recordCounts, generationRules, projectId, fixtureId, createGenerationMutation])
+  }, [generation.level, selectedTemplate, schema, recordCounts, generationRules, projectId, fixtureId, createGenerationMutation, queryClient, onFixtureCreated, quoteId])
 
   const handleSelectHistory = useCallback((entry: GenerationHistoryEntry) => {
     setSelectedHistoryId(entry.id)

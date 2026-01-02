@@ -115,8 +115,9 @@ export function useConnectGitHub() {
 
 /**
  * Combined hook for GitHub connection management.
+ * @param _organizationId - Optional organization ID (unused in OSS, for cloud compatibility)
  */
-export function useGitHubConnectionManager() {
+export function useGitHubConnectionManager(_organizationId?: string) {
   const connection = useGitHubConnection()
   const disconnect = useDisconnectGitHub()
   const connect = useConnectGitHub()

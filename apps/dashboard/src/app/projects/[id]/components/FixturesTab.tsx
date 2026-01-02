@@ -233,11 +233,8 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
 
   const handleGeneration = useCallback((newQuoteId?: string) => {
     setSavedFixtureName(undefined);
-    // Update quoteId if provided (from billing flow)
-    if (newQuoteId) {
-      setQuoteId(newQuoteId);
-    }
-    handleGenerate(narrative);
+    // Pass quoteId directly to handleGenerate to avoid async state issues
+    handleGenerate(narrative, newQuoteId);
   }, [handleGenerate, narrative]);
 
   const handleSaveFixture = useCallback(

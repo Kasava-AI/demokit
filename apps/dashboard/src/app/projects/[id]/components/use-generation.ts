@@ -82,7 +82,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
     return dbGenerations.map(toHistoryEntry)
   }, [dbGenerations])
 
-  const handleGenerate = useCallback(async (narrativeInput: DemoNarrative) => {
+  const handleGenerate = useCallback(async (narrativeInput: DemoNarrative, overrideQuoteId?: string) => {
     // Check if schema is available
     if (!schema) {
       setGeneration((prev) => ({
@@ -103,6 +103,9 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
         metadata: { level: GenerationLevel; generatedAt: string; totalRecords: number; recordsByModel: Record<string, number>; usedIds: Record<string, string[]>; durationMs: number; tokensUsed?: number }
       }
 
+      // Use the override quoteId if provided (for billing flow), otherwise use prop
+      const effectiveQuoteId = overrideQuoteId ?? quoteId
+
       // Use L3 (narrative-driven) API for narrative-driven level
       if (generation.level === 'narrative-driven' && projectId) {
         // Call the AI generation API
@@ -117,7 +120,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
             },
             counts: recordCounts,
             stream: false,
-            quoteId,
+            quoteId: effectiveQuoteId,
           }),
         })
 

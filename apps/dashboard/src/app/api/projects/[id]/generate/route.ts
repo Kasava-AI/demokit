@@ -5,16 +5,18 @@
  * Uses @demokit-ai/ai with Mastra agents for AI-powered generation.
  *
  * OSS version: No billing/quotes, uses ANTHROPIC_API_KEY from environment.
+ *
+ * Automatically saves the generated fixture to the database.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, handleError } from '@/lib/api/utils'
-import { projects, appIdentity, features, userJourneys, entityMaps } from '@db'
+import { projects, appIdentity, features, userJourneys, entityMaps, fixtures, fixtureGenerations } from '@db'
 import { eq } from 'drizzle-orm'
 import { generateNarrativeData, createNarrative, type SourceIntelligence } from '@demokit-ai/ai'
-import { inferAppContext } from '@demokit-ai/core'
+import { inferAppContext, validateData } from '@demokit-ai/core'
 import type { DemokitSchema } from '@demokit-ai/core'
 
 interface GenerateRequestBody {
@@ -26,6 +28,27 @@ interface GenerateRequestBody {
   counts?: Record<string, number>
   stream?: boolean
   fixtureId?: string
+  /** Optional fixture name. If not provided, a default name is generated. */
+  fixtureName?: string
+  /** Optional template ID to associate with the fixture */
+  templateId?: string
+}
+
+/**
+ * Generate a default fixture name based on the narrative scenario.
+ */
+function generateFixtureName(scenario: string): string {
+  const date = new Date()
+  const dateStr = date.toISOString().slice(0, 10)
+  const timeStr = date.toTimeString().slice(0, 5).replace(':', '')
+
+  // Extract first few words from scenario for a meaningful name
+  const scenarioWords = scenario.trim().split(/\s+/).slice(0, 4).join(' ')
+  if (scenarioWords.length > 0) {
+    return `${scenarioWords} (${dateStr})`
+  }
+
+  return `Fixture ${dateStr}-${timeStr}`
 }
 
 /**
@@ -105,7 +128,7 @@ export async function POST(
 
   // Parse request body
   const body: GenerateRequestBody = await req.json()
-  const { schema, narrative, counts } = body
+  const { schema, narrative, counts, fixtureName, templateId } = body
 
   // Validate required fields
   if (!schema || !narrative) {
@@ -114,6 +137,8 @@ export async function POST(
       { status: 400 }
     )
   }
+
+  const startTime = Date.now()
 
   try {
     // Check for API key
@@ -149,7 +174,104 @@ export async function POST(
       sourceIntelligence,
     })
 
-    return NextResponse.json(result)
+    const durationMs = Date.now() - startTime
+
+    // Validate the generated data
+    const validation = result.data
+      ? validateData(result.data as Record<string, Record<string, unknown>[]>, {
+          schema,
+          collectWarnings: true,
+        })
+      : null
+
+    // Calculate record counts
+    const recordsByModel: Record<string, number> = {}
+    let totalRecords = 0
+    if (result.data) {
+      for (const [model, records] of Object.entries(result.data)) {
+        const count = Array.isArray(records) ? records.length : 0
+        recordsByModel[model] = count
+        totalRecords += count
+      }
+    }
+
+    // Create the fixture in the database
+    const name = fixtureName || generateFixtureName(narrative.scenario)
+
+    const [fixture] = await db
+      .insert(fixtures)
+      .values({
+        projectId,
+        createdById: user.id,
+        name,
+        description: narrative.scenario,
+        templateId: templateId || null,
+      })
+      .returning()
+
+    // Create the generation record
+    const [generation] = await db
+      .insert(fixtureGenerations)
+      .values({
+        fixtureId: fixture.id,
+        level: 'narrative-driven',
+        data: result.data as Record<string, unknown[]>,
+        code: result.code || null,
+        validationValid: validation?.valid ?? false,
+        validationErrorCount: validation?.errors?.length ?? 0,
+        validationWarningCount: validation?.warnings?.length ?? 0,
+        validationErrors: validation?.errors?.map((e) => ({
+          type: e.type,
+          model: e.model,
+          field: e.field,
+          message: e.message,
+        })),
+        recordCount: totalRecords,
+        recordsByModel,
+        inputParameters: { narrative, counts },
+        status: 'completed',
+        startedAt: new Date(startTime),
+        completedAt: new Date(),
+        durationMs,
+        tokensUsed: result.usage?.totalTokens,
+      })
+      .returning()
+
+    // Update fixture with active generation
+    await db
+      .update(fixtures)
+      .set({
+        activeGenerationId: generation.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(fixtures.id, fixture.id))
+
+    console.log('[Generate API] Fixture saved:', {
+      fixtureId: fixture.id,
+      generationId: generation.id,
+      recordCount: totalRecords,
+      durationMs,
+    })
+
+    // Return result with fixture info
+    return NextResponse.json({
+      ...result,
+      fixtureId: fixture.id,
+      generationId: generation.id,
+      fixtureName: name,
+      validation: validation
+        ? {
+            valid: validation.valid,
+            errors: validation.errors,
+            warnings: validation.warnings,
+            stats: {
+              totalRecords,
+              recordsByModel,
+              durationMs,
+            },
+          }
+        : null,
+    })
   } catch (error) {
     console.error('[Generate API] Error:', error)
 

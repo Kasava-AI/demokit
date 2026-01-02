@@ -9,7 +9,7 @@
  */
 
 import { Agent } from '@mastra/core/agent'
-import { anthropic } from '@ai-sdk/anthropic'
+import { createAnthropic } from '@ai-sdk/anthropic'
 import type { DemokitSchema, DataModel } from '@demokit-ai/core'
 
 // ============================================================================
@@ -139,9 +139,8 @@ export function createNarrativeAgent(
   const schemaContext = buildSchemaContext(schema)
 
   // Create the model with optional custom API key
-  const model = options?.apiKey
-    ? anthropic('claude-sonnet-4-20250514', { apiKey: options.apiKey })
-    : anthropic('claude-sonnet-4-20250514')
+  const anthropic = createAnthropic(options?.apiKey ? { apiKey: options.apiKey } : {})
+  const model = anthropic('claude-sonnet-4-20250514')
 
   return new Agent({
     id: 'demokit-narrative-agent',

@@ -25,7 +25,7 @@
     "@demokit-ai/core": "workspace:*",
     "@ai-sdk/anthropic": "^2.0.45",
     "@mastra/core": "^0.24.8",
-    "zod": "^3.24.0"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

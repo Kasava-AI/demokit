@@ -99,6 +99,14 @@ function formatModelForPrompt(name: string, model: DataModel): string {
 // ============================================================================
 
 /**
+ * Options for creating a narrative agent
+ */
+export interface CreateNarrativeAgentOptions {
+  /** Optional custom API key (for BYOK support) */
+  apiKey?: string
+}
+
+/**
  * Create a narrative agent with schema-aware instructions
  *
  * The agent is configured with:
@@ -107,6 +115,7 @@ function formatModelForPrompt(name: string, model: DataModel): string {
  * - Structured output support
  *
  * @param schema - Parsed DemokitSchema
+ * @param options - Optional configuration including custom API key
  * @returns Configured Mastra Agent instance
  *
  * @example
@@ -114,14 +123,25 @@ function formatModelForPrompt(name: string, model: DataModel): string {
  * const schema = await importFromOpenAPI('./openapi.yaml')
  * const agent = createNarrativeAgent(schema)
  *
+ * // Or with a custom API key (BYOK)
+ * const agent = createNarrativeAgent(schema, { apiKey: 'sk-ant-...' })
+ *
  * const result = await agent.generate(
  *   'Generate demo data for an e-commerce store with 3 customers and 5 orders',
  *   { output: outputSchema }
  * )
  * ```
  */
-export function createNarrativeAgent(schema: DemokitSchema): Agent {
+export function createNarrativeAgent(
+  schema: DemokitSchema,
+  options?: CreateNarrativeAgentOptions
+): Agent {
   const schemaContext = buildSchemaContext(schema)
+
+  // Create the model with optional custom API key
+  const model = options?.apiKey
+    ? anthropic('claude-sonnet-4-20250514', { apiKey: options.apiKey })
+    : anthropic('claude-sonnet-4-20250514')
 
   return new Agent({
     id: 'demokit-narrative-agent',
@@ -150,6 +170,6 @@ Output JSON matching this structure:
 }
 
 IMPORTANT: Each record must have its own unique UUID. Do NOT copy the same record multiple times.`,
-    model: anthropic('claude-sonnet-4-20250514'),
+    model,
   })
 }

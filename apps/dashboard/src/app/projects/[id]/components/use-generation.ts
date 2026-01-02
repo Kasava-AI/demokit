@@ -22,8 +22,6 @@ interface UseGenerationOptions {
   recordCounts?: Record<string, number>
   /** Custom generation rules from project settings */
   generationRules?: GenerationRulesConfig
-  /** Whether AI generation is enabled in user preferences */
-  aiGenerationEnabled?: boolean
 }
 
 /**
@@ -51,7 +49,7 @@ function toHistoryEntry(gen: FixtureGeneration): GenerationHistoryEntry {
   }
 }
 
-export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, recordCounts, generationRules, aiGenerationEnabled = false }: UseGenerationOptions = {}) {
+export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, recordCounts, generationRules }: UseGenerationOptions = {}) {
   const [generation, setGeneration] = useState<GenerationState>({
     status: 'idle',
     level: 'relationship-valid', // Default to L2 (relationship-valid) for better data quality
@@ -60,13 +58,8 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
 
   // Handler to change generation level
   const setLevel = useCallback((level: GenerationLevel) => {
-    // Only allow L3 if AI generation is enabled
-    if (level === 'narrative-driven' && !aiGenerationEnabled) {
-      console.warn('AI generation is not enabled. Enable it in Settings to use L3.')
-      return
-    }
     setGeneration((prev) => ({ ...prev, level }))
-  }, [aiGenerationEnabled])
+  }, [])
 
   // Fetch generations from API when fixtureId is available
   const {
@@ -327,7 +320,6 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
     history,
     selectedHistoryId,
     isLoadingHistory,
-    aiGenerationEnabled,
     setLevel,
     handleGenerate,
     handleSelectHistory,

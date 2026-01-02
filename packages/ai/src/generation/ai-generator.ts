@@ -157,6 +157,9 @@ export interface NarrativeGenerationOptions {
 
   /** Intelligence from project sources (website, docs, etc.) for richer context. */
   sourceIntelligence?: SourceIntelligence
+
+  /** Custom Anthropic API key (BYOK). If not provided, uses ANTHROPIC_API_KEY env var. */
+  apiKey?: string
 }
 
 // ============================================================================
@@ -204,6 +207,7 @@ export async function generateNarrativeData(
     aiConfig = {},
     format,
     sourceIntelligence,
+    apiKey,
   } = options
 
   const { useAI = true, maxRetries = 3 } = aiConfig
@@ -211,7 +215,8 @@ export async function generateNarrativeData(
   // -------------------------------------------------------------------------
   // Fallback Check: If AI is disabled or no API key, use Level 2 generation
   // -------------------------------------------------------------------------
-  if (!useAI || !hasAPIKey()) {
+  // Allow generation if either a custom apiKey is provided OR env var is set
+  if (!useAI || (!apiKey && !hasAPIKey())) {
     console.warn('AI generation disabled or no API key - falling back to relationship-valid generation')
     // L2 generation doesn't have token usage, so tokensUsed will be undefined
     return generateDemoData(schema, {
@@ -225,7 +230,7 @@ export async function generateNarrativeData(
   // -------------------------------------------------------------------------
   // Create Mastra Agent with Schema-Guided Output
   // -------------------------------------------------------------------------
-  const agent = createNarrativeAgent(schema)
+  const agent = createNarrativeAgent(schema, { apiKey })
   const outputSchema = createDemoDataSchema(schema)
 
   // Build the generation prompt with source intelligence
@@ -337,17 +342,18 @@ export async function streamNarrativeData(
     narrative,
     counts,
     aiConfig = {},
+    apiKey,
   } = options
 
   const { useAI = true } = aiConfig
 
-  // Check if AI is available
-  if (!useAI || !hasAPIKey()) {
-    throw new Error('AI generation requires ANTHROPIC_API_KEY environment variable')
+  // Check if AI is available (either custom apiKey or env var)
+  if (!useAI || (!apiKey && !hasAPIKey())) {
+    throw new Error('AI generation requires an API key (either custom or ANTHROPIC_API_KEY environment variable)')
   }
 
-  // Create agent and prompt
-  const agent = createNarrativeAgent(schema)
+  // Create agent and prompt with optional custom API key
+  const agent = createNarrativeAgent(schema, { apiKey })
   const prompt = buildGenerationPrompt(schema, appContext, narrative, counts)
 
   // Return the stream directly - caller handles AI SDK transformation

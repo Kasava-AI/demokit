@@ -19,14 +19,7 @@ import {
 import type { DemokitSchema, GenerationState } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Sparkles, Zap } from "lucide-react";
-import Link from "next/link";
 
 // Animation variants for sections
 const sectionVariants = {
@@ -70,7 +63,6 @@ interface FixtureCreationFlowProps {
   savedFixtureName: string | undefined;
 
   // AI generation settings
-  aiGenerationEnabled: boolean;
   onLevelChange: (level: GenerationLevel) => void;
 }
 
@@ -98,7 +90,6 @@ export function FixtureCreationFlow({
   onSaveFixture,
   isSaving,
   savedFixtureName,
-  aiGenerationEnabled,
   onLevelChange,
 }: FixtureCreationFlowProps) {
   const currentLevel = generation.level || "relationship-valid";
@@ -174,34 +165,16 @@ export function FixtureCreationFlow({
               <Zap className="h-3.5 w-3.5" />
               <span>Fast (L2)</span>
             </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button
-                      variant={isL3 ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-7 px-2.5 gap-1.5"
-                      onClick={() => onLevelChange("narrative-driven")}
-                      disabled={isGenerating || !aiGenerationEnabled}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>AI-Powered (L3)</span>
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {!aiGenerationEnabled && (
-                  <TooltipContent side="top" className="max-w-xs">
-                    <p className="text-xs">
-                      AI generation is disabled.{" "}
-                      <Link href="/settings" className="underline text-primary">
-                        Enable it in Settings
-                      </Link>
-                    </p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
+            <Button
+              variant={isL3 ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2.5 gap-1.5"
+              onClick={() => onLevelChange("narrative-driven")}
+              disabled={isGenerating}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>AI-Powered (L3)</span>
+            </Button>
           </div>
         </div>
         {isL3 && (

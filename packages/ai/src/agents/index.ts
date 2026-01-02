@@ -9,6 +9,7 @@
 export {
   createNarrativeAgent,
   buildSchemaContext,
+  type CreateNarrativeAgentOptions,
 } from './narrative-agent'
 
 export {

@@ -6,6 +6,9 @@
  * @module
  */
 
+// Configuration
+export { INTELLIGENCE_DEFAULTS, INTELLIGENCE_LIMITS } from './config'
+
 // Types and Zod schemas
 export * from './types'
 

@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import { INTELLIGENCE_DEFAULTS, INTELLIGENCE_LIMITS } from "./config";
 
 // ============================================================================
 // Source Types - Where we gather intelligence from
@@ -405,9 +406,9 @@ export const IntelligenceBuildOptionsSchema = z.object({
   helpCenterUrl: z.string().url().optional(),
   readmeContent: z.string().optional(),
   documentationUrls: z.array(z.string().url()).optional(),
-  maxFeatures: z.number().int().min(1).max(50).default(20),
-  maxJourneys: z.number().int().min(1).max(20).default(10),
-  maxTemplates: z.number().int().min(1).max(30).default(15),
+  maxFeatures: z.number().int().min(INTELLIGENCE_LIMITS.maxFeatures.min).max(INTELLIGENCE_LIMITS.maxFeatures.max).default(INTELLIGENCE_DEFAULTS.maxFeatures),
+  maxJourneys: z.number().int().min(INTELLIGENCE_LIMITS.maxJourneys.min).max(INTELLIGENCE_LIMITS.maxJourneys.max).default(INTELLIGENCE_DEFAULTS.maxJourneys),
+  maxTemplates: z.number().int().min(INTELLIGENCE_LIMITS.maxTemplates.min).max(INTELLIGENCE_LIMITS.maxTemplates.max).default(INTELLIGENCE_DEFAULTS.maxTemplates),
 });
 
 /**

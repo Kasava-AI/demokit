@@ -25,6 +25,7 @@ import {
   scrapeHelpCenterWithFirecrawl,
   type FirecrawlScrapeOptions,
 } from './firecrawl-scraper'
+import { INTELLIGENCE_DEFAULTS } from './config'
 
 // ============================================================================
 // Types
@@ -118,9 +119,9 @@ export async function buildAppIntelligence(
     helpCenterUrl,
     readmeContent,
     documentationUrls,
-    maxFeatures = 20,
-    maxJourneys = 10,
-    maxTemplates = 15,
+    maxFeatures = INTELLIGENCE_DEFAULTS.maxFeatures,
+    maxJourneys = INTELLIGENCE_DEFAULTS.maxJourneys,
+    maxTemplates = INTELLIGENCE_DEFAULTS.maxTemplates,
     onProgress,
     scrapeOptions = {},
     schemaOnly = false,

@@ -13,7 +13,6 @@ import {
   useCreateGeneration,
   useUpdateFixture,
 } from "@/hooks/use-fixtures";
-import { useUser } from "@/hooks/use-user";
 import type { ProjectWithRelations } from "@/lib/api-client/projects";
 import {
   FixturesSidebar,
@@ -36,10 +35,6 @@ export function FixturesTab({ project }: FixturesTabProps) {
   const projectName = project.name;
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Get user preferences for AI generation
-  const { data: user } = useUser();
-  const aiGenerationEnabled = user?.preferences?.aiGeneration?.enabled ?? false;
 
   // Get fixture ID from URL
   const fixtureIdFromUrl = searchParams.get("fixture");
@@ -123,7 +118,6 @@ export function FixturesTab({ project }: FixturesTabProps) {
       schema,
       recordCounts,
       generationRules,
-      aiGenerationEnabled,
     });
 
   // Derived state for progressive disclosure
@@ -383,7 +377,6 @@ export function FixturesTab({ project }: FixturesTabProps) {
                     onSaveFixture={handleSaveFixture}
                     isSaving={isSaving}
                     savedFixtureName={savedFixtureName}
-                    aiGenerationEnabled={aiGenerationEnabled}
                     onLevelChange={setLevel}
                   />
                 ) : null}

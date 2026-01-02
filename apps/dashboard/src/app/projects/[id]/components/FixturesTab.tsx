@@ -36,8 +36,6 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
   const projectId = project.id;
   const projectName = project.name;
 
-  // Quote ID for billing (Cloud only)
-  const [quoteId, setQuoteId] = useState<string | undefined>();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -123,7 +121,6 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
       schema,
       recordCounts,
       generationRules,
-      quoteId,
     });
 
   // Derived state for progressive disclosure

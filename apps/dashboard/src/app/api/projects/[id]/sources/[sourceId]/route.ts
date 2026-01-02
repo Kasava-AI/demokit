@@ -56,9 +56,19 @@ export async function GET(request: Request, { params }: RouteParams) {
       }
 
       // Enrich contributions with entity names
-      if (sourceWithContributions.contributions && sourceWithContributions.contributions.length > 0) {
+      const contributions = sourceWithContributions.contributions as Array<{
+        id: string
+        sourceId: string
+        entityType: string
+        entityId: string
+        evidence: string | null
+        confidence: number | null
+        createdAt: Date | null
+      }> | undefined
+
+      if (contributions && contributions.length > 0) {
         const contributionsWithNames = await Promise.all(
-          sourceWithContributions.contributions.map(async (c) => {
+          contributions.map(async (c: { entityType: string; entityId: string }) => {
             let entityName = ''
             if (c.entityType === 'feature') {
               const feature = await db.query.features.findFirst({

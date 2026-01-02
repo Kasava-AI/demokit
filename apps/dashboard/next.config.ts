@@ -1,5 +1,4 @@
 import type { NextConfig } from 'next'
-import path from 'path'
 
 const nextConfig: NextConfig = {
   transpilePackages: [
@@ -8,14 +7,11 @@ const nextConfig: NextConfig = {
     '@demokit-ai/intelligence',
     '@demokit-ai/db',
   ],
-  webpack: (config) => {
-    // Add aliases for internal packages
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@intelligence': path.resolve(__dirname, '../../packages/intelligence/src'),
-      '@db': path.resolve(__dirname, '../../packages/db/src'),
-    }
-    return config
+  turbopack: {
+    resolveAlias: {
+      '@intelligence': './../../packages/intelligence/src',
+      '@db': './../../packages/db/src',
+    },
   },
 }
 

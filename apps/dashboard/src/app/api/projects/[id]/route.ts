@@ -37,10 +37,10 @@ export async function GET(request: Request, { params }: RouteParams) {
         features: true,
         userJourneys: true,
         templates: {
-          orderBy: (t, { desc }) => [desc(t.relevanceScore)],
+          orderBy: (t: any, { desc }: { desc: Function }) => [desc(t.relevanceScore)],
         },
         fixtures: {
-          orderBy: (f, { desc }) => [desc(f.createdAt)],
+          orderBy: (f: any, { desc }: { desc: Function }) => [desc(f.createdAt)],
           limit: 20,
         },
         activeFixture: {

@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       with: {
         baseJourney: true,
         variants: {
-          orderBy: (v, { asc }) => [asc(v.createdAt)],
+          orderBy: (v: any, { asc }: { asc: Function }) => [asc(v.createdAt)],
         },
         defaultVariant: true,
       },

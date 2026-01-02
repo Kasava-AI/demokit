@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: RouteParams) {
         template: true,
         activeGeneration: true,
         generations: {
-          orderBy: (g, { desc }) => [desc(g.createdAt)],
+          orderBy: (g: any, { desc }: { desc: Function }) => [desc(g.createdAt)],
           limit: 10,
         },
       },

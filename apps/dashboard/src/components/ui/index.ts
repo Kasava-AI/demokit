@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 // UI Component exports
-=======
->>>>>>> 28bc21d5e18589ec3dc940670ac1cd6f2d85eef5
 export * from './alert-dialog'
 export * from './alert'
 export * from './badge'

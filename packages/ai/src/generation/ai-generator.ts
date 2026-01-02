@@ -49,6 +49,7 @@ import {
   createNarrativeAgent,
   buildSchemaContext,
   createDemoDataSchema,
+  injectUuids,
 } from '../mastra'
 
 // ============================================================================
@@ -231,7 +232,7 @@ export async function generateNarrativeData(
   // Create Mastra Agent with Schema-Guided Output
   // -------------------------------------------------------------------------
   const agent = createNarrativeAgent(schema, { apiKey })
-  const outputSchema = createDemoDataSchema(schema)
+  const { zodSchema: outputSchema, uuidFields } = createDemoDataSchema(schema)
 
   // Build the generation prompt with source intelligence
   const prompt = buildGenerationPrompt(schema, appContext, narrative, counts, sourceIntelligence)
@@ -253,8 +254,11 @@ export async function generateNarrativeData(
       const result = await agent.generate(prompt, { structuredOutput: { schema: outputSchema } })
 
       // Extract the structured output and token usage
-      const data = result.object as DemoData
+      let data = result.object as DemoData
       const tokensUsed = result.usage?.totalTokens
+
+      // Inject valid UUIDs into the data (AI doesn't generate UUIDs)
+      data = injectUuids(data, uuidFields)
 
       // Validate the generated data
       const validation = validateData(data, { schema })
@@ -273,7 +277,11 @@ export async function generateNarrativeData(
       if (attempt < maxRetries - 1) {
         const fixPrompt = buildFixPrompt(data, validation.errors)
         const fixResult = await agent.generate(fixPrompt, { structuredOutput: { schema: outputSchema } })
-        const fixedData = fixResult.object as DemoData
+        let fixedData = fixResult.object as DemoData
+
+        // Inject UUIDs into fixed data as well
+        fixedData = injectUuids(fixedData, uuidFields)
+
         const fixedValidation = validateData(fixedData, { schema })
 
         if (fixedValidation.valid) {
@@ -548,16 +556,15 @@ ${countDescriptions}
 ## Requirements
 
 1. Generate data that matches the schema exactly
-2. **CRITICAL: Every record MUST have a UNIQUE ID** - generate a different UUID for each record
-3. All foreign key references must point to existing IDs from the related model
-4. Timestamps should be in ISO 8601 format
-5. Data should support the narrative and key points
-6. Characters should appear in the appropriate records
-7. Metrics should reflect the specified trends
-8. Timeline events should be reflected in timestamps
-9. **Each record must be unique** - do NOT duplicate records
+2. **DO NOT generate UUID fields** - leave id, product_id, user_id, and other UUID fields empty or omit them. They will be injected automatically.
+3. Timestamps should be in ISO 8601 format
+4. Data should support the narrative and key points
+5. Characters should appear in the appropriate records
+6. Metrics should reflect the specified trends
+7. Timeline events should be reflected in timestamps
+8. **Each record must be unique** - do NOT duplicate records
 
-Generate the data now. Return an object where each key is a model name and each value is an array of UNIQUE records with UNIQUE IDs.`
+Generate the data now. Return an object where each key is a model name and each value is an array of records. Skip all UUID/ID fields - they will be added automatically.`
 }
 
 // ============================================================================

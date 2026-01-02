@@ -21,12 +21,31 @@ import type {
   DataModel,
   PropertyDef,
   SchemaRef,
+  RelationshipTarget,
 } from '@demokit-ai/core'
 import { isSchemaRef, extractRefName } from '@demokit-ai/core'
 
 // ============================================================================
 // Types
 // ============================================================================
+
+/**
+ * Information about a UUID field that needs to be injected after AI generation
+ */
+export interface UuidFieldInfo {
+  /** Field name */
+  fieldName: string
+  /** Whether this is a primary ID field (not a foreign key) */
+  isPrimaryId: boolean
+  /** If this is a foreign key, the target model and field */
+  relationshipTo?: RelationshipTarget
+}
+
+/**
+ * Map of model names to their UUID fields
+ * Used to inject valid UUIDs after AI generation
+ */
+export type UuidFieldMap = Record<string, UuidFieldInfo[]>
 
 /**
  * Context passed through recursive schema building
@@ -41,6 +60,10 @@ interface SchemaContext {
   maxDepth: number
   /** Current depth */
   currentDepth: number
+  /** Collect UUID fields for post-processing */
+  uuidFields: UuidFieldMap
+  /** Current model being processed (for tracking UUID fields) */
+  currentModel?: string
 }
 
 /**
@@ -52,6 +75,7 @@ function createContext(schema: DemokitSchema): SchemaContext {
     visited: new Set(),
     maxDepth: 10,
     currentDepth: 0,
+    uuidFields: {},
   }
 }
 
@@ -100,10 +124,14 @@ export function modelToZodSchema(
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {}
 
+  // Set current model in context for UUID field tracking
+  const modelCtx = ctx ? { ...ctx, currentModel: model.name } : undefined
+
   for (const [fieldName, prop] of Object.entries(model.properties || {})) {
-    let fieldSchema = propertyToZodType(prop, ctx)
+    let fieldSchema = propertyToZodType(prop, fieldName, modelCtx)
 
     // Make optional if not in required list
+    // Note: UUID fields are always made optional regardless of required status
     if (!model.required?.includes(fieldName)) {
       fieldSchema = fieldSchema.optional()
     }
@@ -120,15 +148,16 @@ export function modelToZodSchema(
  * Recursively handles nested types (arrays of objects, nested objects, etc.)
  *
  * @param prop - Property definition
+ * @param fieldName - Name of the field (for UUID tracking)
  * @param ctx - Optional schema context for reference resolution
  * @returns Zod type matching the property
  */
-function propertyToZodType(prop: PropertyDef, ctx?: SchemaContext): z.ZodTypeAny {
+function propertyToZodType(prop: PropertyDef, fieldName?: string, ctx?: SchemaContext): z.ZodTypeAny {
   let schema: z.ZodTypeAny
 
   switch (prop.type) {
     case 'string':
-      schema = buildStringSchema(prop)
+      schema = buildStringSchema(prop, fieldName, ctx)
       break
 
     case 'number':
@@ -171,8 +200,16 @@ function propertyToZodType(prop: PropertyDef, ctx?: SchemaContext): z.ZodTypeAny
 
 /**
  * Build a Zod string schema with format and constraints
+ *
+ * For UUID fields:
+ * - Makes them optional (AI doesn't need to generate them)
+ * - Tracks them in context for post-processing UUID injection
+ *
+ * @param prop - Property definition
+ * @param fieldName - Name of the field (for UUID tracking)
+ * @param ctx - Schema context for UUID field tracking
  */
-function buildStringSchema(prop: PropertyDef): z.ZodTypeAny {
+function buildStringSchema(prop: PropertyDef, fieldName?: string, ctx?: SchemaContext): z.ZodTypeAny {
   // Handle enums first (they're a special case)
   if (prop.enum && prop.enum.length > 0) {
     const enumValues = prop.enum.filter((v): v is string => typeof v === 'string')
@@ -183,7 +220,7 @@ function buildStringSchema(prop: PropertyDef): z.ZodTypeAny {
     }
   }
 
-  let schema = z.string()
+  let schema: z.ZodTypeAny = z.string()
 
   // Apply format validators
   switch (prop.format) {
@@ -191,7 +228,25 @@ function buildStringSchema(prop: PropertyDef): z.ZodTypeAny {
       schema = z.string().email()
       break
     case 'uuid':
-      schema = z.string().uuid()
+      // UUID fields are made optional - we'll inject real UUIDs after AI generation
+      // Track this field for post-processing
+      if (ctx?.currentModel && fieldName) {
+        if (!ctx.uuidFields[ctx.currentModel]) {
+          ctx.uuidFields[ctx.currentModel] = []
+        }
+
+        // Determine if this is a primary ID or a foreign key
+        const isPrimaryId = fieldName === 'id' || fieldName === 'ID' || fieldName === '_id'
+        const relationshipTo = prop.relationshipTo || prop['x-demokit-relationship']
+
+        ctx.uuidFields[ctx.currentModel].push({
+          fieldName,
+          isPrimaryId,
+          relationshipTo,
+        })
+      }
+      // Make UUID fields optional - AI doesn't generate them
+      schema = z.string().optional()
       break
     case 'uri':
     case 'url':
@@ -206,20 +261,22 @@ function buildStringSchema(prop: PropertyDef): z.ZodTypeAny {
     // Add more formats as needed
   }
 
-  // Apply length constraints
-  if (prop.minLength !== undefined) {
-    schema = schema.min(prop.minLength)
-  }
-  if (prop.maxLength !== undefined) {
-    schema = schema.max(prop.maxLength)
-  }
+  // Apply length constraints (only for non-optional string schemas)
+  if (prop.format !== 'uuid') {
+    if (prop.minLength !== undefined) {
+      schema = (schema as z.ZodString).min(prop.minLength)
+    }
+    if (prop.maxLength !== undefined) {
+      schema = (schema as z.ZodString).max(prop.maxLength)
+    }
 
-  // Apply pattern
-  if (prop.pattern) {
-    try {
-      schema = schema.regex(new RegExp(prop.pattern))
-    } catch {
-      // Invalid regex, skip it
+    // Apply pattern
+    if (prop.pattern) {
+      try {
+        schema = (schema as z.ZodString).regex(new RegExp(prop.pattern))
+      } catch {
+        // Invalid regex, skip it
+      }
     }
   }
 
@@ -409,8 +466,11 @@ function buildObjectFromModel(
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {}
 
+  // Set current model in context for UUID field tracking
+  const modelCtx = ctx ? { ...ctx, currentModel: model.name } : undefined
+
   for (const [fieldName, prop] of Object.entries(model.properties || {})) {
-    let fieldSchema = propertyToZodType(prop, ctx)
+    let fieldSchema = propertyToZodType(prop, fieldName, modelCtx)
 
     // Make optional if not in required list
     if (!model.required?.includes(fieldName)) {
@@ -457,6 +517,17 @@ function buildObjectSchema(
 // ============================================================================
 
 /**
+ * Result of creating a demo data schema
+ * Includes both the Zod schema and metadata about UUID fields
+ */
+export interface DemoDataSchemaResult {
+  /** Zod schema for structured output validation */
+  zodSchema: z.ZodObject<Record<string, z.ZodTypeAny>>
+  /** Map of model names to their UUID fields for post-processing */
+  uuidFields: UuidFieldMap
+}
+
+/**
  * Create a Zod schema for complete demo data output
  *
  * Generates a schema that expects:
@@ -472,25 +543,26 @@ function buildObjectSchema(
  * - Resolution of $ref references to other models
  * - Circular reference detection and handling
  * - Depth limiting to prevent infinite recursion
+ * - UUID field tracking for post-generation injection
  *
  * @param schema - Complete DemokitSchema
- * @returns Zod schema for the entire demo data output
+ * @returns Object containing Zod schema and UUID field map
  *
  * @example
  * ```typescript
  * const schema = await importFromOpenAPI('./openapi.yaml')
- * const outputSchema = createDemoDataSchema(schema)
+ * const { zodSchema, uuidFields } = createDemoDataSchema(schema)
  *
- * const result = await agent.generate(prompt, { output: outputSchema })
- * // result.object is now fully typed and validated
+ * const result = await agent.generate(prompt, { output: zodSchema })
+ * // Post-process to inject UUIDs using uuidFields map
  * ```
  */
 export function createDemoDataSchema(
   schema: DemokitSchema
-): z.ZodObject<Record<string, z.ZodTypeAny>> {
+): DemoDataSchemaResult {
   const shape: Record<string, z.ZodTypeAny> = {}
 
-  // Create context for reference resolution
+  // Create context for reference resolution and UUID tracking
   const ctx = createContext(schema)
 
   for (const [modelName, model] of Object.entries(schema.models)) {
@@ -499,12 +571,15 @@ export function createDemoDataSchema(
       continue
     }
 
-    // Pass context to enable nested schema resolution
+    // Pass context to enable nested schema resolution and UUID tracking
     const modelSchema = modelToZodSchema(model, ctx)
     shape[modelName] = z.array(modelSchema)
   }
 
-  return z.object(shape)
+  return {
+    zodSchema: z.object(shape),
+    uuidFields: ctx.uuidFields,
+  }
 }
 
 /**
@@ -535,4 +610,96 @@ export function createPartialDemoDataSchema(
   }
 
   return z.object(shape)
+}
+
+// ============================================================================
+// UUID Injection
+// ============================================================================
+
+/**
+ * Type for demo data - record of model names to arrays of records
+ */
+type DemoData = Record<string, Record<string, unknown>[]>
+
+/**
+ * Inject valid UUIDs into AI-generated demo data
+ *
+ * This function post-processes AI output to:
+ * 1. Generate real UUIDs for primary ID fields
+ * 2. Build a mapping of model -> record index -> UUID
+ * 3. Assign foreign key UUIDs based on relationships
+ *
+ * @param data - AI-generated demo data (with optional/missing UUID fields)
+ * @param uuidFields - Map of UUID fields from createDemoDataSchema
+ * @returns Data with valid UUIDs injected
+ *
+ * @example
+ * ```typescript
+ * const { zodSchema, uuidFields } = createDemoDataSchema(schema)
+ * const result = await agent.generate(prompt, { output: zodSchema })
+ * const dataWithUuids = injectUuids(result.object, uuidFields)
+ * ```
+ */
+export function injectUuids(
+  data: DemoData,
+  uuidFields: UuidFieldMap
+): DemoData {
+  // Step 1: Generate UUIDs for all primary ID fields and build mapping
+  const uuidMappings: Record<string, string[]> = {}
+
+  for (const [modelName, records] of Object.entries(data)) {
+    const fields = uuidFields[modelName] || []
+    const primaryIdFields = fields.filter(f => f.isPrimaryId)
+
+    if (primaryIdFields.length === 0) {
+      continue
+    }
+
+    // Generate UUIDs for each record's primary ID
+    uuidMappings[modelName] = []
+    for (let i = 0; i < records.length; i++) {
+      const uuid = crypto.randomUUID()
+      uuidMappings[modelName].push(uuid)
+
+      // Inject UUID into all primary ID fields
+      for (const field of primaryIdFields) {
+        records[i][field.fieldName] = uuid
+      }
+    }
+  }
+
+  // Step 2: Assign foreign key UUIDs based on relationships
+  for (const [modelName, records] of Object.entries(data)) {
+    const fields = uuidFields[modelName] || []
+    const foreignKeyFields = fields.filter(f => !f.isPrimaryId && f.relationshipTo)
+
+    for (const field of foreignKeyFields) {
+      const targetModel = field.relationshipTo!.model
+      const targetUuids = uuidMappings[targetModel]
+
+      if (!targetUuids || targetUuids.length === 0) {
+        // No target UUIDs available, generate a random one as fallback
+        for (const record of records) {
+          record[field.fieldName] = crypto.randomUUID()
+        }
+        continue
+      }
+
+      // Assign UUIDs from target model (round-robin distribution)
+      for (let i = 0; i < records.length; i++) {
+        const targetIndex = i % targetUuids.length
+        records[i][field.fieldName] = targetUuids[targetIndex]
+      }
+    }
+
+    // Handle UUID fields without explicit relationships (standalone UUIDs)
+    const standaloneUuidFields = fields.filter(f => !f.isPrimaryId && !f.relationshipTo)
+    for (const field of standaloneUuidFields) {
+      for (const record of records) {
+        record[field.fieldName] = crypto.randomUUID()
+      }
+    }
+  }
+
+  return data
 }

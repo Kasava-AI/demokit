@@ -23,6 +23,10 @@ export {
   modelToZodSchema,
   createDemoDataSchema,
   createPartialDemoDataSchema,
+  injectUuids,
+  type UuidFieldInfo,
+  type UuidFieldMap,
+  type DemoDataSchemaResult,
 } from './schema-to-zod'
 
 // ============================================================================

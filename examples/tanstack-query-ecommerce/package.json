@@ -13,8 +13,8 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
     "@tanstack/react-query": "^5.62.0",
-    "@demokit-ai/core": "^0.3.0",
-    "@demokit-ai/tanstack-query": "^0.3.0"
+    "@demokit-ai/core": "workspace:*",
+    "@demokit-ai/tanstack-query": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

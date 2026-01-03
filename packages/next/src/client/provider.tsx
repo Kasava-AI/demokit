@@ -93,7 +93,8 @@ export function DemoKitNextProvider({
       return initialEnabled
     }
     if (!isHydrated) {
-      return false
+      // Return undefined so DemoKitProvider can fall back to checking storage
+      return undefined
     }
     return getDemoModeFromCookie(cookieName)
   }, [initialEnabled, isHydrated, cookieName])

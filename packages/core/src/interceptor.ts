@@ -185,19 +185,26 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     ): Promise<Response> {
       // If demo mode is disabled, pass through
       if (!enabled) {
+        console.log('[DemoKit] Demo mode disabled, passing through')
         return originalFetch!(input, init)
       }
 
       const method = init?.method?.toUpperCase() || 'GET'
       const pathname = extractPathname(input, baseUrl)
 
+      console.log('[DemoKit] Intercepting request:', { method, pathname, enabled })
+      console.log('[DemoKit] Available fixtures:', Object.keys(currentFixtures))
+
       // Try to find a matching fixture
       const match = findMatchingPattern(currentFixtures, method, pathname)
 
       if (!match) {
         // No matching fixture - pass through to real API
+        console.log('[DemoKit] No matching fixture for:', `${method} ${pathname}`)
         return originalFetch!(input, init)
       }
+
+      console.log('[DemoKit] Found matching fixture:', match[0])
 
       const [pattern, matchResult] = match
       const handler = currentFixtures[pattern] as FixtureHandler

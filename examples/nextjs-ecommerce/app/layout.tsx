@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Providers } from './providers'
 import { Header } from './components/Header'
 import { DemoModeBanner } from './components/DemoModeBanner'
@@ -18,8 +19,12 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-gray-50">
         <Providers>
-          <DemoModeBanner />
-          <Header />
+          <Suspense fallback={null}>
+            <DemoModeBanner />
+          </Suspense>
+          <Suspense fallback={<div className="h-16" />}>
+            <Header />
+          </Suspense>
           <main className="container mx-auto px-4 py-8">
             {children}
           </main>

@@ -40,30 +40,39 @@ export function useNextDemoMode(options: { urlParam?: string } = {}) {
    */
   const enableWithScenario = useCallback(
     (scenario: string) => {
+      // Enable demo mode in the interceptor
+      demoMode.enable()
+      // Update URL for persistence and middleware
       const params = new URLSearchParams(searchParams.toString())
       params.set(urlParam, scenario)
       router.push(`?${params.toString()}`)
     },
-    [router, searchParams, urlParam]
+    [router, searchParams, urlParam, demoMode]
   )
 
   /**
    * Enable demo mode without a scenario
    */
   const enableDemo = useCallback(() => {
+    // Enable demo mode in the interceptor
+    demoMode.enable()
+    // Update URL for persistence and middleware
     const params = new URLSearchParams(searchParams.toString())
     params.set(urlParam, 'true')
     router.push(`?${params.toString()}`)
-  }, [router, searchParams, urlParam])
+  }, [router, searchParams, urlParam, demoMode])
 
   /**
    * Disable demo mode via URL
    */
   const disableDemo = useCallback(() => {
+    // Disable demo mode in the interceptor
+    demoMode.disable()
+    // Update URL for persistence and middleware
     const params = new URLSearchParams(searchParams.toString())
     params.set(urlParam, 'false')
     router.push(`?${params.toString()}`)
-  }, [router, searchParams, urlParam])
+  }, [router, searchParams, urlParam, demoMode])
 
   /**
    * Get current scenario from URL

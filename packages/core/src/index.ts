@@ -52,7 +52,8 @@ export {
   createRemoteFixtures,
   isValidApiKey,
   RemoteFetchError,
-  DEFAULT_CLOUD_URL,
+  DEFAULT_API_URL,
+  DEFAULT_CLOUD_URL, // deprecated, use DEFAULT_API_URL
   DEFAULT_TIMEOUT,
   DEFAULT_MAX_RETRIES,
 } from './remote'

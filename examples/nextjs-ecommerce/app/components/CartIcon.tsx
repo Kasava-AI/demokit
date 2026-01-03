@@ -14,6 +14,13 @@ export function CartIcon() {
   useEffect(() => {
     if (!isHydrated) return
 
+    // Only fetch cart data in demo mode - there's no real API
+    if (!isDemoMode) {
+      setCart({ items: [], total: 0 })
+      setIsLoading(false)
+      return
+    }
+
     async function fetchCart() {
       try {
         const response = await fetch('/cart')

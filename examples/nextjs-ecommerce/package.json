@@ -12,8 +12,8 @@
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@demokit-ai/core": "^0.1.0",
-    "@demokit-ai/next": "^0.1.0"
+    "@demokit-ai/core": "workspace:*",
+    "@demokit-ai/next": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

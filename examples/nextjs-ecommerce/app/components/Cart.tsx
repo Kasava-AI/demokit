@@ -23,6 +23,14 @@ export function Cart() {
   useEffect(() => {
     if (!isHydrated) return
 
+    // Only fetch data in demo mode - there's no real API
+    if (!isDemoMode) {
+      setCart({ items: [], total: 0 })
+      setProducts([])
+      setIsLoading(false)
+      return
+    }
+
     async function fetchData() {
       setIsLoading(true)
       try {

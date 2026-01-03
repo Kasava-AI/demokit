@@ -20,7 +20,7 @@ import type { DemoKitProviderProps, DemoModeContextValue } from './types'
  *
  * Supports two modes:
  * 1. **Local mode**: Pass `fixtures` prop with pattern handlers
- * 2. **Remote mode**: Pass `apiKey` to fetch from DemoKit Cloud
+ * 2. **Remote mode**: Pass `source` to fetch from DemoKit Cloud
  *
  * @example Local mode
  * ```tsx
@@ -38,12 +38,19 @@ import type { DemoKitProviderProps, DemoModeContextValue } from './types'
  * }
  * ```
  *
- * @example Remote mode (zero-config)
+ * @example Remote mode
  * ```tsx
+ * import { createRemoteSource } from '@demokit-ai/react'
+ *
+ * const source = createRemoteSource({
+ *   apiUrl: process.env.NEXT_PUBLIC_DEMOKIT_API_URL!,
+ *   apiKey: process.env.NEXT_PUBLIC_DEMOKIT_API_KEY!,
+ * })
+ *
  * function App() {
  *   return (
  *     <DemoKitProvider
- *       apiKey="dk_live_xxx"
+ *       source={source}
  *       loadingFallback={<LoadingSpinner />}
  *     >
  *       <YourApp />
@@ -56,11 +63,7 @@ export function DemoKitProvider({
   children,
   fixtures,
   // Remote config
-  apiKey,
-  cloudUrl,
-  timeout,
-  retry,
-  maxRetries,
+  source,
   onRemoteLoad,
   onRemoteError,
   loadingFallback = null,
@@ -76,7 +79,7 @@ export function DemoKitProvider({
   const [isHydrated, setIsHydrated] = useState(false)
 
   // Remote loading state
-  const [isLoading, setIsLoading] = useState(!!apiKey)
+  const [isLoading, setIsLoading] = useState(!!source?.apiKey)
   const [remoteError, setRemoteError] = useState<Error | null>(null)
   const [remoteVersion, setRemoteVersion] = useState<string | null>(null)
 
@@ -126,18 +129,18 @@ export function DemoKitProvider({
    * Fetch fixtures from DemoKit Cloud and set up interceptor
    */
   const fetchAndSetup = useCallback(async () => {
-    if (!apiKey) return
+    if (!source?.apiKey) return
 
     setIsLoading(true)
     setRemoteError(null)
 
     try {
       const response = await fetchCloudFixtures({
-        apiKey,
-        cloudUrl,
-        timeout,
-        retry,
-        maxRetries,
+        apiKey: source.apiKey,
+        apiUrl: source.apiUrl,
+        timeout: source.timeout,
+        retry: source.retry,
+        maxRetries: source.maxRetries,
         onLoad: onRemoteLoad,
         onError: onRemoteError,
       })
@@ -163,11 +166,7 @@ export function DemoKitProvider({
       setIsLoading(false)
     }
   }, [
-    apiKey,
-    cloudUrl,
-    timeout,
-    retry,
-    maxRetries,
+    source,
     fixtures,
     onRemoteLoad,
     onRemoteError,
@@ -184,7 +183,7 @@ export function DemoKitProvider({
     }
     initializedRef.current = true
 
-    if (apiKey) {
+    if (source?.apiKey) {
       // Remote mode: fetch from cloud
       fetchAndSetup()
     } else if (fixtures) {
@@ -207,7 +206,7 @@ export function DemoKitProvider({
   useEffect(() => {
     if (!isHydrated || isLoading) return
 
-    if (apiKey && remoteFixturesRef.current) {
+    if (source?.apiKey && remoteFixturesRef.current) {
       // Remote mode: merge new local overrides with cached remote fixtures
       const merged = { ...remoteFixturesRef.current, ...fixtures }
       interceptorRef.current?.setFixtures(merged)
@@ -215,7 +214,7 @@ export function DemoKitProvider({
       // Local mode: update fixtures
       interceptorRef.current?.setFixtures(fixtures)
     }
-  }, [fixtures, isHydrated, isLoading, apiKey])
+  }, [fixtures, isHydrated, isLoading, source])
 
   const enable = useCallback(() => {
     interceptorRef.current?.enable()
@@ -246,12 +245,12 @@ export function DemoKitProvider({
   }, [])
 
   const refetch = useCallback(async (): Promise<void> => {
-    if (!apiKey) {
-      console.warn('[DemoKit] refetch() called but no apiKey provided')
+    if (!source?.apiKey) {
+      console.warn('[DemoKit] refetch() called but no source provided')
       return
     }
     await refetchFnRef.current?.()
-  }, [apiKey])
+  }, [source])
 
   const value = useMemo<DemoModeContextValue>(
     () => ({
@@ -285,7 +284,7 @@ export function DemoKitProvider({
   )
 
   // Render loading state
-  if (isLoading && apiKey) {
+  if (isLoading && source?.apiKey) {
     return (
       <DemoModeContext.Provider value={value}>
         {loadingFallback}

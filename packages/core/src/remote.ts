@@ -28,7 +28,12 @@ import type {
 /**
  * Default DemoKit Cloud API URL
  */
-export const DEFAULT_CLOUD_URL = 'https://api.demokit.cloud'
+export const DEFAULT_API_URL = 'https://api.demokit.cloud/api'
+
+/**
+ * @deprecated Use DEFAULT_API_URL instead
+ */
+export const DEFAULT_CLOUD_URL = DEFAULT_API_URL
 
 /**
  * Default request timeout in milliseconds
@@ -96,13 +101,17 @@ export async function fetchCloudFixtures(
 ): Promise<CloudFixtureResponse> {
   const {
     apiKey,
-    cloudUrl = DEFAULT_CLOUD_URL,
+    apiUrl,
+    cloudUrl, // deprecated, for backwards compatibility
     onError,
     onLoad,
     timeout = DEFAULT_TIMEOUT,
     retry = true,
     maxRetries = DEFAULT_MAX_RETRIES,
   } = config
+
+  // Use apiUrl if provided, fall back to cloudUrl for backwards compatibility
+  const baseUrl = apiUrl || cloudUrl || DEFAULT_API_URL
 
   // Validate API key format
   if (!isValidApiKey(apiKey)) {
@@ -115,7 +124,10 @@ export async function fetchCloudFixtures(
     throw error
   }
 
-  const url = `${cloudUrl.replace(/\/$/, '')}/api/v1/fixtures`
+  // Build the fixtures endpoint URL
+  // apiUrl is expected to be the versioned base (e.g., https://api.demokit.cloud/api/v1)
+  // We just append /fixtures
+  const url = `${baseUrl.replace(/\/$/, '')}/fixtures`
 
   let lastError: Error | null = null
   const maxAttempts = retry ? maxRetries : 1

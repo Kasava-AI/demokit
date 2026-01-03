@@ -207,33 +207,39 @@ const DEMO_CART_ITEM = [
 
 export const fixtures: FixtureMap = {
   // Order endpoints
-  'GET /api/order': () => DEMO_ORDER,
+  'GET /orders': () => DEMO_ORDER,
 
-  'GET /api/order/:id': ({ params }: { params: { id: string } }) => {
+  'GET /orders/:id': ({ params }: { params: { id: string } }) => {
     return DEMO_ORDER.find((item) => item.id === params.id) || null
   },
 
   // Address endpoints
-  'GET /api/address': () => DEMO_ADDRESS,
+  'GET /addresses': () => DEMO_ADDRESS,
 
-  'GET /api/address/:id': ({ params }: { params: { id: string } }) => {
+  'GET /addresses/:id': ({ params }: { params: { id: string } }) => {
     // Address items don't have IDs in this fixture
     return DEMO_ADDRESS[parseInt(params.id, 10)] || null
   },
 
   // Product endpoints
-  'GET /api/product': () => DEMO_PRODUCT,
+  'GET /products': () => DEMO_PRODUCT,
 
-  'GET /api/product/:id': ({ params }: { params: { id: string } }) => {
+  'GET /products/:id': ({ params }: { params: { id: string } }) => {
     return DEMO_PRODUCT.find((item) => item.id === params.id) || null
   },
 
-  // CartItem endpoints
-  'GET /api/cart-item': () => DEMO_CART_ITEM,
+  // Cart endpoints
+  'GET /cart': () => ({
+    items: DEMO_CART_ITEM,
+    total: DEMO_CART_ITEM.reduce((sum, item) => {
+      const product = DEMO_PRODUCT.find(p => p.id === item.product_id)
+      return sum + (product?.price ?? 0) * item.quantity
+    }, 0)
+  }),
 
-  'GET /api/cart-item/:id': ({ params }: { params: { id: string } }) => {
-    // Cart items are identified by product_id
-    return DEMO_CART_ITEM.find((item) => item.product_id === params.id) || null
+  'POST /cart/items': ({ body: _body }: { body: unknown }) => {
+    // In a real implementation, this would modify state
+    return { items: DEMO_CART_ITEM, total: 0 }
   },
 
 }

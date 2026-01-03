@@ -33,6 +33,9 @@
 // Provider
 export { DemoQueryProvider } from './provider'
 
+// Config helpers
+export { createRemoteSource } from './config'
+
 // Hooks
 export { useDemoQuery, useIsDemoQueryMode } from './hooks'
 export { useDemoMutation, createMutationOptions } from './mutation'
@@ -63,4 +66,5 @@ export type {
   DemoQueryProviderConfig,
   DemoQueryProviderProps,
   DemoQueryState,
+  RemoteSourceConfig,
 } from './types'

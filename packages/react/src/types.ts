@@ -1,4 +1,4 @@
-import type { FixtureMap, SessionState, CloudFixtureResponse } from '@demokit-ai/core'
+import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig } from '@demokit-ai/core'
 import type { ReactNode } from 'react'
 
 /**
@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
  *
  * The provider supports two modes:
  * 1. **Local mode**: Provide `fixtures` prop with pattern handlers
- * 2. **Remote mode**: Provide `apiKey` to fetch from DemoKit Cloud
+ * 2. **Remote mode**: Provide `source` config to fetch from DemoKit Cloud
  *
  * @example Local mode
  * ```tsx
@@ -15,9 +15,16 @@ import type { ReactNode } from 'react'
  * </DemoKitProvider>
  * ```
  *
- * @example Remote mode (zero-config)
+ * @example Remote mode
  * ```tsx
- * <DemoKitProvider apiKey="dk_live_xxx">
+ * import { createRemoteSource } from '@demokit-ai/react'
+ *
+ * const source = createRemoteSource({
+ *   apiUrl: process.env.NEXT_PUBLIC_DEMOKIT_API_URL!,
+ *   apiKey: process.env.NEXT_PUBLIC_DEMOKIT_API_KEY!,
+ * })
+ *
+ * <DemoKitProvider source={source}>
  *   <App />
  * </DemoKitProvider>
  * ```
@@ -25,7 +32,7 @@ import type { ReactNode } from 'react'
  * @example Remote mode with local overrides
  * ```tsx
  * <DemoKitProvider
- *   apiKey="dk_live_xxx"
+ *   source={source}
  *   fixtures={{ 'POST /api/users': ({ body }) => ({ id: 'custom', ...body }) }}
  * >
  *   <App />
@@ -49,37 +56,10 @@ export interface DemoKitProviderProps {
   // ============================================================================
 
   /**
-   * DemoKit Cloud API key for remote mode
-   * Format: dk_live_xxxx
-   *
-   * When provided, fixtures are fetched from DemoKit Cloud.
-   * Any `fixtures` prop values will override the cloud fixtures.
+   * Remote source configuration for fetching fixtures from DemoKit Cloud
+   * Create using createRemoteSource()
    */
-  apiKey?: string
-
-  /**
-   * DemoKit Cloud API URL
-   * @default 'https://api.demokit.cloud'
-   */
-  cloudUrl?: string
-
-  /**
-   * Timeout for cloud API requests in milliseconds
-   * @default 10000
-   */
-  timeout?: number
-
-  /**
-   * Whether to retry on fetch failure
-   * @default true
-   */
-  retry?: boolean
-
-  /**
-   * Maximum number of retries for cloud fetch
-   * @default 3
-   */
-  maxRetries?: number
+  source?: RemoteConfig
 
   /**
    * Callback when remote fixtures are successfully loaded

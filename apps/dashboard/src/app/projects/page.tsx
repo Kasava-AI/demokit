@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { useProjects } from '@/hooks/use-projects'
+import { useOrganizationContext } from '@/contexts/organization-context'
 import { AppLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Loader2, Plus } from 'lucide-react'
 
 export default function ProjectsPage() {
-  const { data: projects, isLoading, error } = useProjects()
+  const { currentOrg, isLoading: orgLoading } = useOrganizationContext()
+  const { data: projects, isLoading, error } = useProjects(currentOrg?.id)
 
   // Header action for creating new project
   const headerActions = (
@@ -22,7 +24,7 @@ export default function ProjectsPage() {
   return (
     <AppLayout title="Projects" headerActions={headerActions}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {isLoading ? (
+        {isLoading || orgLoading ? (
           <div className="flex justify-center items-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>

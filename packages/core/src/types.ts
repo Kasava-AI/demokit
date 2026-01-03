@@ -230,8 +230,15 @@ export interface RemoteConfig {
   apiKey: string
 
   /**
-   * DemoKit Cloud API URL
-   * @default 'https://api.demokit.cloud'
+   * DemoKit Cloud API URL (base URL)
+   * The SDK will append `/fixtures` to this URL.
+   * @example 'https://demokit-cloud.kasava.dev/api'
+   * @default 'https://api.demokit.cloud/api'
+   */
+  apiUrl?: string
+
+  /**
+   * @deprecated Use apiUrl instead. This is kept for backwards compatibility.
    */
   cloudUrl?: string
 

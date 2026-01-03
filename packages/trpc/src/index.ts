@@ -70,6 +70,9 @@
 export { createDemoLink, createDemoLinkWithState } from './link'
 export type { DemoLinkWithState } from './link'
 
+// Config helpers
+export { createRemoteSource } from './config'
+
 // Fixture definition helpers
 export { defineTRPCFixtures, defineFixtureMap, createFixtureHandler, normalizeFixtures } from './fixtures'
 
@@ -97,4 +100,5 @@ export type {
   DemoTRPCProviderConfig,
   DemoTRPCProviderProps,
   DemoTRPCState,
+  RemoteSourceConfig,
 } from './types'

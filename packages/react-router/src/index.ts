@@ -100,6 +100,9 @@ export { createDemoLoader, createDemoAction, withDemoLoader, withDemoAction } fr
 // Route utilities
 export { createDemoRoutes, defineLoaderFixtures, defineActionFixtures } from './routes'
 
+// Config helpers
+export { createRemoteSource } from './config'
+
 // Provider and hooks
 export { DemoRouterProvider, useDemoRouter, useIsDemoRouterMode, useDemoRouterOptional } from './provider'
 
@@ -120,4 +123,5 @@ export type {
   DemoRouterState,
   DemoRouterProviderConfig,
   DemoRouterProviderProps,
+  RemoteSourceConfig,
 } from './types'

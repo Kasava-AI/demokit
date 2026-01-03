@@ -1,5 +1,5 @@
 import type { FixtureMap } from '@demokit-ai/core'
-import type { DemoKitNextConfig, DemoScenario } from './types'
+import type { DemoKitNextConfig, DemoScenario, RemoteSourceConfig } from './types'
 
 /**
  * Helper to define fixtures with type safety
@@ -99,6 +99,42 @@ export function createDemoConfig(config: DemoKitNextConfig): DemoKitNextConfig {
     storageKey: 'demokit-mode',
     cookieName: 'demokit-mode',
     urlParam: 'demo',
+    ...config,
+  }
+}
+
+/**
+ * Create a remote source configuration for fetching fixtures from DemoKit Cloud
+ *
+ * The SDK appends `/fixtures` to your apiUrl, so provide the versioned base URL.
+ *
+ * @example
+ * ```typescript
+ * // lib/demokit-config.ts
+ * import { createRemoteSource } from '@demokit-ai/next'
+ *
+ * // .env.local:
+ * // NEXT_PUBLIC_DEMOKIT_API_URL=https://demokit-cloud.kasava.dev/api
+ * // NEXT_PUBLIC_DEMOKIT_API_KEY=dk_live_xxxx
+ *
+ * export const demokitSource = createRemoteSource({
+ *   apiUrl: process.env.NEXT_PUBLIC_DEMOKIT_API_URL!,
+ *   apiKey: process.env.NEXT_PUBLIC_DEMOKIT_API_KEY!,
+ * })
+ *
+ * // Then in providers.tsx:
+ * import { demokitSource } from '@/lib/demokit-config'
+ *
+ * <DemoKitNextProvider source={demokitSource}>
+ *   {children}
+ * </DemoKitNextProvider>
+ * ```
+ */
+export function createRemoteSource(config: RemoteSourceConfig): RemoteSourceConfig {
+  return {
+    timeout: 10000,
+    retry: true,
+    maxRetries: 3,
     ...config,
   }
 }

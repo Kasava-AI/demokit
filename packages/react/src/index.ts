@@ -31,6 +31,9 @@
 // Provider
 export { DemoKitProvider } from './provider'
 
+// Config helpers
+export { createRemoteSource } from './config'
+
 // Hooks
 export { useDemoMode, useIsDemoMode, useIsHydrated, useDemoSession } from './hooks'
 
@@ -59,4 +62,5 @@ export type {
   FixtureHandler,
   RequestContext,
   SessionState,
+  RemoteConfig,
 } from '@demokit-ai/core'

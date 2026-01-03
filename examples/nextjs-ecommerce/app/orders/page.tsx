@@ -16,6 +16,14 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!isHydrated) return
 
+    // Only fetch data in demo mode - there's no real API
+    if (!isDemoMode) {
+      setOrders([])
+      setProducts([])
+      setIsLoading(false)
+      return
+    }
+
     async function fetchData() {
       setIsLoading(true)
       try {

@@ -208,11 +208,11 @@ importers:
   examples/nextjs-ecommerce:
     dependencies:
       '@demokit-ai/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@demokit-ai/next':
-        specifier: ^0.1.0
-        version: 0.1.0(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: workspace:*
+        version: link:../../packages/next
       next:
         specifier: ^15.1.0
         version: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1141,13 +1141,6 @@ packages:
 
   '@demokit-ai/core@0.1.0':
     resolution: {integrity: sha512-fSH8+7Ft529clNEemVPNk9lKu2+iXQQEu5IZsz4FJqxnEqfevjuhTIfnqXBXOUYho14RSePsHMukPSRF0zdqYA==}
-
-  '@demokit-ai/next@0.1.0':
-    resolution: {integrity: sha512-pUP4P+tB6HROmJMVcu8JptYKwRw9szqzqvZD06VbBOvVxznUmV4rbH80ou1mgWPWZecyhbZ37hr34Yx42YPH/Q==}
-    peerDependencies:
-      next: '>=13.0.0'
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
 
   '@demokit-ai/react-router@0.1.0':
     resolution: {integrity: sha512-R9EDYRqNq8qqdevXJ1Q7KhiaxMKzu28GmJWiEvwtbiDFVdLk7dhuKscgZxCC3727h7FR2KKpM0+VSevGZ3Gl3A==}
@@ -8269,14 +8262,6 @@ snapshots:
   '@dagrejs/graphlib@2.2.4': {}
 
   '@demokit-ai/core@0.1.0': {}
-
-  '@demokit-ai/next@0.1.0(next@15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      '@demokit-ai/react': 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      next: 15.5.9(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
 
   '@demokit-ai/react-router@0.1.0(react-dom@19.2.3(react@19.2.3))(react-router@7.11.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)':
     dependencies:

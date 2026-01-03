@@ -55,6 +55,12 @@ export interface DemoKitNextProviderProps extends DemoKitNextConfig {
    * If not provided, will read from cookie/localStorage
    */
   initialEnabled?: boolean
+
+  /**
+   * Remote source configuration for fetching fixtures from DemoKit Cloud
+   * Create using createRemoteSource()
+   */
+  source?: RemoteSourceConfig
 }
 
 /**
@@ -145,3 +151,40 @@ export type DefineFixtures<T extends Record<string, FixtureHandler>> = T
  * Helper type for defining scenarios with type safety
  */
 export type DefineScenarios<T extends Record<string, FixtureMap>> = T
+
+/**
+ * Configuration for remote fixture source (DemoKit Cloud)
+ */
+export interface RemoteSourceConfig {
+  /**
+   * DemoKit Cloud API URL (versioned base URL)
+   * The SDK will append `/fixtures` to this URL.
+   * @example 'https://demokit-cloud.kasava.dev/api'
+   * @default 'https://api.demokit.cloud/api'
+   */
+  apiUrl: string
+
+  /**
+   * DemoKit Cloud API key
+   * Format: dk_live_xxx
+   */
+  apiKey: string
+
+  /**
+   * Request timeout in milliseconds
+   * @default 10000
+   */
+  timeout?: number
+
+  /**
+   * Whether to retry failed requests
+   * @default true
+   */
+  retry?: boolean
+
+  /**
+   * Maximum number of retries
+   * @default 3
+   */
+  maxRetries?: number
+}

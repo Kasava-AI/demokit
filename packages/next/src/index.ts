@@ -45,6 +45,7 @@ export {
   createScenario,
   mergeFixtures,
   createDemoConfig,
+  createRemoteSource,
 } from './config'
 
 // Types
@@ -56,6 +57,7 @@ export type {
   DemoScenario,
   DefineFixtures,
   DefineScenarios,
+  RemoteSourceConfig,
 } from './types'
 
 // Re-export core types

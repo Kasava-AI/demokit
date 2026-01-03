@@ -125,6 +125,9 @@
 // Wrapper utilities (client + server compatible)
 export { createDemoLoader, createDemoAction, withDemoLoader, withDemoAction } from './wrappers'
 
+// Config helpers
+export { createRemoteSource } from './config'
+
 // Fixture utilities
 export {
   FixtureStore,
@@ -162,4 +165,5 @@ export type {
   DemoModeOptions,
   FixtureStoreConfig,
   RemixResponse,
+  RemoteSourceConfig,
 } from './types'

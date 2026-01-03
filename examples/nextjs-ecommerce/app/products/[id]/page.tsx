@@ -23,6 +23,13 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!isHydrated) return
 
+    // Only fetch data in demo mode - there's no real API
+    if (!isDemoMode) {
+      setError('Demo mode required to view products')
+      setIsLoading(false)
+      return
+    }
+
     async function fetchProduct() {
       setIsLoading(true)
       setError(null)

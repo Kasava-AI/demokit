@@ -33,6 +33,9 @@
 // Provider
 export { DemoSWRProvider } from './provider'
 
+// Config helpers
+export { createRemoteSource } from './config'
+
 // Hooks
 export { useDemoSWR, useIsDemoSWRMode, useDemoSWRMutation } from './hooks'
 export type { UseDemoSWRMutationOptions } from './hooks'
@@ -67,4 +70,5 @@ export type {
   DemoSWRProviderConfig,
   DemoSWRProviderProps,
   DemoSWRState,
+  RemoteSourceConfig,
 } from './types'

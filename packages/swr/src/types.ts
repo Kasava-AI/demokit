@@ -183,3 +183,44 @@ export interface DemoSWRState {
    */
   getMiddleware: () => Middleware
 }
+
+// ============================================================================
+// Remote Configuration Types (for DemoKit Cloud integration)
+// ============================================================================
+
+/**
+ * Configuration for remote fixture source (DemoKit Cloud)
+ */
+export interface RemoteSourceConfig {
+  /**
+   * DemoKit Cloud API URL (versioned base URL)
+   * The SDK will append `/fixtures` to this URL.
+   * @example 'https://demokit-cloud.kasava.dev/api'
+   * @default 'https://api.demokit.cloud/api'
+   */
+  apiUrl: string
+
+  /**
+   * DemoKit Cloud API key
+   * Format: dk_live_xxx
+   */
+  apiKey: string
+
+  /**
+   * Request timeout in milliseconds
+   * @default 10000
+   */
+  timeout?: number
+
+  /**
+   * Whether to retry failed requests
+   * @default true
+   */
+  retry?: boolean
+
+  /**
+   * Maximum number of retries
+   * @default 3
+   */
+  maxRetries?: number
+}

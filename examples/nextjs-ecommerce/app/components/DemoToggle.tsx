@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react'
 import { useNextDemoMode } from '@demokit-ai/next/client'
 
 export function DemoToggle() {
-  const { isDemoMode, enableDemo, disableDemo, enableWithScenario, currentScenario, isHydrated } = useNextDemoMode()
+  const { isDemoMode, enableDemo, disableDemo, enableWithScenario, currentScenario } = useNextDemoMode()
   const [showDropdown, setShowDropdown] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Track client mount to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -16,7 +22,7 @@ export function DemoToggle() {
     }
   }, [showDropdown])
 
-  if (!isHydrated) {
+  if (!mounted) {
     return (
       <div className="w-24 h-8 bg-gray-100 rounded animate-pulse" />
     )

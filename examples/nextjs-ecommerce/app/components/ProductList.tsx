@@ -20,19 +20,39 @@ export function ProductList({ initialProducts = [] }: ProductListProps) {
 
   // Fetch products
   useEffect(() => {
-    if (!isHydrated) return
+    console.log('[ProductList] Effect running:', { isHydrated, isDemoMode })
+
+    if (!isHydrated) {
+      console.log('[ProductList] Not hydrated yet, skipping fetch')
+      return
+    }
+
+    // Only fetch products in demo mode - there's no real API
+    if (!isDemoMode) {
+      console.log('[ProductList] Not in demo mode, clearing products')
+      setProducts([])
+      setFilteredProducts([])
+      setIsLoading(false)
+      return
+    }
 
     async function fetchProducts() {
       setIsLoading(true)
+      console.log('[ProductList] Fetching products from /products...')
       try {
         const response = await fetch('/products')
+        console.log('[ProductList] Response status:', response.status)
+        console.log('[ProductList] Response headers:', Object.fromEntries(response.headers.entries()))
         if (response.ok) {
           const data = await response.json()
+          console.log('[ProductList] Received data:', data)
           setProducts(data)
           setFilteredProducts(data)
+        } else {
+          console.log('[ProductList] Response not ok:', response.status, response.statusText)
         }
       } catch (error) {
-        console.error('Failed to fetch products:', error)
+        console.error('[ProductList] Failed to fetch products:', error)
       } finally {
         setIsLoading(false)
       }

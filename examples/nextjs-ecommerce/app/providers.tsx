@@ -10,8 +10,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       fixtures={fixtures}
       cookieName="ecommerce-demo-mode"
       source={demokitSource}
-      // apiKey={process.env.NEXT_PUBLIC_DEMOKIT_API_KEY}
-      // cloudUrl={process.env.NEXT_PUBLIC_DEMOKIT_API_URL}
     >
       {children}
     </DemoKitNextProvider>

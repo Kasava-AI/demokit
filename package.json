@@ -24,7 +24,9 @@
     "version": "changeset version",
     "publish": "pnpm build:packages && changeset publish",
     "release": "pnpm build:packages && pnpm -r --filter './packages/*' publish --access public --no-git-checks",
-    "validate:types": "tsx scripts/validate-openapi-types.ts"
+    "validate:types": "tsx scripts/validate-openapi-types.ts",
+    "examples:link": "node scripts/link-examples.js link",
+    "examples:unlink": "node scripts/link-examples.js unlink"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
@@ -32,6 +34,8 @@
     "typescript": "^5.7.2",
     "yaml": "^2.3.4"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "packageManager": "pnpm@9.15.0"
 }

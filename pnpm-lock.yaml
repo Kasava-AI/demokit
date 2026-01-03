@@ -245,14 +245,14 @@ importers:
   examples/react-router-ecommerce:
     dependencies:
       '@demokit-ai/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@demokit-ai/react':
-        specifier: ^0.1.0
-        version: 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: workspace:*
+        version: link:../../packages/react
       '@demokit-ai/react-router':
-        specifier: ^0.1.0
-        version: 0.1.0(react-dom@19.2.3(react@19.2.3))(react-router@7.11.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+        specifier: workspace:*
+        version: link:../../packages/react-router
       react:
         specifier: ^19.0.0
         version: 19.2.3
@@ -288,11 +288,11 @@ importers:
   examples/remix-ecommerce:
     dependencies:
       '@demokit-ai/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@demokit-ai/remix':
-        specifier: ^0.1.0
-        version: 0.1.0(@remix-run/node@2.17.2(typescript@5.9.3))(@remix-run/react@2.17.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: workspace:*
+        version: link:../../packages/remix
       '@remix-run/node':
         specifier: ^2.15.0
         version: 2.17.2(typescript@5.9.3)
@@ -337,11 +337,11 @@ importers:
   examples/swr-ecommerce:
     dependencies:
       '@demokit-ai/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@demokit-ai/swr':
-        specifier: ^0.1.0
-        version: 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(swr@2.3.8(react@19.2.3))
+        specifier: workspace:*
+        version: link:../../packages/swr
       react:
         specifier: ^19.0.0
         version: 19.2.3
@@ -380,11 +380,11 @@ importers:
   examples/tanstack-query-ecommerce:
     dependencies:
       '@demokit-ai/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@demokit-ai/tanstack-query':
-        specifier: ^0.1.0
-        version: 0.1.0(@tanstack/react-query@5.90.16(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: workspace:*
+        version: link:../../packages/tanstack-query
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.90.16(react@19.2.3)
@@ -423,11 +423,11 @@ importers:
   examples/trpc-ecommerce:
     dependencies:
       '@demokit-ai/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: workspace:*
+        version: link:../../packages/core
       '@demokit-ai/trpc':
-        specifier: ^0.1.0
-        version: 0.1.0(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: workspace:*
+        version: link:../../packages/trpc
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.90.16(react@19.2.3)
@@ -1138,57 +1138,6 @@ packages:
   '@dagrejs/graphlib@2.2.4':
     resolution: {integrity: sha512-mepCf/e9+SKYy1d02/UkvSy6+6MoyXhVxP8lLDfA7BPE1X1d4dR0sZznmbM8/XVJ1GPM+Svnx7Xj6ZweByWUkw==}
     engines: {node: '>17.0.0'}
-
-  '@demokit-ai/core@0.1.0':
-    resolution: {integrity: sha512-fSH8+7Ft529clNEemVPNk9lKu2+iXQQEu5IZsz4FJqxnEqfevjuhTIfnqXBXOUYho14RSePsHMukPSRF0zdqYA==}
-
-  '@demokit-ai/react-router@0.1.0':
-    resolution: {integrity: sha512-R9EDYRqNq8qqdevXJ1Q7KhiaxMKzu28GmJWiEvwtbiDFVdLk7dhuKscgZxCC3727h7FR2KKpM0+VSevGZ3Gl3A==}
-    peerDependencies:
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-      react-router: '>=7.0.0'
-
-  '@demokit-ai/react@0.1.0':
-    resolution: {integrity: sha512-LFr3A2vcui7lKyKyxwJAaBTDlNcIElAUct0W0xoUHpHXjw0IOm5FyfTUhvB1cYuhjjPbDBKz6mHtBKSlp4zZPQ==}
-    peerDependencies:
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-
-  '@demokit-ai/remix@0.1.0':
-    resolution: {integrity: sha512-DMB6FfNAoXVpzSN26mlmiH5PjlaEP1367YbXxcAsm4SwuFZcJ2fWUTX6VCxh8cBq3Ha7tQ0jwXOaKeBQVT487Q==}
-    peerDependencies:
-      '@remix-run/node': '>=2.0.0'
-      '@remix-run/react': '>=2.0.0'
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-
-  '@demokit-ai/swr@0.1.0':
-    resolution: {integrity: sha512-jMJAErkxhHmL10qXxDu+z5HEPMAYnp9dXYcnT7zlzd/g0FaS28oKqKvB2S4XeEcDs12sB1MNGDVuwi3SA13jyA==}
-    peerDependencies:
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-      swr: '>=2.0.0'
-
-  '@demokit-ai/tanstack-query@0.1.0':
-    resolution: {integrity: sha512-R7/feAftrwuIxxZSVgIGP8n6CtJx5bEhq4/cL0kDWMNrkq0RrBBDvA/Tr6NbvTjZQqWICS9SxFLDU6RdTd5iKA==}
-    peerDependencies:
-      '@tanstack/react-query': '>=5.0.0'
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-
-  '@demokit-ai/trpc@0.1.0':
-    resolution: {integrity: sha512-qnvH3bKd5pQDno6CggMkT2jx2O83l2yxQWw3PLcSmMJqafr5pDjaHRJLQwSqcrQFFWXSTWZk6vA8DprY/MEjqQ==}
-    peerDependencies:
-      '@trpc/client': '>=11.0.0'
-      '@trpc/server': '>=11.0.0'
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -8260,57 +8209,6 @@ snapshots:
       '@dagrejs/graphlib': 2.2.4
 
   '@dagrejs/graphlib@2.2.4': {}
-
-  '@demokit-ai/core@0.1.0': {}
-
-  '@demokit-ai/react-router@0.1.0(react-dom@19.2.3(react@19.2.3))(react-router@7.11.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      '@demokit-ai/react': 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      react-router: 7.11.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-
-  '@demokit-ai/react@0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
-  '@demokit-ai/remix@0.1.0(@remix-run/node@2.17.2(typescript@5.9.3))(@remix-run/react@2.17.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      '@demokit-ai/react': 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@remix-run/node': 2.17.2(typescript@5.9.3)
-      '@remix-run/react': 2.17.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
-  '@demokit-ai/swr@0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(swr@2.3.8(react@19.2.3))':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      '@demokit-ai/react': 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      swr: 2.3.8(react@19.2.3)
-
-  '@demokit-ai/tanstack-query@0.1.0(@tanstack/react-query@5.90.16(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      '@demokit-ai/react': 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@tanstack/react-query': 5.90.16(react@19.2.3)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
-  '@demokit-ai/trpc@0.1.0(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@demokit-ai/core': 0.1.0
-      '@demokit-ai/react': 0.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@trpc/client': 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
-      '@trpc/server': 11.8.1(typescript@5.9.3)
-    optionalDependencies:
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
 
   '@drizzle-team/brocli@0.10.2': {}
 

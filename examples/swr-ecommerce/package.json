@@ -13,8 +13,8 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
     "swr": "^2.2.5",
-    "@demokit-ai/core": "^0.1.0",
-    "@demokit-ai/swr": "^0.1.0"
+    "@demokit-ai/core": "^0.3.0",
+    "@demokit-ai/swr": "^0.3.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

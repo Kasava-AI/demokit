@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@demokit-ai/core": "^0.1.0",
-    "@demokit-ai/remix": "^0.1.0",
+    "@demokit-ai/core": "^0.3.0",
+    "@demokit-ai/remix": "^0.3.0",
     "@remix-run/node": "^2.15.0",
     "@remix-run/react": "^2.15.0",
     "@remix-run/serve": "^2.15.0",

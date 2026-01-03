@@ -28,7 +28,7 @@ export function useCart() {
 export function useAddToCart() {
   const { trigger, isMutating, error } = useDemoSWRMutation<
     CartMutationResponse,
-    { productId: string; quantity?: number }
+    { product_id: string; quantity?: number }
   >('addToCart', '/api/cart')
 
   return {
@@ -44,7 +44,7 @@ export function useAddToCart() {
 export function useUpdateCartItem() {
   const { trigger, isMutating, error } = useDemoSWRMutation<
     CartMutationResponse,
-    { productId: string; quantity: number }
+    { product_id: string; quantity: number }
   >('updateCartItem', '/api/cart')
 
   return {
@@ -60,7 +60,7 @@ export function useUpdateCartItem() {
 export function useRemoveFromCart() {
   const { trigger, isMutating, error } = useDemoSWRMutation<
     CartMutationResponse,
-    { productId: string }
+    { product_id: string }
   >('removeFromCart', '/api/cart')
 
   return {

@@ -91,7 +91,7 @@ export default function OrdersPage() {
       ) : (
         <div className="space-y-4">
           {orders
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .map((order) => (
               <Link
                 key={order.id}
@@ -102,7 +102,7 @@ export default function OrdersPage() {
                   <div>
                     <h3 className="font-semibold text-gray-900">{order.id}</h3>
                     <p className="text-sm text-gray-500">
-                      {formatDate(order.createdAt)}
+                      {formatDate(order.created_at)}
                     </p>
                   </div>
                   <span
@@ -115,11 +115,11 @@ export default function OrdersPage() {
                 <div className="space-y-2 mb-4">
                   {order.items.map((item) => (
                     <div
-                      key={item.productId}
+                      key={item.product_id}
                       className="flex justify-between text-sm"
                     >
                       <span className="text-gray-600">
-                        {getProductName(item.productId)} x {item.quantity}
+                        {getProductName(item.product_id)} x {item.quantity}
                       </span>
                     </div>
                   ))}
@@ -132,7 +132,7 @@ export default function OrdersPage() {
                     {order.items.reduce((s, i) => s + i.quantity, 0)} items
                   </span>
                   <span className="text-lg font-bold text-gray-900">
-                    ${order.total}
+                    ${order.total_amount}
                   </span>
                 </div>
               </Link>

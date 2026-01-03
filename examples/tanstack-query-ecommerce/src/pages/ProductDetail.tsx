@@ -20,7 +20,7 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (product) {
-      addToCart.mutate({ productId: product.id, quantity })
+      addToCart.mutate({ product_id: product.id, quantity })
     }
   }
 
@@ -73,7 +73,7 @@ export default function ProductDetail() {
         {/* Product Image */}
         <div className="aspect-square overflow-hidden rounded-xl bg-gray-100">
           <img
-            src={product.image}
+            src={product.image_url}
             alt={product.name}
             className="h-full w-full object-cover"
           />

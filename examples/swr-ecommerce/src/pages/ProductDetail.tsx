@@ -16,7 +16,7 @@ export default function ProductDetail() {
 
   const handleAddToCart = async () => {
     if (!product) return
-    await addToCart({ productId: product.id, quantity })
+    await addToCart({ product_id: product.id, quantity })
     mutate()
     setAddedSuccessfully(true)
     setTimeout(() => setAddedSuccessfully(false), 3000)
@@ -75,7 +75,7 @@ export default function ProductDetail() {
         {/* Product Image */}
         <div className="aspect-square overflow-hidden rounded-xl bg-gray-100">
           <img
-            src={product.image}
+            src={product.image_url}
             alt={product.name}
             className="h-full w-full object-cover"
           />

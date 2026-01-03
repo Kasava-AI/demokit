@@ -115,11 +115,11 @@ export default function Orders() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Date</p>
-                  <p className="font-medium text-gray-900">{formatDate(order.createdAt)}</p>
+                  <p className="font-medium text-gray-900">{formatDate(order.created_at)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Total</p>
-                  <p className="font-medium text-gray-900">${order.total.toFixed(2)}</p>
+                  <p className="font-medium text-gray-900">${order.total_amount.toFixed(2)}</p>
                 </div>
               </div>
               <span className={`badge capitalize ${getStatusBadgeClass(order.status)}`}>
@@ -130,13 +130,13 @@ export default function Orders() {
             {/* Order Items */}
             <div className="divide-y p-4">
               {order.items.map((item) => {
-                const product = products.find((p) => p.id === item.productId)
+                const product = products.find((p) => p.id === item.product_id)
                 if (!product) return null
                 return (
-                  <div key={item.productId} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                  <div key={item.product_id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                       <img
-                        src={product.image}
+                        src={product.image_url}
                         alt={product.name}
                         className="h-full w-full object-cover"
                       />

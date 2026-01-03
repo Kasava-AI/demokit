@@ -49,7 +49,7 @@ export default function Checkout() {
 
   // Calculate totals
   const subtotal = cart.items.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId)
+    const product = products.find((p) => p.id === item.product_id)
     return sum + (product?.price ?? 0) * item.quantity
   }, 0)
   const shipping = subtotal > 100 ? 0 : 9.99
@@ -288,13 +288,13 @@ export default function Checkout() {
             {/* Cart Items */}
             <div className="mb-6 max-h-64 space-y-4 overflow-y-auto">
               {cart.items.map((item) => {
-                const product = products.find((p) => p.id === item.productId)
+                const product = products.find((p) => p.id === item.product_id)
                 if (!product) return null
                 return (
-                  <div key={item.productId} className="flex gap-4">
+                  <div key={item.product_id} className="flex gap-4">
                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                       <img
-                        src={product.image}
+                        src={product.image_url}
                         alt={product.name}
                         className="h-full w-full object-cover"
                       />

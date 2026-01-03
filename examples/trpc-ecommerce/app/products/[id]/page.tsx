@@ -34,7 +34,7 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = () => {
     if (!product || addToCart.isPending) return
-    addToCart.mutate({ productId: product.id, quantity })
+    addToCart.mutate({ product_id: product.id, quantity })
   }
 
   if (!isHydrated || isLoading) {
@@ -89,7 +89,7 @@ export default function ProductDetailPage() {
         {/* Product Image */}
         <div className="relative">
           <img
-            src={product.image}
+            src={product.image_url}
             alt={product.name}
             className="w-full aspect-square object-cover rounded-xl"
           />

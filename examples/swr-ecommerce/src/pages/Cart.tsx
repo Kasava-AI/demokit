@@ -16,7 +16,7 @@ export default function Cart() {
 
   // Calculate totals
   const subtotal = cart.items.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId)
+    const product = products.find((p) => p.id === item.product_id)
     return sum + (product?.price ?? 0) * item.quantity
   }, 0)
   const shipping = subtotal > 100 ? 0 : 9.99
@@ -97,9 +97,9 @@ export default function Cart() {
           <div className="card divide-y">
             <div className="p-4">
               {cart.items.map((item) => {
-                const product = products.find((p) => p.id === item.productId)
+                const product = products.find((p) => p.id === item.product_id)
                 if (!product) return null
-                return <CartItem key={item.productId} item={item} product={product} />
+                return <CartItem key={item.product_id} item={item} product={product} />
               })}
             </div>
           </div>

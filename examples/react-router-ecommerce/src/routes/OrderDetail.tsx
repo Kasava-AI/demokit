@@ -40,7 +40,7 @@ export default function OrderDetail() {
 
   // Calculate totals
   const subtotal = order.items.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId)
+    const product = products.find((p) => p.id === item.product_id)
     return sum + (product?.price ?? 0) * item.quantity
   }, 0)
   const shipping = subtotal > 100 ? 0 : 9.99
@@ -60,7 +60,7 @@ export default function OrderDetail() {
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Order {order.id}</h1>
-          <p className="mt-1 text-gray-600">Placed on {formatDate(order.createdAt)}</p>
+          <p className="mt-1 text-gray-600">Placed on {formatDate(order.created_at)}</p>
         </div>
         <span className={`badge text-sm capitalize ${getStatusBadgeClass(order.status)}`}>
           {order.status}
@@ -78,13 +78,13 @@ export default function OrderDetail() {
             </div>
             <div className="divide-y p-4">
               {order.items.map((item) => {
-                const product = products.find((p) => p.id === item.productId)
+                const product = products.find((p) => p.id === item.product_id)
                 if (!product) return null
                 return (
-                  <div key={item.productId} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                  <div key={item.product_id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                       <img
-                        src={product.image}
+                        src={product.image_url}
                         alt={product.name}
                         className="h-full w-full object-cover"
                       />
@@ -129,7 +129,7 @@ export default function OrderDetail() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">Order Confirmed</p>
-                  <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
+                  <p className="text-sm text-gray-500">{formatDate(order.created_at)}</p>
                 </div>
               </div>
 
@@ -203,7 +203,7 @@ export default function OrderDetail() {
               </div>
               <div className="flex justify-between border-t pt-3">
                 <dt className="font-semibold text-gray-900">Total</dt>
-                <dd className="font-bold text-gray-900">${order.total.toFixed(2)}</dd>
+                <dd className="font-bold text-gray-900">${order.total_amount.toFixed(2)}</dd>
               </div>
             </dl>
 

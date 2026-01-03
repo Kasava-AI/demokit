@@ -26,7 +26,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
     if (addToCart.isPending) return
-    addToCart.mutate({ productId: product.id, quantity: 1 })
+    addToCart.mutate({ product_id: product.id, quantity: 1 })
   }
 
   const isLowStock = product.stock <= 5
@@ -39,7 +39,7 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Image */}
       <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
         <img
-          src={product.image}
+          src={product.image_url}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />

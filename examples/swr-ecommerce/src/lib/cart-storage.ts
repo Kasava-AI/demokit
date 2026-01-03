@@ -38,14 +38,14 @@ export function saveCart(cart: Cart): void {
 /**
  * Add item to cart
  */
-export function addToCart(productId: string, quantity: number = 1): Cart {
+export function addToCart(product_id: string, quantity: number = 1): Cart {
   const cart = getCart()
-  const existingIndex = cart.items.findIndex((item) => item.productId === productId)
+  const existingIndex = cart.items.findIndex((item) => item.product_id === product_id)
 
   if (existingIndex >= 0) {
     cart.items[existingIndex].quantity += quantity
   } else {
-    cart.items.push({ productId, quantity })
+    cart.items.push({ product_id, quantity })
   }
 
   saveCart(cart)
@@ -55,9 +55,9 @@ export function addToCart(productId: string, quantity: number = 1): Cart {
 /**
  * Update item quantity in cart
  */
-export function updateCartItemQuantity(productId: string, quantity: number): Cart {
+export function updateCartItemQuantity(product_id: string, quantity: number): Cart {
   const cart = getCart()
-  const existingIndex = cart.items.findIndex((item) => item.productId === productId)
+  const existingIndex = cart.items.findIndex((item) => item.product_id === product_id)
 
   if (existingIndex >= 0) {
     if (quantity <= 0) {
@@ -74,9 +74,9 @@ export function updateCartItemQuantity(productId: string, quantity: number): Car
 /**
  * Remove item from cart
  */
-export function removeFromCart(productId: string): Cart {
+export function removeFromCart(product_id: string): Cart {
   const cart = getCart()
-  cart.items = cart.items.filter((item) => item.productId !== productId)
+  cart.items = cart.items.filter((item) => item.product_id !== product_id)
   saveCart(cart)
   return cart
 }

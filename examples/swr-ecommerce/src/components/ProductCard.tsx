@@ -14,7 +14,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { mutate } = useCart()
 
   const handleAddToCart = async () => {
-    await addToCart({ productId: product.id, quantity: 1 })
+    await addToCart({ product_id: product.id, quantity: 1 })
     // Revalidate cart after adding
     mutate()
   }
@@ -24,7 +24,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       {/* Product Image */}
       <Link to={`/products/${product.id}`} className="block aspect-[4/3] overflow-hidden">
         <img
-          src={product.image}
+          src={product.image_url}
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />

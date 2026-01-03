@@ -88,7 +88,7 @@ export default function CartPage() {
   const cartItems: CartItemWithProduct[] = cart.items
     .map((item) => ({
       ...item,
-      product: products.find((p) => p.id === item.productId)!,
+      product: products.find((p) => p.id === item.product_id)!,
     }))
     .filter((item) => item.product)
 
@@ -114,13 +114,13 @@ export default function CartPage() {
 
           {cartItems.map((item) => (
             <div
-              key={item.productId}
+              key={item.product_id}
               className={`flex gap-4 p-4 bg-white rounded-lg border border-gray-200 ${
                 updateItem.isPending || removeItem.isPending ? 'opacity-50' : ''
               }`}
             >
               <img
-                src={item.product.image}
+                src={item.product.image_url}
                 alt={item.product.name}
                 className="w-24 h-24 object-cover rounded-lg"
               />
@@ -141,7 +141,7 @@ export default function CartPage() {
                   <div className="flex items-center border border-gray-300 rounded-lg">
                     <button
                       onClick={() => updateItem.mutate({
-                        productId: item.productId,
+                        product_id: item.product_id,
                         quantity: item.quantity - 1,
                       })}
                       disabled={updateItem.isPending}
@@ -154,7 +154,7 @@ export default function CartPage() {
                     </span>
                     <button
                       onClick={() => updateItem.mutate({
-                        productId: item.productId,
+                        product_id: item.product_id,
                         quantity: item.quantity + 1,
                       })}
                       disabled={updateItem.isPending}
@@ -165,7 +165,7 @@ export default function CartPage() {
                   </div>
 
                   <button
-                    onClick={() => removeItem.mutate({ productId: item.productId })}
+                    onClick={() => removeItem.mutate({ product_id: item.product_id })}
                     disabled={removeItem.isPending}
                     className="text-sm text-red-600 hover:text-red-700 transition-colors"
                   >

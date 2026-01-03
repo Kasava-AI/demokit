@@ -25,7 +25,7 @@ export function ProductList({ initialProducts = [] }: ProductListProps) {
     async function fetchProducts() {
       setIsLoading(true)
       try {
-        const response = await fetch('/api/products')
+        const response = await fetch('/products')
         if (response.ok) {
           const data = await response.json()
           setProducts(data)
@@ -51,7 +51,7 @@ export function ProductList({ initialProducts = [] }: ProductListProps) {
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(searchLower) ||
-          p.description.toLowerCase().includes(searchLower)
+          p.description?.toLowerCase().includes(searchLower)
       )
     }
 
@@ -65,10 +65,10 @@ export function ProductList({ initialProducts = [] }: ProductListProps) {
 
   // Add to cart handler
   const handleAddToCart = useCallback(async (productId: string) => {
-    const response = await fetch('/api/cart/add', {
+    const response = await fetch('/cart/items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId, quantity: 1 }),
+      body: JSON.stringify({ product_id: productId, quantity: 1 }),
     })
 
     if (!response.ok) {

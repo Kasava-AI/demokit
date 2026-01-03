@@ -25,7 +25,7 @@ export const loader = createDemoLoader<Response>({
     const items = demoCart.items
       .map((item) => ({
         ...item,
-        product: getProductById(item.productId)!,
+        product: getProductById(item.product_id)!,
       }))
       .filter((item) => item.product)
     const total = calculateCartTotal(demoCart.items)
@@ -36,7 +36,7 @@ export const loader = createDemoLoader<Response>({
     const items = demoCart.items
       .map((item) => ({
         ...item,
-        product: getProductById(item.productId)!,
+        product: getProductById(item.product_id)!,
       }))
       .filter((item) => item.product)
     const total = calculateCartTotal(demoCart.items)
@@ -53,14 +53,14 @@ export const action = createDemoAction<Response>({
     const intent = formData.get('intent')
 
     if (intent === 'update') {
-      const productId = formData.get('productId') as string
+      const product_id = formData.get('product_id') as string
       const quantity = parseInt(formData.get('quantity') as string) || 1
-      return json({ success: true, action: 'updated', productId, quantity })
+      return json({ success: true, action: 'updated', product_id, quantity })
     }
 
     if (intent === 'remove') {
-      const productId = formData.get('productId') as string
-      return json({ success: true, action: 'removed', productId })
+      const product_id = formData.get('product_id') as string
+      return json({ success: true, action: 'removed', product_id })
     }
 
     return json({ error: 'Invalid action' }, { status: 400 })
@@ -69,15 +69,15 @@ export const action = createDemoAction<Response>({
   fixture: {
     POST: async ({ formData }) => {
       const intent = formData?.get('intent')
-      const productId = formData?.get('productId') as string
+      const product_id = formData?.get('product_id') as string
 
       if (intent === 'update') {
         const quantity = parseInt(formData?.get('quantity') as string) || 1
-        return json({ success: true, action: 'updated', productId, quantity })
+        return json({ success: true, action: 'updated', product_id, quantity })
       }
 
       if (intent === 'remove') {
-        return json({ success: true, action: 'removed', productId })
+        return json({ success: true, action: 'removed', product_id })
       }
 
       return json({ error: 'Invalid action' }, { status: 400 })
@@ -133,14 +133,14 @@ export default function Cart() {
         <div className="lg:col-span-2">
           <div className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
             {items.map((item) => (
-              <div key={item.productId} className="flex gap-4 p-4">
+              <div key={item.product_id} className="flex gap-4 p-4">
                 {/* Product Image */}
                 <Link
-                  to={`/products/${item.productId}`}
+                  to={`/products/${item.product_id}`}
                   className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100"
                 >
                   <img
-                    src={item.product.image}
+                    src={item.product.image_url}
                     alt={item.product.name}
                     className="h-full w-full object-cover"
                   />
@@ -151,7 +151,7 @@ export default function Cart() {
                   <div className="flex justify-between">
                     <div>
                       <Link
-                        to={`/products/${item.productId}`}
+                        to={`/products/${item.product_id}`}
                         className="font-medium text-gray-900 hover:text-blue-600"
                       >
                         {item.product.name}
@@ -169,7 +169,7 @@ export default function Cart() {
                     {/* Quantity Controls */}
                     <fetcher.Form method="post" className="flex items-center gap-2">
                       <input type="hidden" name="intent" value="update" />
-                      <input type="hidden" name="productId" value={item.productId} />
+                      <input type="hidden" name="product_id" value={item.product_id} />
                       <button
                         type="submit"
                         name="quantity"
@@ -216,7 +216,7 @@ export default function Cart() {
                     {/* Remove Button */}
                     <fetcher.Form method="post">
                       <input type="hidden" name="intent" value="remove" />
-                      <input type="hidden" name="productId" value={item.productId} />
+                      <input type="hidden" name="product_id" value={item.product_id} />
                       <button
                         type="submit"
                         className="text-sm text-red-600 hover:text-red-800"

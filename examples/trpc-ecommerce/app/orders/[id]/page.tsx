@@ -79,7 +79,7 @@ export default function OrderDetailPage() {
   const orderItems: CartItemWithProduct[] = order.items
     .map((item) => ({
       ...item,
-      product: products.find((p) => p.id === item.productId)!,
+      product: products.find((p) => p.id === item.product_id)!,
     }))
     .filter((item) => item.product)
 
@@ -105,7 +105,7 @@ export default function OrderDetailPage() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{order.id}</h1>
               <p className="text-gray-500 mt-1">
-                Placed on {formatDate(order.createdAt)}
+                Placed on {formatDate(order.created_at)}
               </p>
             </div>
             <span
@@ -121,9 +121,9 @@ export default function OrderDetailPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Order Items</h2>
           <div className="space-y-4">
             {orderItems.map((item) => (
-              <div key={item.productId} className="flex gap-4">
+              <div key={item.product_id} className="flex gap-4">
                 <img
-                  src={item.product.image}
+                  src={item.product.image_url}
                   alt={item.product.name}
                   className="w-20 h-20 object-cover rounded-lg"
                 />
@@ -151,7 +151,7 @@ export default function OrderDetailPage() {
           <div className="space-y-2">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>${order.total}</span>
+              <span>${order.total_amount}</span>
             </div>
             <div className="flex justify-between text-gray-600">
               <span>Shipping</span>
@@ -160,7 +160,7 @@ export default function OrderDetailPage() {
             <hr className="my-3 border-gray-200" />
             <div className="flex justify-between text-lg font-bold text-gray-900">
               <span>Total</span>
-              <span>${order.total}</span>
+              <span>${order.total_amount}</span>
             </div>
           </div>
         </div>

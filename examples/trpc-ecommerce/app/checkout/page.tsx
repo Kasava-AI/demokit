@@ -112,7 +112,7 @@ export default function CheckoutPage() {
             <hr className="my-2" />
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span>${orderComplete.total}</span>
+              <span>${orderComplete.total_amount}</span>
             </div>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function CheckoutPage() {
   const cartItems: CartItemWithProduct[] = cart.items
     .map((item) => ({
       ...item,
-      product: products.find((p) => p.id === item.productId)!,
+      product: products.find((p) => p.id === item.product_id)!,
     }))
     .filter((item) => item.product)
 
@@ -275,9 +275,9 @@ export default function CheckoutPage() {
 
             <div className="space-y-4 mb-6">
               {cartItems.map((item) => (
-                <div key={item.productId} className="flex gap-4">
+                <div key={item.product_id} className="flex gap-4">
                   <img
-                    src={item.product.image}
+                    src={item.product.image_url}
                     alt={item.product.name}
                     className="w-16 h-16 object-cover rounded-lg"
                   />

@@ -17,12 +17,12 @@ export default function CartItem({ item, product }: CartItemProps) {
   const isLoading = isUpdating || isRemoving
 
   const handleUpdateQuantity = async (newQuantity: number) => {
-    await updateItem({ productId: item.productId, quantity: newQuantity })
+    await updateItem({ product_id: item.product_id, quantity: newQuantity })
     mutate()
   }
 
   const handleRemove = async () => {
-    await removeItem({ productId: item.productId })
+    await removeItem({ product_id: item.product_id })
     mutate()
   }
 
@@ -34,7 +34,7 @@ export default function CartItem({ item, product }: CartItemProps) {
     >
       {/* Product Image */}
       <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg">
-        <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+        <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
       </div>
 
       {/* Product Details */}

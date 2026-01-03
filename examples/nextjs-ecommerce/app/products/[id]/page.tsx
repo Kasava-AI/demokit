@@ -28,7 +28,7 @@ export default function ProductDetailPage() {
       setError(null)
 
       try {
-        const response = await fetch(`/api/products/${productId}`)
+        const response = await fetch(`/products/${productId}`)
         if (!response.ok) {
           throw new Error('Product not found')
         }
@@ -48,10 +48,10 @@ export default function ProductDetailPage() {
 
     setIsAdding(true)
     try {
-      const response = await fetch('/api/cart/add', {
+      const response = await fetch('/cart/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: product.id, quantity }),
+        body: JSON.stringify({ product_id: product.id, quantity }),
       })
 
       if (response.ok) {
@@ -116,7 +116,7 @@ export default function ProductDetailPage() {
         {/* Product Image */}
         <div className="relative">
           <img
-            src={product.image}
+            src={product.image_url}
             alt={product.name}
             className="w-full aspect-square object-cover rounded-xl"
           />

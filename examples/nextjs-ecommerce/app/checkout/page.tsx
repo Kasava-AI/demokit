@@ -7,7 +7,7 @@ import { useIsDemoMode, useIsHydrated } from '@demokit-ai/next/client'
 import type { Cart, Product, Order } from '@/app/types'
 
 interface CartItemWithProduct {
-  productId: string
+  product_id: string
   quantity: number
   product: Product
 }
@@ -42,8 +42,8 @@ export default function CheckoutPage() {
       setIsLoading(true)
       try {
         const [cartRes, productsRes] = await Promise.all([
-          fetch('/api/cart'),
-          fetch('/api/products'),
+          fetch('/cart'),
+          fetch('/products'),
         ])
 
         if (cartRes.ok) {
@@ -71,10 +71,14 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/checkout', {
+      // For demo, use a mock address and payment method ID
+      const response = await fetch('/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          address_id: 'addr-001',
+          payment_method_id: 'pm-demo-001',
+        }),
       })
 
       if (response.ok) {
@@ -147,7 +151,7 @@ export default function CheckoutPage() {
             <hr className="my-2" />
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span>${orderComplete.total}</span>
+              <span>${orderComplete.total_amount}</span>
             </div>
           </div>
         </div>
@@ -177,7 +181,7 @@ export default function CheckoutPage() {
   const cartItems: CartItemWithProduct[] = cart.items
     .map((item) => ({
       ...item,
-      product: products.find((p) => p.id === item.productId)!,
+      product: products.find((p) => p.id === item.product_id)!,
     }))
     .filter((item) => item.product)
 
@@ -308,9 +312,9 @@ export default function CheckoutPage() {
 
             <div className="space-y-4 mb-6">
               {cartItems.map((item) => (
-                <div key={item.productId} className="flex gap-4">
+                <div key={item.product_id} className="flex gap-4">
                   <img
-                    src={item.product.image}
+                    src={item.product.image_url}
                     alt={item.product.name}
                     className="w-16 h-16 object-cover rounded-lg"
                   />

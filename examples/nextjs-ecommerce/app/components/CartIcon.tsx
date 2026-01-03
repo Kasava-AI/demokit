@@ -16,7 +16,7 @@ export function CartIcon() {
 
     async function fetchCart() {
       try {
-        const response = await fetch('/api/cart')
+        const response = await fetch('/cart')
         if (response.ok) {
           const data = await response.json()
           setCart(data)

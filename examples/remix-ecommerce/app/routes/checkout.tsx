@@ -33,7 +33,7 @@ export const loader = createDemoLoader<Response>({
     const items = demoCart.items
       .map((item) => ({
         ...item,
-        product: getProductById(item.productId)!,
+        product: getProductById(item.product_id)!,
       }))
       .filter((item) => item.product)
 
@@ -53,7 +53,7 @@ export const loader = createDemoLoader<Response>({
     const items = demoCart.items
       .map((item) => ({
         ...item,
-        product: getProductById(item.productId)!,
+        product: getProductById(item.product_id)!,
       }))
       .filter((item) => item.product)
 
@@ -88,9 +88,9 @@ export const action = createDemoAction<Response>({
     const order: Order = {
       id: orderId,
       items: [...demoCart.items],
-      total,
+      total_amount: total,
       status: 'confirmed',
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     }
 
     return json<ActionData>({
@@ -115,9 +115,9 @@ export const action = createDemoAction<Response>({
       const order: Order = {
         id: orderId,
         items: [...demoCart.items],
-        total,
+        total_amount: total,
         status: 'confirmed',
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       }
 
       return json<ActionData>({
@@ -177,7 +177,7 @@ export default function Checkout() {
             <div className="flex justify-between pt-4">
               <span className="text-gray-600">Total</span>
               <span className="text-lg font-bold text-gray-900">
-                ${actionData.order.total.toLocaleString()}
+                ${actionData.order.total_amount.toLocaleString()}
               </span>
             </div>
           </div>
@@ -338,10 +338,10 @@ export default function Checkout() {
             {/* Items */}
             <div className="mt-6 divide-y divide-gray-200">
               {items.map((item) => (
-                <div key={item.productId} className="flex gap-4 py-4">
+                <div key={item.product_id} className="flex gap-4 py-4">
                   <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                     <img
-                      src={item.product.image}
+                      src={item.product.image_url}
                       alt={item.product.name}
                       className="h-full w-full object-cover"
                     />

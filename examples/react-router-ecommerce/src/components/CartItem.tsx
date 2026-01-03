@@ -17,7 +17,7 @@ export default function CartItem({ item, product }: CartItemProps) {
     fetcher.submit(
       {
         action: 'update',
-        productId: item.productId,
+        product_id: item.product_id,
         quantity: String(newQuantity),
       },
       {
@@ -31,7 +31,7 @@ export default function CartItem({ item, product }: CartItemProps) {
     fetcher.submit(
       {
         action: 'remove',
-        productId: item.productId,
+        product_id: item.product_id,
       },
       {
         method: 'POST',
@@ -48,7 +48,7 @@ export default function CartItem({ item, product }: CartItemProps) {
     >
       {/* Product Image */}
       <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg">
-        <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+        <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
       </div>
 
       {/* Product Details */}

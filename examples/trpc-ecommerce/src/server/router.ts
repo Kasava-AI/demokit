@@ -10,49 +10,59 @@ const publicProcedure = t.procedure
 // In-memory data store (simulates database)
 const products: Product[] = [
   {
-    id: 'p1',
-    name: 'Laptop Pro',
-    price: 999,
-    category: 'electronics',
+    id: 'b413498c-f14c-4c03-aac0-dfc25ed4311f',
+    name: 'MacBook Pro 14-inch M3',
+    price: 1999.99,
+    category: 'Electronics',
     stock: 15,
-    image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=300&fit=crop',
-    description: 'Powerful laptop for professionals with 16GB RAM, 512GB SSD, and stunning Retina display. Perfect for development, design, and multitasking.',
+    image_url: 'https://example.com/images/macbook-pro-14.jpg',
+    description: 'Apple MacBook Pro 14-inch with M3 chip, 8GB RAM, 512GB SSD. Perfect for professional work and creative projects.',
+    created_at: '2024-01-15T10:00:00Z',
+    updated_at: '2024-01-15T10:00:00Z',
   },
   {
-    id: 'p2',
-    name: 'Wireless Headphones',
-    price: 199,
-    category: 'electronics',
-    stock: 42,
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop',
-    description: 'Premium wireless headphones with active noise cancellation, 30-hour battery life, and crystal-clear audio quality.',
+    id: '73a15e65-66d6-4e42-81d0-09578390e2ad',
+    name: 'Dell XPS 13 Plus',
+    price: 1299.99,
+    category: 'Electronics',
+    stock: 22,
+    image_url: 'https://example.com/images/dell-xps-13.jpg',
+    description: 'Dell XPS 13 Plus with Intel Core i7, 16GB RAM, 1TB SSD. Ultra-portable design with stunning display.',
+    created_at: '2024-01-10T14:30:00Z',
+    updated_at: '2024-01-10T14:30:00Z',
   },
   {
-    id: 'p3',
-    name: 'Mechanical Keyboard',
-    price: 149,
-    category: 'accessories',
-    stock: 28,
-    image: 'https://images.unsplash.com/photo-1511467687858-23d96c32e4ae?w=400&h=300&fit=crop',
-    description: 'RGB mechanical keyboard with Cherry MX switches, N-key rollover, and programmable macros for gaming and productivity.',
+    id: 'e8b2f4ba-897b-43b0-af33-0552b3c3d344',
+    name: 'Wireless Bluetooth Headphones',
+    price: 199.99,
+    category: 'Electronics',
+    stock: 45,
+    image_url: 'https://example.com/images/bluetooth-headphones.jpg',
+    description: 'Premium wireless headphones with active noise cancellation and 30-hour battery life.',
+    created_at: '2024-01-08T09:15:00Z',
+    updated_at: '2024-01-08T09:15:00Z',
   },
   {
-    id: 'p4',
-    name: 'USB-C Hub',
-    price: 79,
-    category: 'accessories',
-    stock: 67,
-    image: 'https://images.unsplash.com/photo-1625723044792-44de16ccb4e9?w=400&h=300&fit=crop',
-    description: '7-in-1 USB-C hub with HDMI, USB 3.0 ports, SD card reader, and 100W power delivery for all your connectivity needs.',
+    id: '2ee21613-ee15-4b2e-a4b5-ad66a67a39fa',
+    name: 'USB-C Hub 7-in-1',
+    price: 49.99,
+    category: 'Electronics',
+    stock: 78,
+    image_url: 'https://example.com/images/usb-c-hub.jpg',
+    description: 'Versatile USB-C hub with HDMI, USB 3.0 ports, SD card reader, and power delivery support.',
+    created_at: '2024-01-05T16:45:00Z',
+    updated_at: '2024-01-05T16:45:00Z',
   },
   {
-    id: 'p5',
-    name: '4K Monitor',
-    price: 449,
-    category: 'electronics',
-    stock: 12,
-    image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=400&h=300&fit=crop',
-    description: '27-inch 4K UHD monitor with HDR support, 144Hz refresh rate, and USB-C connectivity. Perfect for creative professionals.',
+    id: 'fee88cc9-166f-4b32-9c65-2b91c39fadb7',
+    name: 'Portable Phone Stand',
+    price: 24.99,
+    category: 'Accessories',
+    stock: 120,
+    image_url: 'https://example.com/images/phone-stand.jpg',
+    description: 'Adjustable aluminum phone stand compatible with all smartphone sizes. Perfect for video calls and media viewing.',
+    created_at: '2024-01-03T11:20:00Z',
+    updated_at: '2024-01-03T11:20:00Z',
   },
 ]
 
@@ -68,7 +78,7 @@ let sessionOrders: Order[] = []
 // Helper to calculate cart total
 function calculateTotal(items: CartItem[]): number {
   return items.reduce((sum, item) => {
-    const product = products.find((p) => p.id === item.productId)
+    const product = products.find((p) => p.id === item.product_id)
     return sum + (product?.price ?? 0) * item.quantity
   }, 0)
 }
@@ -95,7 +105,7 @@ export const appRouter = router({
           result = result.filter(
             (p) =>
               p.name.toLowerCase().includes(searchLower) ||
-              p.description.toLowerCase().includes(searchLower)
+              p.description?.toLowerCase().includes(searchLower)
           )
         }
 
@@ -123,12 +133,12 @@ export const appRouter = router({
     addItem: publicProcedure
       .input(
         z.object({
-          productId: z.string(),
+          product_id: z.string(),
           quantity: z.number().min(1).default(1),
         })
       )
       .mutation(({ input }) => {
-        const product = products.find((p) => p.id === input.productId)
+        const product = products.find((p) => p.id === input.product_id)
         if (!product) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -137,14 +147,14 @@ export const appRouter = router({
         }
 
         const existingItem = sessionCart.items.find(
-          (item) => item.productId === input.productId
+          (item) => item.product_id === input.product_id
         )
 
         if (existingItem) {
           existingItem.quantity += input.quantity
         } else {
           sessionCart.items.push({
-            productId: input.productId,
+            product_id: input.product_id,
             quantity: input.quantity,
           })
         }
@@ -156,19 +166,19 @@ export const appRouter = router({
     updateItem: publicProcedure
       .input(
         z.object({
-          productId: z.string(),
+          product_id: z.string(),
           quantity: z.number().min(0),
         })
       )
       .mutation(({ input }) => {
         const item = sessionCart.items.find(
-          (item) => item.productId === input.productId
+          (item) => item.product_id === input.product_id
         )
 
         if (item) {
           if (input.quantity <= 0) {
             sessionCart.items = sessionCart.items.filter(
-              (i) => i.productId !== input.productId
+              (i) => i.product_id !== input.product_id
             )
           } else {
             item.quantity = input.quantity
@@ -180,10 +190,10 @@ export const appRouter = router({
       }),
 
     removeItem: publicProcedure
-      .input(z.object({ productId: z.string() }))
+      .input(z.object({ product_id: z.string() }))
       .mutation(({ input }) => {
         sessionCart.items = sessionCart.items.filter(
-          (item) => item.productId !== input.productId
+          (item) => item.product_id !== input.product_id
         )
         sessionCart.total = calculateTotal(sessionCart.items)
         return sessionCart
@@ -223,9 +233,9 @@ export const appRouter = router({
       const order: Order = {
         id: `order-${Date.now()}`,
         items: [...sessionCart.items],
-        total: sessionCart.total,
+        total_amount: sessionCart.total,
         status: 'confirmed',
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       }
 
       sessionOrders.push(order)

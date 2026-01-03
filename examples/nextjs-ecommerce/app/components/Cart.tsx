@@ -6,7 +6,7 @@ import { useIsDemoMode, useIsHydrated } from '@demokit-ai/next/client'
 import type { Cart as CartType, Product } from '@/app/types'
 
 interface CartItemWithProduct {
-  productId: string
+  product_id: string
   quantity: number
   product: Product
 }
@@ -27,8 +27,8 @@ export function Cart() {
       setIsLoading(true)
       try {
         const [cartRes, productsRes] = await Promise.all([
-          fetch('/api/cart'),
-          fetch('/api/products'),
+          fetch('/cart'),
+          fetch('/products'),
         ])
 
         if (cartRes.ok) {
@@ -50,7 +50,7 @@ export function Cart() {
   const updateQuantity = async (productId: string, quantity: number) => {
     setUpdating(productId)
     try {
-      const response = await fetch(`/api/cart/${productId}`, {
+      const response = await fetch(`/cart/${productId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity }),
@@ -68,7 +68,7 @@ export function Cart() {
   const removeItem = async (productId: string) => {
     setUpdating(productId)
     try {
-      const response = await fetch(`/api/cart/${productId}`, {
+      const response = await fetch(`/cart/${productId}`, {
         method: 'DELETE',
       })
 
@@ -83,7 +83,7 @@ export function Cart() {
 
   const clearCart = async () => {
     try {
-      const response = await fetch('/api/cart', {
+      const response = await fetch('/cart', {
         method: 'DELETE',
       })
 
@@ -143,7 +143,7 @@ export function Cart() {
   const cartItems: CartItemWithProduct[] = cart.items
     .map((item) => ({
       ...item,
-      product: products.find((p) => p.id === item.productId)!,
+      product: products.find((p) => p.id === item.product_id)!,
     }))
     .filter((item) => item.product)
 
@@ -165,13 +165,13 @@ export function Cart() {
 
         {cartItems.map((item) => (
           <div
-            key={item.productId}
+            key={item.product_id}
             className={`flex gap-4 p-4 bg-white rounded-lg border border-gray-200 ${
-              updating === item.productId ? 'opacity-50' : ''
+              updating === item.product_id ? 'opacity-50' : ''
             }`}
           >
             <img
-              src={item.product.image}
+              src={item.product.image_url}
               alt={item.product.name}
               className="w-24 h-24 object-cover rounded-lg"
             />
@@ -191,8 +191,8 @@ export function Cart() {
                 {/* Quantity controls */}
                 <div className="flex items-center border border-gray-300 rounded-lg">
                   <button
-                    onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                    disabled={updating === item.productId}
+                    onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                    disabled={updating === item.product_id}
                     className="px-3 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
                   >
                     -
@@ -201,8 +201,8 @@ export function Cart() {
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                    disabled={updating === item.productId}
+                    onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                    disabled={updating === item.product_id}
                     className="px-3 py-1 text-gray-600 hover:bg-gray-100 transition-colors"
                   >
                     +
@@ -210,8 +210,8 @@ export function Cart() {
                 </div>
 
                 <button
-                  onClick={() => removeItem(item.productId)}
-                  disabled={updating === item.productId}
+                  onClick={() => removeItem(item.product_id)}
+                  disabled={updating === item.product_id}
                   className="text-sm text-red-600 hover:text-red-700 transition-colors"
                 >
                   Remove

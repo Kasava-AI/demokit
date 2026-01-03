@@ -37,7 +37,7 @@ export const loader = createDemoLoader<Response>({
 export const action = createDemoAction<Response>({
   action: async ({ request }: ActionFunctionArgs) => {
     const formData = await request.formData()
-    const productId = formData.get('productId') as string
+    const productId = formData.get('product_id') as string
     const quantity = parseInt(formData.get('quantity') as string) || 1
 
     // In a real app, this would add to a session-based cart
@@ -54,10 +54,10 @@ export const action = createDemoAction<Response>({
   isEnabled: isDemoMode,
   fixture: {
     POST: async ({ formData }) => {
-      const productId = formData?.get('productId') as string
+      const product_id = formData?.get('product_id') as string
       const quantity = parseInt(formData?.get('quantity') as string) || 1
 
-      const product = getProductById(productId)
+      const product = getProductById(product_id)
       if (!product) {
         return json({ error: 'Product not found' }, { status: 404 })
       }
@@ -98,7 +98,7 @@ export default function ProductDetail() {
         {/* Product Image */}
         <div className="aspect-square overflow-hidden rounded-2xl bg-gray-100">
           <img
-            src={product.image}
+            src={product.image_url}
             alt={product.name}
             className="h-full w-full object-cover"
           />
@@ -131,7 +131,7 @@ export default function ProductDetail() {
 
           {/* Add to Cart Form */}
           <fetcher.Form method="post" className="mt-8">
-            <input type="hidden" name="productId" value={product.id} />
+            <input type="hidden" name="product_id" value={product.id} />
             <input type="hidden" name="quantity" value="1" />
 
             <button

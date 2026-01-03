@@ -17,7 +17,7 @@ export function ProductCard({ product }: ProductCardProps) {
         className="block aspect-square overflow-hidden bg-gray-100"
       >
         <img
-          src={product.image}
+          src={product.image_url}
           alt={product.name}
           className="h-full w-full object-cover transition-transform group-hover:scale-105"
         />
@@ -54,7 +54,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Add to Cart */}
         <fetcher.Form action={`/products/${product.id}`} method="post" className="mt-4">
-          <input type="hidden" name="productId" value={product.id} />
+          <input type="hidden" name="product_id" value={product.id} />
           <input type="hidden" name="quantity" value="1" />
           <button
             type="submit"

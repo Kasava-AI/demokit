@@ -29,7 +29,7 @@ export const loader = createDemoLoader<Response>({
       items: order.items
         .map((item) => ({
           ...item,
-          product: getProductById(item.productId)!,
+          product: getProductById(item.product_id)!,
         }))
         .filter((item) => item.product),
     }))
@@ -42,7 +42,7 @@ export const loader = createDemoLoader<Response>({
       items: order.items
         .map((item) => ({
           ...item,
-          product: getProductById(item.productId)!,
+          product: getProductById(item.product_id)!,
         }))
         .filter((item) => item.product),
     }))
@@ -121,7 +121,7 @@ export default function Orders() {
                 <div>
                   <span className="text-sm text-gray-500">Date</span>
                   <p className="font-medium text-gray-900">
-                    {new Date(order.createdAt).toLocaleDateString('en-US', {
+                    {new Date(order.created_at).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
@@ -131,7 +131,7 @@ export default function Orders() {
                 <div>
                   <span className="text-sm text-gray-500">Total</span>
                   <p className="font-medium text-gray-900">
-                    ${order.total.toLocaleString()}
+                    ${order.total_amount.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -146,20 +146,20 @@ export default function Orders() {
             {/* Order Items */}
             <div className="divide-y divide-gray-200 px-6">
               {order.items.map((item) => (
-                <div key={item.productId} className="flex gap-4 py-4">
+                <div key={item.product_id} className="flex gap-4 py-4">
                   <Link
-                    to={`/products/${item.productId}`}
+                    to={`/products/${item.product_id}`}
                     className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100"
                   >
                     <img
-                      src={item.product.image}
+                      src={item.product.image_url}
                       alt={item.product.name}
                       className="h-full w-full object-cover"
                     />
                   </Link>
                   <div className="flex-1">
                     <Link
-                      to={`/products/${item.productId}`}
+                      to={`/products/${item.product_id}`}
                       className="font-medium text-gray-900 hover:text-blue-600"
                     >
                       {item.product.name}

@@ -137,6 +137,54 @@ export interface DemoKitProviderProps {
    * Useful for showing "simulated in demo mode" toast notifications.
    */
   onMutationIntercepted?: (context: MutationInterceptedContext) => void
+
+  /**
+   * Path aliases for matching fixtures across equivalent URL prefixes.
+   * Passed through to the core interceptor.
+   * @example { '/api/': '/v1/' }
+   */
+  pathAliases?: Record<string, string>
+
+  /**
+   * Log warnings when catch-all patterns match. Passed through to core.
+   * @default true in development
+   */
+  warnOnCatchAll?: boolean
+
+  // ============================================================================
+  // Query Cache Integration
+  // ============================================================================
+
+  /**
+   * TanStack Query QueryClient instance. When provided, all queries are
+   * automatically invalidated when demo mode toggles, ensuring stale
+   * real/demo data is cleared.
+   */
+  queryClient?: { invalidateQueries: () => void }
+
+  // ============================================================================
+  // URL Redirects
+  // ============================================================================
+
+  /**
+   * URL redirect mappings for navigating between real and demo entity pages.
+   * When demo mode toggles, if the current URL matches a pattern containing
+   * a UUID, the user is redirected to the demo URL (and vice versa).
+   *
+   * @example
+   * urlRedirects: [
+   *   { pattern: '/repositories/:id', demoUrl: '/repositories/demo-repo' },
+   *   { pattern: '/products/:id/*', demoUrl: '/products/demo-product/summary' },
+   * ]
+   */
+  urlRedirects?: Array<{
+    /** URL pattern with :id placeholder for UUID segments */
+    pattern: string
+    /** URL to navigate to when entering demo mode */
+    demoUrl: string
+    /** URL to navigate to when exiting demo mode. Defaults to the pattern's base path. */
+    exitUrl?: string
+  }>
 }
 
 /**

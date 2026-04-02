@@ -189,6 +189,8 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     detection,
     canDisable,
     onMutationIntercepted,
+    pathAliases,
+    warnOnCatchAll = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production',
   } = config
 
   // Auto-detect demo mode from URL
@@ -221,28 +223,39 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     ): Promise<Response> {
       // If demo mode is disabled, pass through
       if (!enabled) {
-        console.log('[DemoKit] Demo mode disabled, passing through')
         return originalFetch!(input, init)
       }
 
       const method = init?.method?.toUpperCase() || 'GET'
       const pathname = extractPathname(input, baseUrl)
 
-      console.log('[DemoKit] Intercepting request:', { method, pathname, enabled })
-      console.log('[DemoKit] Available fixtures:', Object.keys(currentFixtures))
+      // Try to find a matching fixture, also checking aliased paths
+      let match = findMatchingPattern(currentFixtures, method, pathname)
 
-      // Try to find a matching fixture
-      const match = findMatchingPattern(currentFixtures, method, pathname)
+      // If no match and pathAliases configured, try aliased paths
+      if (!match && pathAliases) {
+        for (const [from, to] of Object.entries(pathAliases)) {
+          if (pathname.startsWith(from)) {
+            const aliasedPath = to + pathname.slice(from.length)
+            match = findMatchingPattern(currentFixtures, method, aliasedPath)
+            if (match) break
+          }
+        }
+      }
 
       if (!match) {
         // No matching fixture - pass through to real API
-        console.log('[DemoKit] No matching fixture for:', `${method} ${pathname}`)
         return originalFetch!(input, init)
       }
 
-      console.log('[DemoKit] Found matching fixture:', match[0])
-
       const [pattern, matchResult] = match
+
+      // Warn on catch-all matches in development
+      if (warnOnCatchAll && pattern.includes('*')) {
+        console.warn(
+          `[DemoKit] Catch-all fixture matched: ${method} ${pathname} → "${pattern}". Consider adding a specific fixture.`
+        )
+      }
       const handler = currentFixtures[pattern] as FixtureHandler
 
       // Build request context for the handler

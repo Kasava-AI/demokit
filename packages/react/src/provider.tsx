@@ -77,6 +77,12 @@ export function DemoKitProvider({
   detection,
   canDisable,
   onMutationIntercepted,
+  pathAliases,
+  warnOnCatchAll,
+  // Query cache
+  queryClient: externalQueryClient,
+  // URL redirects
+  urlRedirects,
 }: DemoKitProviderProps) {
   // Start with initialEnabled for SSR to avoid hydration mismatch
   const [isDemoMode, setIsDemoMode] = useState(initialEnabled)
@@ -101,6 +107,41 @@ export function DemoKitProvider({
   const refetchFnRef = useRef<(() => Promise<void>) | null>(null)
 
   /**
+   * Handle URL redirects when demo mode toggles.
+   * Matches current URL against urlRedirects config and navigates if needed.
+   */
+  const handleUrlRedirect = useCallback((enteringDemo: boolean) => {
+    if (!urlRedirects?.length || typeof window === 'undefined') return
+
+    const path = window.location.pathname
+    const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+
+    for (const redirect of urlRedirects) {
+      // Convert pattern like '/repositories/:id' to regex
+      const patternRegex = new RegExp(
+        '^' + redirect.pattern
+          .replace(/:[a-zA-Z_]+/g, '([^/]+)')
+          .replace(/\*/g, '.*') + '$'
+      )
+
+      if (enteringDemo) {
+        // Entering demo: if URL has a real UUID, redirect to demo URL
+        if (patternRegex.test(path) && UUID_REGEX.test(path)) {
+          window.location.replace(redirect.demoUrl)
+          return
+        }
+      } else {
+        // Exiting demo: if URL matches the demo URL, redirect to exit URL
+        if (path.startsWith(redirect.demoUrl) || path === redirect.demoUrl) {
+          const exitUrl = redirect.exitUrl || redirect.pattern.replace(/\/:.*$/, '')
+          window.location.replace(exitUrl)
+          return
+        }
+      }
+    }
+  }, [urlRedirects])
+
+  /**
    * Create and configure the demo interceptor
    */
   const setupInterceptor = useCallback(
@@ -115,13 +156,23 @@ export function DemoKitProvider({
         detection,
         canDisable,
         onMutationIntercepted,
+        pathAliases,
+        warnOnCatchAll,
         onEnable: () => {
           setIsDemoMode(true)
           onDemoModeChange?.(true)
+          // Invalidate query cache so real data is replaced with demo data
+          externalQueryClient?.invalidateQueries()
+          // Redirect to demo URL if configured
+          handleUrlRedirect(true)
         },
         onDisable: () => {
           setIsDemoMode(false)
           onDemoModeChange?.(false)
+          // Invalidate query cache so demo data is replaced with real data
+          externalQueryClient?.invalidateQueries()
+          // Redirect away from demo URL if configured
+          handleUrlRedirect(false)
         },
       })
 
@@ -131,7 +182,7 @@ export function DemoKitProvider({
       setIsPublicDemo(interceptorRef.current.isPublicDemo())
       setIsHydrated(true)
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, canDisable, onMutationIntercepted]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, canDisable, onMutationIntercepted, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
   )
 
   /**

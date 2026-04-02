@@ -96,6 +96,23 @@ export interface DemoKitConfig {
   detection?: DetectionConfig
 
   /**
+   * Path aliases for matching fixtures across equivalent URL prefixes.
+   * Common in Next.js apps where `/api/*` rewrites to `/v1/*`.
+   * A fixture defined for `/v1/users` will also match `/api/users`.
+   *
+   * @example
+   * pathAliases: { '/api/': '/v1/' }
+   */
+  pathAliases?: Record<string, string>
+
+  /**
+   * Log a warning when a catch-all pattern (containing `*`) matches a request.
+   * Helps identify fixtures that need specific patterns.
+   * @default true in development, false in production
+   */
+  warnOnCatchAll?: boolean
+
+  /**
    * Guard callback that controls whether demo mode can be disabled.
    * Return `true` to allow disabling, `false` to prevent it,
    * or a string to prevent it and provide a reason message.

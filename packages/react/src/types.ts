@@ -1,4 +1,4 @@
-import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig } from '@demokit-ai/core'
+import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig, DetectionConfig, MutationInterceptedContext } from '@demokit-ai/core'
 import type { ReactNode } from 'react'
 
 /**
@@ -114,6 +114,29 @@ export interface DemoKitProviderProps {
    * @default 'http://localhost'
    */
   baseUrl?: string
+
+  // ============================================================================
+  // Detection & Guards
+  // ============================================================================
+
+  /**
+   * Auto-detection configuration for enabling demo mode based on URL.
+   * When configured, demo mode is automatically enabled on matching subdomains
+   * or when specific query parameters are present.
+   */
+  detection?: DetectionConfig
+
+  /**
+   * Guard callback that controls whether demo mode can be disabled.
+   * Return `true` to allow, `false` to prevent, or a string reason message.
+   */
+  canDisable?: () => boolean | string
+
+  /**
+   * Callback fired when a non-GET request is intercepted by a fixture.
+   * Useful for showing "simulated in demo mode" toast notifications.
+   */
+  onMutationIntercepted?: (context: MutationInterceptedContext) => void
 }
 
 /**
@@ -130,6 +153,12 @@ export interface DemoModeContextValue {
    * Always check this before rendering demo-dependent UI
    */
   isHydrated: boolean
+
+  /**
+   * Whether this is a public demo instance (auto-detected via subdomain).
+   * Useful for showing different CTAs (e.g., "Sign up" instead of "Exit Demo").
+   */
+  isPublicDemo: boolean
 
   // ============================================================================
   // Remote State (for DemoKit Cloud)
@@ -163,9 +192,10 @@ export interface DemoModeContextValue {
   enable(): void
 
   /**
-   * Disable demo mode
+   * Disable demo mode. Returns `true` if disabled successfully,
+   * `false` or a string reason if prevented by the `canDisable` guard.
    */
-  disable(): void
+  disable(): boolean | string
 
   /**
    * Toggle demo mode and return the new state

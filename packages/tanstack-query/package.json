@@ -24,14 +24,14 @@
     "@demokit-ai/react": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.81.5",
-    "@types/react": "^19.0.0",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.2"
+    "@tanstack/react-query": "^5.95.2",
+    "@types/react": "^19.2.14",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
   },
   "peerDependencies": {
     "@tanstack/react-query": ">=5.0.0",
-    "react": ">=17.0.0"
+    "react": ">=18.0.0"
   },
   "engines": { "node": ">=18" },
   "license": "Apache-2.0",

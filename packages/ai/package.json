@@ -23,19 +23,15 @@
   },
   "dependencies": {
     "@demokit-ai/core": "workspace:*",
-    "@ai-sdk/anthropic": "^2.0.45",
-    "@mastra/core": "^0.24.8",
-    "zod": "^4.2.1"
+    "@ai-sdk/anthropic": "^3.0.63",
+    "@mastra/core": "^1.15.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsup": "^8.3.5",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
-  },
-  "peerDependencies": {
-    "@mastra/langfuse": ">=0.1.0",
-    "langfuse": ">=3.0.0"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.1"
   },
   "peerDependenciesMeta": {
     "@mastra/langfuse": {
@@ -45,7 +41,7 @@
       "optional": true
     }
   },
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=20" },
   "license": "Apache-2.0",
   "sideEffects": false
 }

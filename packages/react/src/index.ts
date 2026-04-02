@@ -36,6 +36,7 @@ export { createRemoteSource } from './config'
 
 // Hooks
 export { useDemoMode, useIsDemoMode, useIsHydrated, useDemoSession } from './hooks'
+export { useDemoGuard } from './guard'
 
 // Components
 export { DemoModeBanner } from './banner'
@@ -52,6 +53,9 @@ export type {
   DemoModeBannerProps,
 } from './types'
 
+// Guard types
+export type { UseDemoGuardOptions, DemoGuardReturn } from './guard'
+
 // Component types (from component files)
 export type { DemoModeToggleProps } from './toggle'
 export type { PoweredByBadgeProps } from './powered-by'
@@ -63,4 +67,6 @@ export type {
   RequestContext,
   SessionState,
   RemoteConfig,
+  DetectionConfig,
+  MutationInterceptedContext,
 } from '@demokit-ai/core'

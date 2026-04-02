@@ -67,6 +67,8 @@ export type {
   RequestContext,
   MatchResult,
   ParsedPattern,
+  DetectionConfig,
+  MutationInterceptedContext,
   // Remote config types (for cloud-managed fixtures)
   RemoteConfig,
   CloudFixtureResponse,

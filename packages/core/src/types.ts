@@ -1,6 +1,49 @@
 import type { SessionState } from './session'
 
 /**
+ * Configuration for automatic demo mode detection based on URL
+ */
+export interface DetectionConfig {
+  /**
+   * Hostnames that should auto-enable demo mode
+   * @example ['demo.myapp.com', 'demo.localhost']
+   */
+  subdomains?: string[]
+
+  /**
+   * Query parameters that trigger demo mode when present
+   * @default ['demo']
+   * @example With ['demo'], visiting ?demo=true enables demo mode
+   */
+  queryParams?: string[]
+}
+
+/**
+ * Context passed to the onMutationIntercepted callback
+ */
+export interface MutationInterceptedContext {
+  /**
+   * The full URL of the intercepted request
+   */
+  url: string
+
+  /**
+   * HTTP method (POST, PUT, PATCH, DELETE)
+   */
+  method: string
+
+  /**
+   * URL parameters extracted from the pattern
+   */
+  params: Record<string, string>
+
+  /**
+   * The fixture pattern that matched
+   */
+  pattern: string
+}
+
+/**
  * Configuration for creating a demo interceptor
  */
 export interface DemoKitConfig {
@@ -44,6 +87,32 @@ export interface DemoKitConfig {
    * @default 'http://localhost'
    */
   baseUrl?: string
+
+  /**
+   * Auto-detection configuration for enabling demo mode based on URL
+   * When configured, demo mode is automatically enabled on matching subdomains
+   * or when specific query parameters are present
+   */
+  detection?: DetectionConfig
+
+  /**
+   * Guard callback that controls whether demo mode can be disabled.
+   * Return `true` to allow disabling, `false` to prevent it,
+   * or a string to prevent it and provide a reason message.
+   *
+   * @example
+   * canDisable: () => {
+   *   if (isPublicDemo) return 'Sign up to access your own data'
+   *   return true
+   * }
+   */
+  canDisable?: () => boolean | string
+
+  /**
+   * Callback fired when a non-GET request is intercepted by a fixture.
+   * Useful for showing "simulated in demo mode" toast notifications.
+   */
+  onMutationIntercepted?: (context: MutationInterceptedContext) => void
 }
 
 /**
@@ -132,14 +201,21 @@ export interface DemoInterceptor {
   enable(): void
 
   /**
-   * Disable demo mode - fetches will pass through to the real API
+   * Disable demo mode - fetches will pass through to the real API.
+   * Returns `true` if disabled successfully, `false` or a string reason
+   * if prevented by the `canDisable` guard.
    */
-  disable(): void
+  disable(): boolean | string
 
   /**
    * Check if demo mode is currently enabled
    */
   isEnabled(): boolean
+
+  /**
+   * Check if this is a public demo (auto-detected via subdomain)
+   */
+  isPublicDemo(): boolean
 
   /**
    * Toggle demo mode state and return the new state

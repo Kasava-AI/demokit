@@ -29,13 +29,13 @@
     "examples:unlink": "node scripts/link-examples.js unlink"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.7.2",
-    "yaml": "^2.3.4"
+    "@changesets/cli": "^2.30.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "yaml": "^2.8.3"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "packageManager": "pnpm@9.15.0"
 }

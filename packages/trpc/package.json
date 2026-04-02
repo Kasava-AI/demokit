@@ -28,17 +28,17 @@
     "@demokit-ai/react": "workspace:*"
   },
   "devDependencies": {
-    "@trpc/client": "^11.0.0-rc.532",
-    "@trpc/react-query": "^11.0.0-rc.532",
-    "@trpc/server": "^11.0.0-rc.532",
+    "@trpc/client": "^11.15.0",
+    "@trpc/react-query": "^11.15.0",
+    "@trpc/server": "^11.15.0",
     "@types/react": "^19.0.0",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.2"
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
   },
   "peerDependencies": {
-    "@trpc/client": ">=11.0.0-rc.0",
-    "@trpc/react-query": ">=11.0.0-rc.0",
-    "@trpc/server": ">=11.0.0-rc.0",
+    "@trpc/client": ">=11.15.0",
+    "@trpc/react-query": ">=11.15.0",
+    "@trpc/server": ">=11.15.0",
     "react": ">=17.0.0"
   },
   "engines": { "node": ">=18" },

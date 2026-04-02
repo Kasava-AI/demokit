@@ -25,14 +25,14 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.33.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.8"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.24.0",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.2"
+    "drizzle-kit": "^0.31.10",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
   },
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=20" },
   "license": "Apache-2.0",
   "sideEffects": false
 }

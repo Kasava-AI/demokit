@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Framework-agnostic demo mode SDK with fetch interception and fixture generation",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -42,10 +42,9 @@
     "vitest": "^2.1.9"
   },
   "peerDependencies": {
-    "@ai-sdk/anthropic": ">=1.0.0",
-    "@mastra/core": ">=1.0.0-beta.0",
-    "@mastra/langfuse": ">=0.2.0",
-    "@supabase/supabase-js": ">=2.0.0"
+    "@ai-sdk/anthropic": "3.0.63",
+    "@mastra/core": "1.15.0",
+    "@supabase/supabase-js": "2.100.0"
   },
   "peerDependenciesMeta": {
     "@ai-sdk/anthropic": {

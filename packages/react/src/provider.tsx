@@ -73,10 +73,15 @@ export function DemoKitProvider({
   initialEnabled = false,
   onDemoModeChange,
   baseUrl,
+  // Detection & guards
+  detection,
+  canDisable,
+  onMutationIntercepted,
 }: DemoKitProviderProps) {
   // Start with initialEnabled for SSR to avoid hydration mismatch
   const [isDemoMode, setIsDemoMode] = useState(initialEnabled)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isPublicDemo, setIsPublicDemo] = useState(false)
 
   // Remote loading state
   const [isLoading, setIsLoading] = useState(!!source?.apiKey)
@@ -107,6 +112,9 @@ export function DemoKitProvider({
         storageKey,
         initialEnabled,
         baseUrl,
+        detection,
+        canDisable,
+        onMutationIntercepted,
         onEnable: () => {
           setIsDemoMode(true)
           onDemoModeChange?.(true)
@@ -120,9 +128,10 @@ export function DemoKitProvider({
       // Sync state from storage after hydration
       const storedState = interceptorRef.current.isEnabled()
       setIsDemoMode(storedState)
+      setIsPublicDemo(interceptorRef.current.isPublicDemo())
       setIsHydrated(true)
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, canDisable, onMutationIntercepted]
   )
 
   /**
@@ -220,8 +229,8 @@ export function DemoKitProvider({
     interceptorRef.current?.enable()
   }, [])
 
-  const disable = useCallback(() => {
-    interceptorRef.current?.disable()
+  const disable = useCallback((): boolean | string => {
+    return interceptorRef.current?.disable() ?? true
   }, [])
 
   const toggle = useCallback(() => {
@@ -256,6 +265,7 @@ export function DemoKitProvider({
     () => ({
       isDemoMode,
       isHydrated,
+      isPublicDemo,
       isLoading,
       remoteError,
       remoteVersion,
@@ -270,6 +280,7 @@ export function DemoKitProvider({
     [
       isDemoMode,
       isHydrated,
+      isPublicDemo,
       isLoading,
       remoteError,
       remoteVersion,

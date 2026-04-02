@@ -4,6 +4,7 @@ import type {
   FixtureMap,
   FixtureHandler,
   RequestContext,
+  DetectionConfig,
 } from './types'
 import { findMatchingPattern } from './matcher'
 import { loadDemoState, saveDemoState, DEFAULT_STORAGE_KEY } from './storage'
@@ -131,6 +132,35 @@ function extractUrl(input: RequestInfo | URL, baseUrl: string): string {
 }
 
 /**
+ * Check if demo mode should be auto-enabled based on detection config
+ */
+function detectDemoMode(detection?: DetectionConfig): { detected: boolean; isPublicDemo: boolean } {
+  if (!detection || typeof window === 'undefined') {
+    return { detected: false, isPublicDemo: false }
+  }
+
+  // Check subdomain match
+  if (detection.subdomains?.length) {
+    const hostname = window.location.hostname
+    if (detection.subdomains.some((sub) => hostname === sub)) {
+      return { detected: true, isPublicDemo: true }
+    }
+  }
+
+  // Check query parameter
+  const queryParams = detection.queryParams ?? ['demo']
+  const searchParams = new URLSearchParams(window.location.search)
+  for (const param of queryParams) {
+    const value = searchParams.get(param)
+    if (value !== null && value !== 'false') {
+      return { detected: true, isPublicDemo: false }
+    }
+  }
+
+  return { detected: false, isPublicDemo: false }
+}
+
+/**
  * Create a demo interceptor that patches fetch to return mock data
  *
  * @param config - Configuration including fixtures and options
@@ -156,10 +186,16 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     onDisable,
     initialEnabled,
     baseUrl = 'http://localhost',
+    detection,
+    canDisable,
+    onMutationIntercepted,
   } = config
 
-  // Track state
-  let enabled = initialEnabled ?? loadDemoState(storageKey)
+  // Auto-detect demo mode from URL
+  const detectionResult = detectDemoMode(detection)
+
+  // Track state — detection overrides storage/initialEnabled
+  let enabled = detectionResult.detected || (initialEnabled ?? loadDemoState(storageKey))
   let currentFixtures: FixtureMap = { ...initialFixtures }
 
   // Create session state (in-memory, resets on page refresh)
@@ -231,6 +267,16 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
         session: sessionState,
       }
 
+      // Fire mutation callback for non-GET requests
+      if (method !== 'GET' && onMutationIntercepted) {
+        onMutationIntercepted({
+          url,
+          method,
+          params: matchResult.params,
+          pattern,
+        })
+      }
+
       // Execute handler and get result
       let result: unknown
       try {
@@ -279,16 +325,29 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
       onEnable?.()
     },
 
-    disable(): void {
-      if (!enabled) return
+    disable(): boolean | string {
+      if (!enabled) return true
+
+      if (canDisable) {
+        const result = canDisable()
+        if (result !== true) {
+          // Prevented — return the reason (false or string message)
+          return result
+        }
+      }
 
       enabled = false
       saveDemoState(storageKey, false)
       onDisable?.()
+      return true
     },
 
     isEnabled(): boolean {
       return enabled
+    },
+
+    isPublicDemo(): boolean {
+      return detectionResult.isPublicDemo
     },
 
     toggle(): boolean {

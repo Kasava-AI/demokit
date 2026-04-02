@@ -24,8 +24,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@demokit-ai/core": "workspace:*",
-    "@demokit-ai/react": "workspace:*"
+    "@demokit-ai/core": "^0.4.0",
+    "@demokit-ai/react": "^0.4.0"
   },
   "devDependencies": {
     "@remix-run/node": "^2.17.2",

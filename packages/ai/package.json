@@ -22,7 +22,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@demokit-ai/core": "workspace:*",
+    "@demokit-ai/core": "^0.4.0",
     "@ai-sdk/anthropic": "^3.0.63",
     "@mastra/core": "^1.15.0",
     "zod": "^4.3.6"

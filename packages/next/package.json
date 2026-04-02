@@ -32,8 +32,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@demokit-ai/core": "workspace:*",
-    "@demokit-ai/react": "workspace:*"
+    "@demokit-ai/core": "^0.4.0",
+    "@demokit-ai/react": "^0.4.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/intelligence",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "App intelligence scanning and analysis for DemoKit (BYOK support)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -24,8 +24,8 @@
   "dependencies": {
     "@demokit-ai/core": "workspace:*",
     "@demokit-ai/ai": "workspace:*",
-    "@ai-sdk/anthropic": "^3.0.63",
-    "@mastra/core": "^1.15.0",
+    "@ai-sdk/anthropic": "^3.0.68",
+    "@mastra/core": "^1.24.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

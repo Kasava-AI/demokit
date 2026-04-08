@@ -84,18 +84,6 @@ export const FEATURE_CATEGORIES = [
  */
 export const featureCategoryEnum = z.enum(FEATURE_CATEGORIES);
 
-export const FeatureSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  category: featureCategoryEnum,
-  relatedModels: z.array(z.string()),
-  relatedEndpoints: z.array(z.string()).optional(),
-  actions: z.array(z.string()).optional(),
-  dataRequirements: z.array(z.lazy(() => DataRequirementSchema)).optional(),
-  confidence: z.number().min(0).max(1),
-});
-
 /**
  * Feature categories
  */
@@ -115,11 +103,23 @@ export interface DataRequirement {
   conditions?: string[];
 }
 
-export const DataRequirementSchema: z.ZodType<DataRequirement> = z.object({
+export const DataRequirementSchema = z.object({
   model: z.string(),
-  minCount: z.number().int().min(0),
-  suggestedCount: z.number().int().min(1),
+  minCount: z.number().describe('Minimum records needed, integer >= 0'),
+  suggestedCount: z.number().describe('Suggested count for good demo, integer >= 1'),
   conditions: z.array(z.string()).optional(),
+});
+
+export const FeatureSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  category: featureCategoryEnum,
+  relatedModels: z.array(z.string()),
+  relatedEndpoints: z.array(z.string()).optional(),
+  actions: z.array(z.string()).optional(),
+  dataRequirements: z.array(DataRequirementSchema).optional(),
+  confidence: z.number().describe('Confidence score between 0 and 1'),
 });
 
 // ============================================================================
@@ -148,17 +148,6 @@ export interface UserJourney {
   confidence: number;
 }
 
-export const UserJourneySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  persona: z.string(),
-  steps: z.array(z.lazy(() => JourneyStepSchema)),
-  featuresUsed: z.array(z.string()),
-  dataFlow: z.array(z.string()),
-  confidence: z.number().min(0).max(1),
-});
-
 /**
  * A step in a user journey
  */
@@ -175,12 +164,23 @@ export interface JourneyStep {
   endpointsCalled?: string[];
 }
 
-export const JourneyStepSchema: z.ZodType<JourneyStep> = z.object({
-  order: z.number().int().min(1),
+export const JourneyStepSchema = z.object({
+  order: z.number().describe('Step number, 1-based integer'),
   action: z.string(),
   outcome: z.string(),
   modelsAffected: z.array(z.string()),
   endpointsCalled: z.array(z.string()).optional(),
+});
+
+export const UserJourneySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  persona: z.string(),
+  steps: z.array(JourneyStepSchema),
+  featuresUsed: z.array(z.string()),
+  dataFlow: z.array(z.string()),
+  confidence: z.number().describe('Confidence score between 0 and 1'),
 });
 
 // ============================================================================
@@ -207,16 +207,6 @@ export interface DataEntityMap {
   businessRelationships: BusinessRelationship[];
 }
 
-export const DataEntityMapSchema = z.object({
-  modelName: z.string(),
-  displayName: z.string(),
-  businessMeaning: z.string(),
-  exampleValues: z.record(z.string(), z.string()).optional(),
-  realisticFields: z.array(z.string()),
-  genericFields: z.array(z.string()),
-  businessRelationships: z.array(z.lazy(() => BusinessRelationshipSchema)),
-});
-
 /**
  * Business relationship between entities
  */
@@ -229,17 +219,26 @@ export interface BusinessRelationship {
   cardinality: "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
 }
 
-export const BusinessRelationshipSchema: z.ZodType<BusinessRelationship> =
-  z.object({
-    relatedEntity: z.string(),
-    description: z.string(),
-    cardinality: z.enum([
-      "one-to-one",
-      "one-to-many",
-      "many-to-one",
-      "many-to-many",
-    ]),
-  });
+export const BusinessRelationshipSchema = z.object({
+  relatedEntity: z.string(),
+  description: z.string(),
+  cardinality: z.enum([
+    "one-to-one",
+    "one-to-many",
+    "many-to-one",
+    "many-to-many",
+  ]),
+});
+
+export const DataEntityMapSchema = z.object({
+  modelName: z.string(),
+  displayName: z.string(),
+  businessMeaning: z.string(),
+  exampleValues: z.array(z.object({ field: z.string(), value: z.string() })).optional().describe('Field name to example value pairs'),
+  realisticFields: z.array(z.string()),
+  genericFields: z.array(z.string()),
+  businessRelationships: z.array(BusinessRelationshipSchema),
+});
 
 // ============================================================================
 // Dynamic Template Types
@@ -318,9 +317,9 @@ export const DynamicNarrativeTemplateSchema = z.object({
     suggestedCharacters: z.array(z.string()).optional(),
     suggestedTimeline: z.array(z.string()).optional(),
   }),
-  suggestedCounts: z.record(z.string(), z.number()),
+  suggestedCounts: z.array(z.object({ model: z.string(), count: z.number() })).describe('Model name to suggested record count pairs'),
   dataConditions: z.array(z.string()).optional(),
-  relevanceScore: z.number().min(0).max(1),
+  relevanceScore: z.number().describe('Relevance score between 0 and 1'),
 });
 
 // ============================================================================
@@ -368,7 +367,7 @@ export const AppIntelligenceSchema = z.object({
   entityMaps: z.array(DataEntityMapSchema),
   templates: z.array(DynamicNarrativeTemplateSchema),
   generatedAt: z.string().datetime(),
-  overallConfidence: z.number().min(0).max(1),
+  overallConfidence: z.number().describe('Overall confidence between 0 and 1'),
   suggestions: z.array(z.string()).optional(),
 });
 
@@ -406,9 +405,9 @@ export const IntelligenceBuildOptionsSchema = z.object({
   helpCenterUrl: z.string().url().optional(),
   readmeContent: z.string().optional(),
   documentationUrls: z.array(z.string().url()).optional(),
-  maxFeatures: z.number().int().min(INTELLIGENCE_LIMITS.maxFeatures.min).max(INTELLIGENCE_LIMITS.maxFeatures.max).default(INTELLIGENCE_DEFAULTS.maxFeatures),
-  maxJourneys: z.number().int().min(INTELLIGENCE_LIMITS.maxJourneys.min).max(INTELLIGENCE_LIMITS.maxJourneys.max).default(INTELLIGENCE_DEFAULTS.maxJourneys),
-  maxTemplates: z.number().int().min(INTELLIGENCE_LIMITS.maxTemplates.min).max(INTELLIGENCE_LIMITS.maxTemplates.max).default(INTELLIGENCE_DEFAULTS.maxTemplates),
+  maxFeatures: z.number().default(INTELLIGENCE_DEFAULTS.maxFeatures).describe('Max features to detect'),
+  maxJourneys: z.number().default(INTELLIGENCE_DEFAULTS.maxJourneys).describe('Max journeys to generate'),
+  maxTemplates: z.number().default(INTELLIGENCE_DEFAULTS.maxTemplates).describe('Max templates to generate'),
 });
 
 /**
@@ -446,7 +445,7 @@ export const IntelligenceProgressSchema = z.object({
     "complete",
     "failed",
   ]),
-  progress: z.number().min(0).max(100),
+  progress: z.number().describe('Overall progress percentage, 0 to 100'),
   message: z.string(),
   errors: z.array(z.string()).optional(),
 });

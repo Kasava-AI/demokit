@@ -27,7 +27,7 @@ export const SourceAnalysisSchema = z.object({
   mentionedFeatures: z.array(z.string()).describe('Features mentioned in this source'),
   summary: z.string().describe('Brief summary of what this source tells us'),
   keyInsights: z.array(z.string()).describe('Key insights extracted'),
-  confidence: z.number().min(0).max(1).describe('Confidence in the analysis'),
+  confidence: z.number().describe('Confidence in the analysis, between 0 and 1'),
   analyzedAt: z.string().describe('ISO timestamp of when analysis was performed'),
 })
 

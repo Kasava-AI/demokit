@@ -6,6 +6,7 @@ dist/
 .next/
 **/.next/
 *.tsbuildinfo
+.turbo/
 
 # Test coverage
 coverage/

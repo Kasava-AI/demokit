@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/db",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Database schema and utilities for DemoKit (PostgreSQL + pgvector with Drizzle ORM). Schema-only package - migrations handled by consuming apps.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -8,15 +8,29 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./schema": {
-      "import": { "types": "./dist/schema/index.d.ts", "default": "./dist/schema/index.js" },
-      "require": { "types": "./dist/schema/index.d.cts", "default": "./dist/schema/index.cjs" }
+      "import": {
+        "types": "./dist/schema/index.d.ts",
+        "default": "./dist/schema/index.js"
+      },
+      "require": {
+        "types": "./dist/schema/index.d.cts",
+        "default": "./dist/schema/index.cjs"
+      }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch --no-dts",
@@ -28,11 +42,14 @@
     "postgres": "^3.4.8"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "drizzle-kit": "^0.31.10",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "Apache-2.0",
   "sideEffects": false
 }

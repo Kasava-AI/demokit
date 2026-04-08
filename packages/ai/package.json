@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/ai",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "AI-powered narrative generation for DemoKit (L3 generation with BYOK support)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -22,7 +22,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@demokit-ai/core": "^0.4.0",
+    "@demokit-ai/core": "workspace:*",
     "@ai-sdk/anthropic": "^3.0.63",
     "@mastra/core": "^1.15.0",
     "zod": "^4.3.6"

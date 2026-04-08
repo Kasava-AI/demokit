@@ -281,9 +281,15 @@ export async function synthesizeIntelligence(
 ): Promise<SynthesisResult> {
   const { maxFeatures = INTELLIGENCE_DEFAULTS.maxFeatures, maxJourneys = INTELLIGENCE_DEFAULTS.maxJourneys } = options
 
+  console.log(`[synthesizeIntelligence] Starting synthesis — ${sources.length} sources, maxFeatures=${maxFeatures}, maxJourneys=${maxJourneys}`)
+  console.log(`[synthesizeIntelligence] Source types: ${sources.map(s => `${s.type}(${s.status})`).join(', ')}`)
+
   const agent = createSynthesisAgent()
   const context = buildSourceContext(schema, sources)
   const schemaModelNames = Object.keys(schema.models)
+
+  console.log(`[synthesizeIntelligence] Schema models: [${schemaModelNames.join(', ')}]`)
+  console.log(`[synthesizeIntelligence] Context length: ${context.length} chars`)
 
   const basePrompt = `Analyze the following application sources and synthesize a complete understanding.
 
@@ -318,17 +324,23 @@ For entity maps, include:
   for (let attempt = 0; attempt <= MAX_QUALITY_RETRIES; attempt++) {
     let synthesisResult: SynthesisResult
 
+    const startTime = Date.now()
+    console.log(`[synthesizeIntelligence] Attempt ${attempt + 1}/${MAX_QUALITY_RETRIES + 1} — calling agent.generate()...`)
+
     try {
       const result = await agent.generate(prompt, {
         structuredOutput: { schema: SynthesisResultSchema },
         providerOptions: ANTHROPIC_CACHE_OPTIONS,
       })
 
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
       synthesisResult = result.object as SynthesisResult
+      console.log(`[synthesizeIntelligence] Agent responded in ${duration}s — ${synthesisResult.features?.length ?? 0} features, ${synthesisResult.journeys?.length ?? 0} journeys, ${synthesisResult.entityMaps?.length ?? 0} entity maps`)
     } catch (error) {
-      // On structured output parse failure, use last result or a minimal fallback
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+      console.error(`[synthesizeIntelligence] Agent error after ${duration}s:`, error instanceof Error ? error.message : error)
       if (lastResult) {
-        console.log(`[synthesizeIntelligence] Structured output failed on attempt ${attempt + 1}, using previous result`)
+        console.log(`[synthesizeIntelligence] Falling back to previous result`)
         return lastResult
       }
       throw error
@@ -349,16 +361,19 @@ For entity maps, include:
 
     // Run quality validation
     const validation = validateSynthesisQuality(synthesisResult, schemaModelNames)
+    console.log(`[synthesizeIntelligence] Quality: ${validation.score.toFixed(2)} — ${validation.issues.length === 0 ? 'no issues' : validation.issues.join('; ')}`)
 
     if (validation.score >= MIN_QUALITY_SCORE || attempt === MAX_QUALITY_RETRIES) {
-      if (validation.issues.length > 0) {
-        console.log(`[synthesizeIntelligence] Quality score: ${validation.score.toFixed(2)} with ${validation.issues.length} issues (accepted after ${attempt + 1} attempt(s))`)
+      if (validation.issues.length > 0 && attempt > 0) {
+        console.log(`[synthesizeIntelligence] Accepted with ${validation.issues.length} issues after ${attempt + 1} attempt(s)`)
+      } else if (validation.issues.length === 0) {
+        console.log(`[synthesizeIntelligence] Passed quality checks`)
       }
       return synthesisResult
     }
 
     // Quality too low — retry with targeted feedback
-    console.log(`[synthesizeIntelligence] Quality score: ${validation.score.toFixed(2)} — retrying (attempt ${attempt + 2}/${MAX_QUALITY_RETRIES + 1})`)
+    console.log(`[synthesizeIntelligence] Below threshold (${MIN_QUALITY_SCORE}) — retrying with feedback`)
     lastResult = synthesisResult
     prompt = buildSynthesisRetryPrompt(validation, basePrompt)
   }
@@ -404,9 +419,13 @@ export async function generateTemplates(
 ): Promise<DynamicNarrativeTemplate[]> {
   const { maxTemplates = INTELLIGENCE_DEFAULTS.maxTemplates } = options
 
+  console.log(`[generateTemplates] Starting — maxTemplates=${maxTemplates}, app="${synthesis.appName}", ${synthesis.features.length} features, ${synthesis.journeys.length} journeys`)
+
   const agent = createTemplateAgent()
   const featureIds = synthesis.features.map(f => f.id)
   const journeyIds = synthesis.journeys.map(j => j.id)
+  console.log(`[generateTemplates] Feature IDs: [${featureIds.join(', ')}]`)
+  console.log(`[generateTemplates] Journey IDs: [${journeyIds.join(', ')}]`)
 
   const context = `
 ## Application
@@ -455,11 +474,16 @@ For each template include:
   for (let attempt = 0; attempt <= MAX_QUALITY_RETRIES; attempt++) {
     let templates: DynamicNarrativeTemplate[]
 
+    const startTime = Date.now()
+    console.log(`[generateTemplates] Attempt ${attempt + 1}/${MAX_QUALITY_RETRIES + 1} — calling agent.generate()...`)
+
     try {
       const result = await agent.generate(prompt, {
         structuredOutput: { schema: TemplateGenerationResultSchema },
         providerOptions: ANTHROPIC_CACHE_OPTIONS,
       })
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
 
       // Fix array-format suggestedCounts back to Record<string, number>
       const raw = result.object as Record<string, unknown>
@@ -475,9 +499,15 @@ For each template include:
       }
 
       templates = (result.object as unknown as { templates: DynamicNarrativeTemplate[] }).templates
+      console.log(`[generateTemplates] Agent responded in ${duration}s — ${templates.length} templates generated`)
+      for (const t of templates) {
+        console.log(`[generateTemplates]   "${t.name}" (${t.category}) — features: [${t.featuresShowcased.join(', ')}], relevance: ${t.relevanceScore}`)
+      }
     } catch (error) {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+      console.error(`[generateTemplates] Agent error after ${duration}s:`, error instanceof Error ? error.message : error)
       if (lastTemplates.length > 0) {
-        console.log(`[generateTemplates] Structured output failed on attempt ${attempt + 1}, using previous result`)
+        console.log(`[generateTemplates] Falling back to previous result (${lastTemplates.length} templates)`)
         return lastTemplates
       }
       throw error
@@ -485,15 +515,19 @@ For each template include:
 
     // Run quality validation
     const validation = validateTemplateQuality(templates, featureIds, journeyIds)
+    console.log(`[generateTemplates] Quality: ${validation.score.toFixed(2)} — ${validation.issues.length === 0 ? 'no issues' : validation.issues.join('; ')}`)
 
     if (validation.score >= MIN_QUALITY_SCORE || attempt === MAX_QUALITY_RETRIES) {
-      if (validation.issues.length > 0) {
-        console.log(`[generateTemplates] Quality score: ${validation.score.toFixed(2)} with ${validation.issues.length} issues (accepted after ${attempt + 1} attempt(s))`)
+      if (validation.issues.length > 0 && attempt > 0) {
+        console.log(`[generateTemplates] Accepted with ${validation.issues.length} issues after ${attempt + 1} attempt(s)`)
+      } else if (validation.issues.length === 0) {
+        console.log(`[generateTemplates] Passed quality checks`)
       }
       return templates
     }
 
-    console.log(`[generateTemplates] Quality score: ${validation.score.toFixed(2)} — retrying (attempt ${attempt + 2}/${MAX_QUALITY_RETRIES + 1})`)
+    // Quality too low — retry with targeted feedback
+    console.log(`[generateTemplates] Below threshold (${MIN_QUALITY_SCORE}) — retrying with feedback`)
     lastTemplates = templates
     prompt = buildTemplateRetryPrompt(validation, basePrompt)
   }
@@ -525,18 +559,31 @@ export async function buildIntelligence(
     maxTemplates = INTELLIGENCE_DEFAULTS.maxTemplates,
   } = options
 
+  const totalStart = Date.now()
+  console.log(`[buildIntelligence] ========== Starting ==========`)
+  console.log(`[buildIntelligence] Schema: ${Object.keys(schema.models).length} models, ${schema.endpoints.length} endpoints`)
+  console.log(`[buildIntelligence] Sources: ${sources.length} (${sources.filter(s => s.status === 'success').length} successful)`)
+  console.log(`[buildIntelligence] Limits: maxFeatures=${maxFeatures}, maxJourneys=${maxJourneys}, maxTemplates=${maxTemplates}`)
+
   // Step 1: Synthesize intelligence from sources
+  console.log(`[buildIntelligence] Step 1/2: Synthesizing...`)
+  const synthStart = Date.now()
   const synthesis = await synthesizeIntelligence(schema, sources, {
     maxFeatures,
     maxJourneys,
   })
+  console.log(`[buildIntelligence] Step 1/2 done in ${((Date.now() - synthStart) / 1000).toFixed(1)}s — "${synthesis.appName}" (${synthesis.domain}), ${synthesis.features.length} features, ${synthesis.journeys.length} journeys, ${synthesis.entityMaps.length} entity maps`)
 
   // Step 2: Generate templates from synthesis
+  console.log(`[buildIntelligence] Step 2/2: Generating templates...`)
+  const tmplStart = Date.now()
   const templates = await generateTemplates(synthesis, schema, {
     maxTemplates,
   })
+  console.log(`[buildIntelligence] Step 2/2 done in ${((Date.now() - tmplStart) / 1000).toFixed(1)}s — ${templates.length} templates`)
 
   // Step 3: Assemble complete intelligence
+  console.log(`[buildIntelligence] ========== Complete in ${((Date.now() - totalStart) / 1000).toFixed(1)}s ==========`)
   const intelligence: AppIntelligence = {
     appName: synthesis.appName,
     appDescription: synthesis.appDescription,

@@ -14,7 +14,7 @@
  * // Create provider
  * const authProvider = createSupabaseAuthProvider({
  *   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
- *   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+ *   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
  * })
  *
  * // Use in app

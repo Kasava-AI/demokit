@@ -8,8 +8,7 @@ import { NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { notFound, handleError } from '@/lib/api/utils'
-import { projects, fixtures, fixtureGenerations } from '@db'
-import { eq, and } from 'drizzle-orm'
+import { projects, fixtures, fixtureGenerations, eq, and } from '@db'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string; generationId: string }> }
 

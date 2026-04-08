@@ -10,8 +10,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, handleError } from '@/lib/api/utils'
 import { createProjectSchema } from '@/lib/api/schemas'
-import { projects } from '@db'
-import { desc } from 'drizzle-orm'
+import { projects, desc } from '@db'
 
 /**
  * GET /api/projects

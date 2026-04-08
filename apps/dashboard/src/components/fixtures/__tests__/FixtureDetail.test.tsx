@@ -112,7 +112,7 @@ const mockData: DemoData = {
 
 const mockNarrative: DemoNarrative = {
   scenario: "E-commerce test data",
-  seedPhrase: "test-seed-123",
+  keyPoints: ["Browse products", "Add to cart"],
 };
 
 const mockValidation: ValidationResult = {

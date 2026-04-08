@@ -10,8 +10,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, handleError } from '@/lib/api/utils'
 import { createTemplateSchema } from '@/lib/api/schemas'
-import { projects, templates } from '@db'
-import { eq } from 'drizzle-orm'
+import { projects, templates, eq } from '@db'
 
 type RouteParams = { params: Promise<{ id: string }> }
 type TemplateCategory = 'demo' | 'happyPath' | 'edgeCase' | 'onboarding' | 'migration' | 'recovery' | 'growth' | 'decline' | 'comparison' | 'training'

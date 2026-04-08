@@ -9,8 +9,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { notFound, handleError } from '@/lib/api/utils'
 import { updateDemoVariantSchema } from '@/lib/api/schemas'
-import { projects, demos, demoVariants, fixtures } from '@db'
-import { eq, and, ne } from 'drizzle-orm'
+import { projects, demos, demoVariants, fixtures, eq, and, ne } from '@db'
 
 type RouteParams = { params: Promise<{ id: string; demoId: string; variantId: string }> }
 

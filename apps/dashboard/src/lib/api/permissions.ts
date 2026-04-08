@@ -6,8 +6,7 @@
  */
 
 import { getDb } from './db'
-import { projects } from '@db'
-import { eq } from 'drizzle-orm'
+import { projects, eq } from '@db'
 import type { OrgPermission, ProjectPermission } from '@/lib/permissions'
 
 type OrgMemberRole = 'owner' | 'admin' | 'member' | 'viewer'

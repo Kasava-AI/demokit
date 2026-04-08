@@ -16,8 +16,8 @@ import {
   features,
   userJourneys,
   templates,
+  eq,
 } from '@db'
-import { eq } from 'drizzle-orm'
 
 type RouteParams = { params: Promise<{ id: string }> }
 

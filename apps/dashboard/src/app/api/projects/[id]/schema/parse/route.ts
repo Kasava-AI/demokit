@@ -16,8 +16,7 @@ import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, badRequest, handleError } from '@/lib/api/utils'
 import { parseSchema, parseSchemaMultiFormat } from '@demokit-ai/core'
 import type { CodebaseFile, ParseResult, SchemaFormat } from '@demokit-ai/core'
-import { projects } from '@db'
-import { eq } from 'drizzle-orm'
+import { projects, eq } from '@db'
 
 type RouteParams = { params: Promise<{ id: string }> }
 

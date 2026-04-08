@@ -1,5 +1,4 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Check if auth is enabled.
@@ -12,13 +11,13 @@ export function isAuthEnabled(): boolean {
 }
 
 // Singleton instance for browser client
-let browserClient: SupabaseClient | null = null
+let browserClient: ReturnType<typeof createBrowserClient> | null = null
 
 /**
  * Create a Supabase client for browser usage.
  * When auth is disabled (USE_AUTH=false), returns null.
  */
-export function createClient(): SupabaseClient | null {
+export function createClient(): ReturnType<typeof createBrowserClient> | null {
   // If auth is disabled, return null
   if (!isAuthEnabled()) {
     return null

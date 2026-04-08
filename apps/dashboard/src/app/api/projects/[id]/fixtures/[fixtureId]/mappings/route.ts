@@ -12,8 +12,7 @@ import {
   createEndpointMappingSchema,
   bulkCreateEndpointMappingsSchema,
 } from '@/lib/api/schemas'
-import { projects, fixtures, endpointMappings } from '@db'
-import { eq, and } from 'drizzle-orm'
+import { projects, fixtures, endpointMappings, eq, and } from '@db'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string }> }
 

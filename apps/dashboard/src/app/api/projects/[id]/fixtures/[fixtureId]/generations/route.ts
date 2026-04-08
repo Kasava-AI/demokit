@@ -9,8 +9,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { notFound, handleError } from '@/lib/api/utils'
 import { createGenerationSchema } from '@/lib/api/schemas'
-import { projects, fixtures, fixtureGenerations } from '@db'
-import { eq, and, desc } from 'drizzle-orm'
+import { projects, fixtures, fixtureGenerations, eq, and, desc } from '@db'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string }> }
 

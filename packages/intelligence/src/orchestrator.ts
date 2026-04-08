@@ -1,11 +1,8 @@
 /**
  * Intelligence Orchestrator
  *
- * Main entry point that orchestrates the complete intelligence building process:
- * 1. Schema parsing
- * 2. Web scraping (website, help center, documentation)
- * 3. Intelligence synthesis
- * 4. Template generation
+ * Main entry point that delegates to the Mastra workflow for intelligence building.
+ * Maintains backward-compatible API while using the declarative workflow internally.
  *
  * @module
  */
@@ -26,6 +23,7 @@ import {
   type FirecrawlScrapeOptions,
 } from './firecrawl-scraper'
 import { INTELLIGENCE_DEFAULTS } from './config'
+import { executeIntelligenceWorkflow } from './workflow'
 
 // ============================================================================
 // Types
@@ -50,15 +48,14 @@ export interface OrchestratorOptions extends IntelligenceBuildOptions {
   useFirecrawl?: boolean
   /** Firecrawl-specific options */
   firecrawlOptions?: FirecrawlScrapeOptions
+  /** Use the Mastra workflow pipeline (default: true) */
+  useWorkflow?: boolean
 }
 
 // ============================================================================
 // Progress Helpers
 // ============================================================================
 
-/**
- * Create a progress update
- */
 function createProgress(
   phase: IntelligencePhase,
   progress: number,
@@ -68,9 +65,6 @@ function createProgress(
   return { phase, progress, message, errors }
 }
 
-/**
- * Report progress if callback is provided
- */
 function reportProgress(
   callback: ProgressCallback | undefined,
   phase: IntelligencePhase,
@@ -90,24 +84,14 @@ function reportProgress(
 /**
  * Build complete app intelligence from options
  *
- * This is the main entry point for building app intelligence.
- * It orchestrates all steps and provides progress updates.
+ * Delegates to the Mastra workflow by default for declarative execution
+ * with type-safe state, per-step retries, and quality guardrails.
+ *
+ * Falls back to the legacy imperative flow when useWorkflow is false
+ * or when progress callbacks require fine-grained updates.
  *
  * @param options - Build options with schema content and source URLs
  * @returns Complete AppIntelligence
- *
- * @example
- * ```typescript
- * const intelligence = await buildAppIntelligence({
- *   schemaContent: openApiYaml,
- *   websiteUrl: 'https://myapp.com',
- *   helpCenterUrl: 'https://help.myapp.com',
- *   onProgress: (p) => console.log(`${p.phase}: ${p.progress}%`),
- * })
- *
- * console.log(intelligence.features) // Detected features
- * console.log(intelligence.templates) // Generated templates
- * ```
  */
 export async function buildAppIntelligence(
   options: OrchestratorOptions
@@ -125,24 +109,88 @@ export async function buildAppIntelligence(
     onProgress,
     scrapeOptions = {},
     schemaOnly = false,
-    useFirecrawl = true, // Default to Firecrawl for better scraping
+    useFirecrawl = true,
     firecrawlOptions = {},
+    useWorkflow = true,
   } = options
 
-  // Validate that either schemaContent or schema is provided
+  // Validate input
   if (!schemaContent && !providedSchema) {
     throw new Error('Either schemaContent or schema must be provided')
   }
 
+  // Use the Mastra workflow for declarative execution
+  // Falls back to legacy flow when progress callbacks need fine-grained updates
+  if (useWorkflow && !onProgress) {
+    reportProgress(onProgress, 'parsing_schema', 5, 'Starting intelligence workflow...')
+
+    try {
+      const intelligence = await executeIntelligenceWorkflow({
+        schemaContent,
+        schema: providedSchema,
+        websiteUrl,
+        helpCenterUrl,
+        readmeContent,
+        documentationUrls,
+        maxFeatures,
+        maxJourneys,
+        maxTemplates,
+        schemaOnly,
+        useFirecrawl,
+        scrapeTimeout: scrapeOptions.timeout || 30000,
+      })
+
+      reportProgress(
+        onProgress,
+        'complete',
+        100,
+        `Complete: ${intelligence.features.length} features, ${intelligence.journeys.length} journeys, ${intelligence.templates.length} templates`
+      )
+
+      return intelligence
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      reportProgress(onProgress, 'failed', 0, `Workflow failed: ${message}`, [message])
+      throw error
+    }
+  }
+
+  // Legacy flow with fine-grained progress reporting
+  return buildAppIntelligenceLegacy(options)
+}
+
+// ============================================================================
+// Legacy Flow (for backward compat with progress callbacks)
+// ============================================================================
+
+async function buildAppIntelligenceLegacy(
+  options: OrchestratorOptions
+): Promise<AppIntelligence> {
+  const {
+    schemaContent,
+    schema: providedSchema,
+    websiteUrl,
+    helpCenterUrl,
+    readmeContent,
+    documentationUrls,
+    maxFeatures = INTELLIGENCE_DEFAULTS.maxFeatures,
+    maxJourneys = INTELLIGENCE_DEFAULTS.maxJourneys,
+    maxTemplates = INTELLIGENCE_DEFAULTS.maxTemplates,
+    onProgress,
+    scrapeOptions = {},
+    schemaOnly = false,
+    useFirecrawl = true,
+    firecrawlOptions = {},
+  } = options
+
   const sources: IntelligenceSource[] = []
 
-  // Step 1: Parse OpenAPI schema (or use provided parsed schema)
+  // Step 1: Parse OpenAPI schema
   reportProgress(onProgress, 'parsing_schema', 5, 'Parsing OpenAPI schema...')
 
   let schema: DemokitSchema
   try {
     if (providedSchema) {
-      // Use pre-parsed schema directly
       schema = providedSchema as unknown as DemokitSchema
       sources.push({
         type: 'schema',
@@ -151,7 +199,6 @@ export async function buildAppIntelligence(
         status: 'success',
       })
     } else {
-      // Parse from raw content
       schema = await parseOpenAPIFromString(schemaContent!)
       sources.push({
         type: 'schema',
@@ -196,7 +243,6 @@ export async function buildAppIntelligence(
         })
         reportProgress(onProgress, 'fetching_website', 30, 'Website content fetched')
       } else {
-        // Fail-fast: throw immediately on scraping failure
         const errorMessage = `Website scraping failed: ${result.error}`
         reportProgress(onProgress, 'failed', 0, errorMessage, [errorMessage])
         throw new Error(errorMessage)
@@ -225,7 +271,6 @@ export async function buildAppIntelligence(
         })
         reportProgress(onProgress, 'fetching_help_center', 45, 'Help center content fetched')
       } else {
-        // Fail-fast: throw immediately on scraping failure
         const errorMessage = `Help center scraping failed: ${result.error}`
         reportProgress(onProgress, 'failed', 0, errorMessage, [errorMessage])
         throw new Error(errorMessage)
@@ -270,7 +315,6 @@ export async function buildAppIntelligence(
             status: 'success',
           })
         } else {
-          // Fail-fast: throw immediately on documentation fetch failure
           const errorMessage = `Documentation fetch failed for ${url}: HTTP ${response.status}`
           reportProgress(onProgress, 'failed', 0, errorMessage, [errorMessage])
           throw new Error(errorMessage)
@@ -290,7 +334,7 @@ export async function buildAppIntelligence(
     intelligence = await buildIntelligence(schema, sources, {
       maxFeatures,
       maxJourneys,
-      maxTemplates: 0, // We'll generate templates in the next step
+      maxTemplates: 0,
     })
     reportProgress(onProgress, 'synthesizing', 85, `Synthesized ${intelligence.features.length} features, ${intelligence.journeys.length} journeys`)
   } catch (error) {
@@ -301,9 +345,7 @@ export async function buildAppIntelligence(
 
   // Step 7: Generate templates
   reportProgress(onProgress, 'generating_templates', 90, `Generating up to ${maxTemplates} templates...`)
-  // Templates are already generated in buildIntelligence, but if maxTemplates was 0, regenerate
   if (intelligence.templates.length === 0 && maxTemplates > 0) {
-    // Re-run with templates
     intelligence = await buildIntelligence(schema, sources, {
       maxFeatures,
       maxJourneys,
@@ -327,12 +369,6 @@ export async function buildAppIntelligence(
 
 /**
  * Build intelligence from schema only (no web scraping)
- *
- * Faster version that only uses the OpenAPI schema.
- *
- * @param schemaContent - OpenAPI schema as string
- * @param options - Optional settings
- * @returns AppIntelligence from schema only
  */
 export async function buildIntelligenceFromSchema(
   schemaContent: string,
@@ -352,11 +388,6 @@ export async function buildIntelligenceFromSchema(
 
 /**
  * Quick analysis - returns just features and journeys without templates
- *
- * Useful for initial exploration of an API.
- *
- * @param schemaContent - OpenAPI schema as string
- * @returns Basic intelligence without templates
  */
 export async function quickAnalyze(
   schemaContent: string

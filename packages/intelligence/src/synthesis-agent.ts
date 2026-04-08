@@ -1,9 +1,15 @@
 /**
  * Intelligence Synthesis Agent
  *
- * Mastra agent that synthesizes multi-source data into AppIntelligence.
+ * Mastra agents that synthesize multi-source data into AppIntelligence.
  * Takes schema + website content + help center + README and outputs
  * features, user journeys, and entity mappings.
+ *
+ * Best practices applied:
+ * - Prompt caching: static instructions cached, dynamic context per-request
+ * - Structured output with fallback error strategy
+ * - Quality guardrails with retry on poor output
+ * - Agent delegation for source analysis
  *
  * @module
  */
@@ -24,47 +30,35 @@ import {
   DynamicNarrativeTemplateSchema,
 } from './types'
 import { INTELLIGENCE_DEFAULTS } from './config'
+import {
+  validateSynthesisQuality,
+  buildSynthesisRetryPrompt,
+  validateTemplateQuality,
+  buildTemplateRetryPrompt,
+} from './processors'
 
 // ============================================================================
-// Synthesis Result Schema
+// Constants
 // ============================================================================
 
-/**
- * Schema for the synthesis result (what the AI returns)
- */
-export const SynthesisResultSchema = z.object({
-  appName: z.string().describe('Application name'),
-  appDescription: z.string().describe('What the application does'),
-  domain: z.string().describe('Domain category (e-commerce, b2b-saas, etc.)'),
-  industry: z.string().optional().describe('Industry vertical if identifiable'),
-  features: z.array(FeatureSchema).describe('Detected application features'),
-  journeys: z.array(UserJourneySchema).describe('Common user journeys'),
-  entityMaps: z.array(DataEntityMapSchema).describe('Business meaning of entities'),
-  suggestions: z.array(z.string()).optional().describe('Suggestions for improving demo data'),
-})
+/** Maximum retries when quality guardrails fail */
+const MAX_QUALITY_RETRIES = 2
 
-export type SynthesisResult = z.infer<typeof SynthesisResultSchema>
+/** Minimum quality score to accept without retry */
+const MIN_QUALITY_SCORE = 0.6
 
 // ============================================================================
-// Agent Factory
+// Static Instructions (cached by Anthropic for 5-min TTL)
 // ============================================================================
 
 /**
- * Create an intelligence synthesis agent
+ * Static synthesis instructions — large block that benefits from prompt caching.
+ * Separated from dynamic per-request context following the kasava pattern.
  *
- * This agent analyzes multiple sources and synthesizes:
- * - Application identity and domain
- * - Features and capabilities
- * - Common user journeys
- * - Business meaning of data entities
- *
- * @returns Configured Mastra Agent instance
+ * When using Anthropic models, this block is cached via providerOptions
+ * on the generate() call with cacheControl: 'ephemeral' (5-min TTL).
  */
-export function createSynthesisAgent(): Agent {
-  return new Agent({
-    id: 'demokit-intelligence-synthesis',
-    name: 'DemoKit Intelligence Synthesis',
-    instructions: `You are an expert at understanding applications from multiple sources.
+const SYNTHESIS_STATIC_INSTRUCTIONS = `You are an expert at understanding applications from multiple sources.
 
 Your job is to analyze:
 1. **API Schema**: Models, relationships, endpoints
@@ -99,7 +93,87 @@ For each significant model in the schema:
 - Focus on features that would make compelling demos
 - Think about what story the data should tell
 
-Be thorough but practical. Focus on information that helps generate better demo data.`,
+Be thorough but practical. Focus on information that helps generate better demo data.`
+
+/**
+ * Static template generation instructions — cached separately.
+ */
+const TEMPLATE_STATIC_INSTRUCTIONS = `You are an expert at creating compelling demo scenarios.
+
+Given an application's features and user journeys, generate narrative templates that:
+
+1. **Tell Stories**: Each template should tell a coherent story
+2. **Showcase Features**: Highlight the app's capabilities
+3. **Vary Scenarios**: Cover different use cases (happy path, edge cases, growth, decline)
+4. **Be Realistic**: Suggest data that feels real and relevant
+5. **Support Sales**: Think about what would impress prospects
+
+## Template Categories
+- onboarding: First-time user experience
+- happyPath: Everything works perfectly
+- edgeCase: Handling unusual situations
+- recovery: Problem resolution
+- growth: Positive trends, scaling
+- decline: Churn, issues (useful for "problem → solution" demos)
+- comparison: Before/after scenarios
+- demo: Sales demo scenarios
+- training: Training/tutorial scenarios
+
+## For Each Template
+- Create a compelling scenario description
+- List 3-5 key story points
+- Suggest characters/personas
+- Estimate good record counts per model
+- Note any special data conditions (e.g., "one order should be delayed")
+
+Focus on templates that would make the demo memorable and impactful.`
+
+/**
+ * Anthropic provider options for prompt caching.
+ * Static instruction blocks are cached for 5 minutes, reducing
+ * cost and latency on repeated calls.
+ */
+const ANTHROPIC_CACHE_OPTIONS = {
+  anthropic: {
+    cacheControl: { type: 'ephemeral' as const },
+  },
+}
+
+// ============================================================================
+// Synthesis Result Schema
+// ============================================================================
+
+/**
+ * Schema for the synthesis result (what the AI returns)
+ */
+export const SynthesisResultSchema = z.object({
+  appName: z.string().describe('Application name'),
+  appDescription: z.string().describe('What the application does'),
+  domain: z.string().describe('Domain category (e-commerce, b2b-saas, etc.)'),
+  industry: z.string().optional().describe('Industry vertical if identifiable'),
+  features: z.array(FeatureSchema).describe('Detected application features'),
+  journeys: z.array(UserJourneySchema).describe('Common user journeys'),
+  entityMaps: z.array(DataEntityMapSchema).describe('Business meaning of entities'),
+  suggestions: z.array(z.string()).optional().describe('Suggestions for improving demo data'),
+})
+
+export type SynthesisResult = z.infer<typeof SynthesisResultSchema>
+
+// ============================================================================
+// Agent Factory
+// ============================================================================
+
+/**
+ * Create an intelligence synthesis agent with prompt caching
+ *
+ * Uses Anthropic's ephemeral cache control on static instructions
+ * so repeated calls within 5 minutes reuse the cached prompt prefix.
+ */
+export function createSynthesisAgent(): Agent {
+  return new Agent({
+    id: 'demokit-intelligence-synthesis',
+    name: 'DemoKit Intelligence Synthesis',
+    instructions: SYNTHESIS_STATIC_INSTRUCTIONS,
     model: anthropic('claude-haiku-4-5-20251001'),
   })
 }
@@ -145,7 +219,6 @@ export function buildSourceContext(
   const websiteSource = sources.find(s => s.type === 'website' && s.status === 'success')
   if (websiteSource?.content) {
     sections.push('\n## Website Content\n')
-    // Truncate if too long
     const content = websiteSource.content.length > 10000
       ? websiteSource.content.slice(0, 10000) + '\n... [truncated]'
       : websiteSource.content
@@ -190,10 +263,13 @@ export function buildSourceContext(
 /**
  * Synthesize app intelligence from schema and sources
  *
+ * Includes quality guardrails: validates output and retries with
+ * targeted feedback if quality is below threshold.
+ *
  * @param schema - Parsed DemokitSchema
  * @param sources - Intelligence sources with content
  * @param options - Synthesis options
- * @returns Synthesized intelligence (without templates - those are generated separately)
+ * @returns Synthesized intelligence (without templates)
  */
 export async function synthesizeIntelligence(
   schema: DemokitSchema,
@@ -205,19 +281,11 @@ export async function synthesizeIntelligence(
 ): Promise<SynthesisResult> {
   const { maxFeatures = INTELLIGENCE_DEFAULTS.maxFeatures, maxJourneys = INTELLIGENCE_DEFAULTS.maxJourneys } = options
 
-  console.log('[synthesizeIntelligence] Starting synthesis...')
-  console.log(`[synthesizeIntelligence] Options: maxFeatures=${maxFeatures}, maxJourneys=${maxJourneys}`)
-  console.log(`[synthesizeIntelligence] Sources count: ${sources.length}`)
-
-  console.log('[synthesizeIntelligence] Creating synthesis agent...')
   const agent = createSynthesisAgent()
-  console.log('[synthesizeIntelligence] Agent created')
-
-  console.log('[synthesizeIntelligence] Building source context...')
   const context = buildSourceContext(schema, sources)
-  console.log(`[synthesizeIntelligence] Context built, length: ${context.length} chars`)
+  const schemaModelNames = Object.keys(schema.models)
 
-  const prompt = `Analyze the following application sources and synthesize a complete understanding.
+  const basePrompt = `Analyze the following application sources and synthesize a complete understanding.
 
 ${context}
 
@@ -243,51 +311,60 @@ For entity maps, include:
 - genericFields: Fields that can be generic
 - businessRelationships: Array of { relatedEntity, description, cardinality } where cardinality is one-to-one, one-to-many, many-to-one, or many-to-many`
 
-  console.log(`[synthesizeIntelligence] Prompt length: ${prompt.length} chars`)
-  console.log('[synthesizeIntelligence] ANTHROPIC_API_KEY present:', !!process.env.ANTHROPIC_API_KEY)
-  console.log('[synthesizeIntelligence] ANTHROPIC_API_KEY length:', process.env.ANTHROPIC_API_KEY?.length || 0)
+  // Quality guardrails: retry with feedback if output is poor
+  let prompt = basePrompt
+  let lastResult: SynthesisResult | null = null
 
-  console.log('[synthesizeIntelligence] Calling agent.generate()...')
-  const startTime = Date.now()
+  for (let attempt = 0; attempt <= MAX_QUALITY_RETRIES; attempt++) {
+    let synthesisResult: SynthesisResult
 
-  // Add a timeout to prevent indefinite hangs
-  const timeoutMs = 120000 // 2 minutes
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(`agent.generate() timed out after ${timeoutMs}ms`)), timeoutMs)
-  })
-
-  // Log progress every 10 seconds
-  const progressInterval = setInterval(() => {
-    console.log(`[synthesizeIntelligence] Still waiting... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`)
-  }, 10000)
-
-  try {
-    console.log('[synthesizeIntelligence] Starting Promise.race with timeout...')
-    const result = await Promise.race([
-      agent.generate(prompt, {
+    try {
+      const result = await agent.generate(prompt, {
         structuredOutput: { schema: SynthesisResultSchema },
-      }),
-      timeoutPromise,
-    ])
+        providerOptions: ANTHROPIC_CACHE_OPTIONS,
+      })
 
-    const duration = Date.now() - startTime
-    console.log(`[synthesizeIntelligence] agent.generate() completed in ${duration}ms`)
-    console.log(`[synthesizeIntelligence] Result type: ${typeof result}`)
-    console.log(`[synthesizeIntelligence] Result keys: ${Object.keys(result || {}).join(', ')}`)
-
-    if (result.object) {
-      const obj = result.object as SynthesisResult
-      console.log(`[synthesizeIntelligence] Synthesis complete: ${obj.features?.length || 0} features, ${obj.journeys?.length || 0} journeys`)
+      synthesisResult = result.object as SynthesisResult
+    } catch (error) {
+      // On structured output parse failure, use last result or a minimal fallback
+      if (lastResult) {
+        console.log(`[synthesizeIntelligence] Structured output failed on attempt ${attempt + 1}, using previous result`)
+        return lastResult
+      }
+      throw error
     }
 
-    return result.object as SynthesisResult
-  } catch (error) {
-    const duration = Date.now() - startTime
-    console.error(`[synthesizeIntelligence] Error after ${duration}ms:`, error)
-    throw error
-  } finally {
-    clearInterval(progressInterval)
+    // Fix array-format exampleValues back to Record<string, string>
+    const raw = synthesisResult as Record<string, unknown>
+    const entityMaps = raw.entityMaps as Array<Record<string, unknown>> | undefined
+    if (entityMaps) {
+      for (const em of entityMaps) {
+        if (Array.isArray(em.exampleValues)) {
+          em.exampleValues = Object.fromEntries(
+            (em.exampleValues as Array<{ field: string; value: string }>).map(e => [e.field, e.value])
+          )
+        }
+      }
+    }
+
+    // Run quality validation
+    const validation = validateSynthesisQuality(synthesisResult, schemaModelNames)
+
+    if (validation.score >= MIN_QUALITY_SCORE || attempt === MAX_QUALITY_RETRIES) {
+      if (validation.issues.length > 0) {
+        console.log(`[synthesizeIntelligence] Quality score: ${validation.score.toFixed(2)} with ${validation.issues.length} issues (accepted after ${attempt + 1} attempt(s))`)
+      }
+      return synthesisResult
+    }
+
+    // Quality too low — retry with targeted feedback
+    console.log(`[synthesizeIntelligence] Quality score: ${validation.score.toFixed(2)} — retrying (attempt ${attempt + 2}/${MAX_QUALITY_RETRIES + 1})`)
+    lastResult = synthesisResult
+    prompt = buildSynthesisRetryPrompt(validation, basePrompt)
   }
+
+  // Should not reach here, but satisfy TypeScript
+  return lastResult!
 }
 
 // ============================================================================
@@ -302,50 +379,21 @@ export const TemplateGenerationResultSchema = z.object({
 })
 
 /**
- * Create a template generation agent
- *
- * This agent takes synthesized intelligence and generates
- * dynamic narrative templates for demos.
+ * Create a template generation agent with prompt caching
  */
 export function createTemplateAgent(): Agent {
   return new Agent({
     id: 'demokit-template-generator',
     name: 'DemoKit Template Generator',
-    instructions: `You are an expert at creating compelling demo scenarios.
-
-Given an application's features and user journeys, generate narrative templates that:
-
-1. **Tell Stories**: Each template should tell a coherent story
-2. **Showcase Features**: Highlight the app's capabilities
-3. **Vary Scenarios**: Cover different use cases (happy path, edge cases, growth, decline)
-4. **Be Realistic**: Suggest data that feels real and relevant
-5. **Support Sales**: Think about what would impress prospects
-
-## Template Categories
-- onboarding: First-time user experience
-- happyPath: Everything works perfectly
-- edgeCase: Handling unusual situations
-- recovery: Problem resolution
-- growth: Positive trends, scaling
-- decline: Churn, issues (useful for "problem → solution" demos)
-- comparison: Before/after scenarios
-- demo: Sales demo scenarios
-- training: Training/tutorial scenarios
-
-## For Each Template
-- Create a compelling scenario description
-- List 3-5 key story points
-- Suggest characters/personas
-- Estimate good record counts per model
-- Note any special data conditions (e.g., "one order should be delayed")
-
-Focus on templates that would make the demo memorable and impactful.`,
+    instructions: TEMPLATE_STATIC_INSTRUCTIONS,
     model: anthropic('claude-haiku-4-5-20251001'),
   })
 }
 
 /**
  * Generate dynamic templates from synthesized intelligence
+ *
+ * Includes quality guardrails and fallback error strategy.
  */
 export async function generateTemplates(
   synthesis: SynthesisResult,
@@ -356,13 +404,9 @@ export async function generateTemplates(
 ): Promise<DynamicNarrativeTemplate[]> {
   const { maxTemplates = INTELLIGENCE_DEFAULTS.maxTemplates } = options
 
-  console.log('[generateTemplates] Starting template generation...')
-  console.log(`[generateTemplates] maxTemplates=${maxTemplates}`)
-  console.log(`[generateTemplates] App: ${synthesis.appName}, Features: ${synthesis.features.length}, Journeys: ${synthesis.journeys.length}`)
-
-  console.log('[generateTemplates] Creating template agent...')
   const agent = createTemplateAgent()
-  console.log('[generateTemplates] Agent created')
+  const featureIds = synthesis.features.map(f => f.id)
+  const journeyIds = synthesis.journeys.map(j => j.id)
 
   const context = `
 ## Application
@@ -384,7 +428,7 @@ ${Object.keys(schema.models).join(', ')}
 ${synthesis.entityMaps.map(e => `- ${e.modelName}: ${e.businessMeaning}`).join('\n')}
 `
 
-  const prompt = `Generate up to ${maxTemplates} narrative templates for demos of this application:
+  const basePrompt = `Generate up to ${maxTemplates} narrative templates for demos of this application:
 
 ${context}
 
@@ -405,34 +449,56 @@ For each template include:
 - dataConditions: Optional array of special data conditions
 - relevanceScore: 0-1 score for how relevant this template is`
 
-  console.log(`[generateTemplates] Prompt length: ${prompt.length} chars`)
-  console.log('[generateTemplates] Calling agent.generate() with structuredOutput...')
-  const startTime = Date.now()
+  let prompt = basePrompt
+  let lastTemplates: DynamicNarrativeTemplate[] = []
 
-  // Log progress every 10 seconds
-  const progressInterval = setInterval(() => {
-    console.log(`[generateTemplates] Still waiting... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`)
-  }, 10000)
+  for (let attempt = 0; attempt <= MAX_QUALITY_RETRIES; attempt++) {
+    let templates: DynamicNarrativeTemplate[]
 
-  try {
-    const result = await agent.generate(prompt, {
-      structuredOutput: { schema: TemplateGenerationResultSchema },
-    })
+    try {
+      const result = await agent.generate(prompt, {
+        structuredOutput: { schema: TemplateGenerationResultSchema },
+        providerOptions: ANTHROPIC_CACHE_OPTIONS,
+      })
 
-    const duration = Date.now() - startTime
-    console.log(`[generateTemplates] agent.generate() completed in ${duration}ms`)
+      // Fix array-format suggestedCounts back to Record<string, number>
+      const raw = result.object as Record<string, unknown>
+      const rawTemplates = raw.templates as Array<Record<string, unknown>> | undefined
+      if (rawTemplates) {
+        for (const t of rawTemplates) {
+          if (Array.isArray(t.suggestedCounts)) {
+            t.suggestedCounts = Object.fromEntries(
+              (t.suggestedCounts as Array<{ model: string; count: number }>).map(e => [e.model, e.count])
+            )
+          }
+        }
+      }
 
-    const templates = (result.object as { templates: DynamicNarrativeTemplate[] }).templates
-    console.log(`[generateTemplates] Generated ${templates?.length || 0} templates`)
+      templates = (result.object as unknown as { templates: DynamicNarrativeTemplate[] }).templates
+    } catch (error) {
+      if (lastTemplates.length > 0) {
+        console.log(`[generateTemplates] Structured output failed on attempt ${attempt + 1}, using previous result`)
+        return lastTemplates
+      }
+      throw error
+    }
 
-    return templates
-  } catch (error) {
-    const duration = Date.now() - startTime
-    console.error(`[generateTemplates] Error after ${duration}ms:`, error)
-    throw error
-  } finally {
-    clearInterval(progressInterval)
+    // Run quality validation
+    const validation = validateTemplateQuality(templates, featureIds, journeyIds)
+
+    if (validation.score >= MIN_QUALITY_SCORE || attempt === MAX_QUALITY_RETRIES) {
+      if (validation.issues.length > 0) {
+        console.log(`[generateTemplates] Quality score: ${validation.score.toFixed(2)} with ${validation.issues.length} issues (accepted after ${attempt + 1} attempt(s))`)
+      }
+      return templates
+    }
+
+    console.log(`[generateTemplates] Quality score: ${validation.score.toFixed(2)} — retrying (attempt ${attempt + 2}/${MAX_QUALITY_RETRIES + 1})`)
+    lastTemplates = templates
+    prompt = buildTemplateRetryPrompt(validation, basePrompt)
   }
+
+  return lastTemplates
 }
 
 // ============================================================================
@@ -442,14 +508,7 @@ For each template include:
 /**
  * Build complete app intelligence from schema and sources
  *
- * This is the main entry point that orchestrates:
- * 1. Synthesis of multi-source data
- * 2. Template generation
- *
- * @param schema - Parsed DemokitSchema
- * @param sources - Intelligence sources with content
- * @param options - Build options
- * @returns Complete AppIntelligence
+ * Orchestrates synthesis + template generation with quality guardrails.
  */
 export async function buildIntelligence(
   schema: DemokitSchema,
@@ -466,32 +525,18 @@ export async function buildIntelligence(
     maxTemplates = INTELLIGENCE_DEFAULTS.maxTemplates,
   } = options
 
-  console.log('[buildIntelligence] ========== Starting intelligence build ==========')
-  console.log(`[buildIntelligence] Schema models: ${Object.keys(schema.models).length}`)
-  console.log(`[buildIntelligence] Sources: ${sources.length}`)
-  console.log(`[buildIntelligence] Options: maxFeatures=${maxFeatures}, maxJourneys=${maxJourneys}, maxTemplates=${maxTemplates}`)
-
   // Step 1: Synthesize intelligence from sources
-  console.log('[buildIntelligence] Step 1: Synthesizing intelligence...')
-  const synthesisStartTime = Date.now()
   const synthesis = await synthesizeIntelligence(schema, sources, {
     maxFeatures,
     maxJourneys,
   })
-  console.log(`[buildIntelligence] Step 1 complete in ${Date.now() - synthesisStartTime}ms`)
-  console.log(`[buildIntelligence] Synthesis result: ${synthesis.features.length} features, ${synthesis.journeys.length} journeys`)
 
   // Step 2: Generate templates from synthesis
-  console.log('[buildIntelligence] Step 2: Generating templates...')
-  const templatesStartTime = Date.now()
   const templates = await generateTemplates(synthesis, schema, {
     maxTemplates,
   })
-  console.log(`[buildIntelligence] Step 2 complete in ${Date.now() - templatesStartTime}ms`)
-  console.log(`[buildIntelligence] Generated ${templates.length} templates`)
 
   // Step 3: Assemble complete intelligence
-  console.log('[buildIntelligence] Step 3: Assembling intelligence object...')
   const intelligence: AppIntelligence = {
     appName: synthesis.appName,
     appDescription: synthesis.appDescription,
@@ -507,7 +552,6 @@ export async function buildIntelligence(
     suggestions: synthesis.suggestions,
   }
 
-  console.log('[buildIntelligence] ========== Intelligence build complete ==========')
   return intelligence
 }
 

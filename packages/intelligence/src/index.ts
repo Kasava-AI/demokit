@@ -76,3 +76,36 @@ export {
   type SourceContribution,
   type LinkingResult,
 } from './source-linker'
+
+// Mastra tools (scraper tools with toModelOutput)
+export {
+  scrapeUrlTool,
+  scrapeWebsiteTool,
+  scrapeHelpCenterTool,
+  fetchDocumentationTool,
+} from './tools'
+
+// Quality processors (validation and retry prompts)
+export {
+  validateSynthesisQuality,
+  validateTemplateQuality,
+  buildSynthesisRetryPrompt,
+  buildTemplateRetryPrompt,
+  type QualityValidationResult,
+} from './processors'
+
+// Evals / Scorers
+export {
+  scoreFeatureCompleteness,
+  scoreJourneyCoherence,
+  scoreTemplateRelevance,
+  scoreIntelligenceQuality,
+  type ScorerResult,
+} from './evals'
+
+// Workflow
+export {
+  intelligenceWorkflow,
+  executeIntelligenceWorkflow,
+  type WorkflowInput,
+} from './workflow'

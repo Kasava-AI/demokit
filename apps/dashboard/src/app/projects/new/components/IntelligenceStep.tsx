@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { CardTitle, CardDescription } from '@/components/ui/card'
-import { ArrowLeft, ArrowRight, Sparkles, AlertCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Wand2, AlertCircle } from 'lucide-react'
 import { IntelligenceProgress as IntelligenceProgressDisplay } from '@/components/intelligence/IntelligenceProgress'
 import { useStreamIntelligence } from '@/hooks/use-stream-intelligence'
 import type { IntelligenceProgress } from '@intelligence'
@@ -61,7 +61,7 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
         <Card className="border-success/30 bg-success/5">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-success mb-4">
-              <Sparkles className="h-5 w-5" />
+              <Wand2 className="h-5 w-5" />
               <span className="font-medium">Intelligence gathered successfully</span>
             </div>
             <div className="grid grid-cols-3 gap-4 text-sm">
@@ -88,7 +88,7 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" onClick={runIntelligence}>
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Wand2 className="mr-2 h-4 w-4" />
               Re-run Analysis
             </Button>
             <Button onClick={onNext}>
@@ -114,7 +114,7 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
         <Card>
           <CardContent className="p-8 text-center">
             <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Sparkles className="h-8 w-8 text-primary" />
+              <Wand2 className="h-8 w-8 text-primary" />
             </div>
             <h3 className="text-lg font-medium mb-2">Ready to Analyze</h3>
             <p className="text-sm text-muted-foreground mb-6">
@@ -122,7 +122,7 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
               {data.sources.readmeContent ? ', and documentation' : ''} to understand your application.
             </p>
             <Button onClick={runIntelligence} size="lg" disabled={!data.schemaContent}>
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Wand2 className="mr-2 h-4 w-4" />
               Start Analysis
             </Button>
             {!data.schemaContent && (

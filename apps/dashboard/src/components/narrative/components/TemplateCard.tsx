@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import { Sparkles, Check } from 'lucide-react'
+import { Wand2, Check } from 'lucide-react'
 import type { DynamicNarrativeTemplate } from './types'
 
 interface TemplateCardProps {
@@ -32,7 +32,7 @@ export function TemplateCard({ template, isSelected, disabled, onClick }: Templa
             <span className="font-medium text-sm truncate">{template.name}</span>
             {template.relevanceScore >= 0.85 && (
               <Badge variant="secondary" className="text-xs shrink-0">
-                <Sparkles className="h-3 w-3 mr-1" />
+                <Wand2 className="h-3 w-3 mr-1" />
                 Recommended
               </Badge>
             )}

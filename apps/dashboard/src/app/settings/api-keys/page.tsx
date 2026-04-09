@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import {
   Key,
-  Sparkles,
+  Wand2,
   Globe,
   Brain,
   Eye,
@@ -52,8 +52,8 @@ const PROVIDERS = {
   anthropic: {
     name: 'Anthropic',
     icon: Brain,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-500/10',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
     description: 'Required for L3 AI-powered fixture generation',
     placeholder: 'sk-ant-api...',
     docsUrl: 'https://console.anthropic.com/settings/keys',
@@ -61,17 +61,17 @@ const PROVIDERS = {
   voyage: {
     name: 'Voyage AI',
     icon: Globe,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
     description: 'For code embeddings and semantic search',
     placeholder: 'pa-...',
     docsUrl: 'https://dash.voyageai.com/api-keys',
   },
   openai: {
     name: 'OpenAI',
-    icon: Sparkles,
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
+    icon: Wand2,
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
     description: 'Alternative embedding provider',
     placeholder: 'sk-...',
     docsUrl: 'https://platform.openai.com/api-keys',
@@ -79,8 +79,8 @@ const PROVIDERS = {
   firecrawl: {
     name: 'Firecrawl',
     icon: Globe,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
     description: 'For web scraping during app intelligence',
     placeholder: 'fc-...',
     docsUrl: 'https://firecrawl.dev/app/api-keys',
@@ -227,9 +227,9 @@ export default function ApiKeysSettingsPage() {
       </div>
 
       {/* Info Banner */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-4">
+      <div className="rounded-lg border bg-primary/5 p-4">
         <div className="flex gap-3">
-          <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-blue-800 dark:text-blue-200">
               Your keys are stored locally

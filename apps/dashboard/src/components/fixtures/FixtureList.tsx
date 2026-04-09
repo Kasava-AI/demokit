@@ -12,7 +12,8 @@
 import { useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, Database, Plus } from 'lucide-react'
+import { Database, Plus } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { FixtureCard } from './FixtureCard'
 import {
   useFixtures,
@@ -158,11 +159,17 @@ export function FixtureList({
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-12">
-          <div className="flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground">Loading fixtures...</p>
-          </div>
+        <CardHeader>
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-4 w-40" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="p-4 rounded-lg border space-y-2">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          ))}
         </CardContent>
       </Card>
     )

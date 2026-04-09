@@ -47,7 +47,7 @@ import {
 import {
   ArrowRight,
   ArrowLeft,
-  Sparkles,
+  Wand2,
   Check,
   Boxes,
   Route,
@@ -388,7 +388,7 @@ export function DemoComposer({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Wand2 className="h-5 w-5 text-primary" />
             Create Demo
           </DialogTitle>
           <DialogDescription>
@@ -883,7 +883,7 @@ export function DemoComposer({
             {isLastStep ? (
               <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
                 {isSubmitting ? 'Creating...' : 'Create Demo'}
-                <Sparkles className="h-4 w-4 ml-2" />
+                <Wand2 className="h-4 w-4 ml-2" />
               </Button>
             ) : (
               <Button onClick={goNext}>

@@ -289,9 +289,9 @@ export function SchemaPreviewStep({
             {state.parsedSchema.warnings.map((warning, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-sm"
+                className="flex items-start gap-2 p-2 bg-warning/10 rounded-lg text-sm"
               >
-                <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
+                <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                 <div>
                   <Badge variant="outline" className="text-xs mb-1">
                     {warning.code}

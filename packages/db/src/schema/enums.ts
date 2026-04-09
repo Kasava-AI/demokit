@@ -41,7 +41,7 @@ export const generationLevel = pgEnum('generation_level', [
 export const userRole = pgEnum('user_role', ['owner', 'admin', 'member', 'viewer']);
 
 // Organization member role
-export const orgMemberRole = pgEnum('org_member_role', ['owner', 'admin', 'member']);
+export const orgMemberRole = pgEnum('org_member_role', ['owner', 'admin', 'member', 'viewer']);
 
 // Invitation status
 export const invitationStatus = pgEnum('invitation_status', ['pending', 'accepted', 'expired', 'revoked']);

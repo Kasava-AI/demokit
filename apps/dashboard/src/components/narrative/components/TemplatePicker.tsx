@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { X, Sparkles, ChevronRight } from 'lucide-react'
+import { X, Wand2, ChevronRight } from 'lucide-react'
 import { TemplateCard } from './TemplateCard'
 import type { DynamicNarrativeTemplate } from './types'
 import { TEMPLATES_VISIBLE_COUNT } from './types'
@@ -45,7 +45,7 @@ export function TemplatePicker({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <Wand2 className="h-4 w-4 text-muted-foreground" />
           Quick Start from Template
         </Label>
         {selectedTemplate && (

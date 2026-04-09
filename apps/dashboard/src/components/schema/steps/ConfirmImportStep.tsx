@@ -248,7 +248,7 @@ export function ConfirmImportStep({
 
       {/* Success message - shown briefly before onComplete is called */}
       {saveSchema.isSuccess && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg">
+        <div className="flex items-center justify-center gap-2 p-3 bg-success/10 text-success rounded-lg">
           <CheckCircle className="h-4 w-4" />
           <span className="text-sm font-medium">
             Schema imported successfully!

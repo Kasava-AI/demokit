@@ -25,7 +25,7 @@ import {
 import {
   Building2,
   Target,
-  Sparkles,
+  Wand2,
   Globe,
   Users,
   ChevronDown,
@@ -91,10 +91,10 @@ const DOMAIN_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   'e-commerce': Globe,
   'healthcare': Building2,
   'fintech': Building2,
-  'saas': Sparkles,
+  'saas': Wand2,
   'social': Users,
   'education': Building2,
-  'default': Sparkles,
+  'default': Wand2,
 }
 
 function getDomainIcon(domain?: string | null) {
@@ -236,7 +236,7 @@ export function ProductSummaryCard({
             {hasAnalysisSummary && (
               <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
+                  <Wand2 className="h-4 w-4 text-primary" />
                   <p className="text-sm font-medium text-foreground">AI Analysis</p>
                   {analysisSummary.analyzedAt && (
                     <span className="text-xs text-muted-foreground ml-auto">
@@ -293,7 +293,7 @@ export function ProductSummaryCard({
                     {appIdentity?.valueProposition && (
                       <div className="p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
-                          <Sparkles className="h-3 w-3 text-muted-foreground" />
+                          <Wand2 className="h-3 w-3 text-muted-foreground" />
                           <p className="text-xs font-medium text-muted-foreground">
                             Value Proposition
                           </p>

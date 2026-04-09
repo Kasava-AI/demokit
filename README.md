@@ -113,6 +113,20 @@ Visit <http://localhost:3000?demo=true> to see demo mode in action.
 
 See the [Examples](#examples) section below for all available examples (Next.js, TanStack Query, SWR, Remix, React Router, tRPC).
 
+### Set up with AI
+
+The fastest way to add DemoKit is to paste this prompt into your AI coding tool (Claude Code, Cursor, Codex, Copilot, etc.):
+
+> **Add DemoKit to this project.** Analyze my codebase to detect the framework (Next.js, Remix, React Router, TanStack Query, SWR, tRPC, or plain React), find my API routes and fetch calls, install the correct `@demokit-ai` packages, generate realistic fixture data for each endpoint, wire up `DemoKitProvider` in my root layout, and add Next.js middleware if needed. Create a `lib/fixtures.ts` with at least 2 scenarios (default and empty-state). Reference the [examples](./examples) for patterns. After setup, visiting any page with `?demo=true` should activate demo mode.
+
+For deeper integration with your AI tool, grab a config template from [`templates/`](./templates):
+
+| Tool | File | Command |
+|------|------|---------|
+| Claude Code | `CLAUDE.md` | `curl -o CLAUDE.md https://raw.githubusercontent.com/Kasava-AI/demokit/main/templates/CLAUDE.md` |
+| Cursor | `.cursor/rules` | `mkdir -p .cursor && curl -o .cursor/rules https://raw.githubusercontent.com/Kasava-AI/demokit/main/templates/.cursor/rules` |
+| OpenAI Codex | `AGENTS.md` | `curl -o AGENTS.md https://raw.githubusercontent.com/Kasava-AI/demokit/main/templates/AGENTS.md` |
+
 ### Add to an existing project
 
 ```bash

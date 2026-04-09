@@ -29,7 +29,7 @@ import {
   Link2,
   BarChart3,
   Settings,
-  Sparkles,
+  Wand2,
 } from 'lucide-react'
 
 export interface Feature {
@@ -347,7 +347,7 @@ export function FeaturesPreview({
                 className="gap-1.5"
                 onClick={handleCreateDemo}
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Wand2 className="h-3.5 w-3.5" />
                 Create Demo
               </Button>
             )}

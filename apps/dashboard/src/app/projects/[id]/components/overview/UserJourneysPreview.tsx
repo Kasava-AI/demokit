@@ -29,7 +29,7 @@ import {
   ArrowRight,
   Globe,
   Database,
-  Sparkles,
+  Wand2,
   Check,
 } from 'lucide-react'
 
@@ -395,7 +395,7 @@ export function UserJourneysPreview({
                 className="gap-1.5"
                 onClick={handleCreateDemo}
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Wand2 className="h-3.5 w-3.5" />
                 Create Demo
               </Button>
             )}

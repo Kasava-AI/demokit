@@ -9,6 +9,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { clusterColor } from '../../../../../lib/colors'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,17 +56,10 @@ function detectClusters(models: string[]): Cluster[] {
     { pattern: /^(doc|content|page|post)/i, name: 'Content' },
   ]
 
-  // Cluster colors (muted, accessible)
-  const clusterColors: Record<string, string> = {
-    'Auth': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    'Orders': 'bg-green-500/10 text-green-600 border-green-500/20',
-    'Products': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-    'Integrations': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-    'Analytics': 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
-    'Config': 'bg-slate-500/10 text-slate-600 border-slate-500/20',
-    'Teams': 'bg-pink-500/10 text-pink-600 border-pink-500/20',
-    'Content': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    'Other': 'bg-muted text-muted-foreground border-muted',
+  // Cluster colors from centralized utility
+  const getClusterClasses = (name: string) => {
+    const c = clusterColor(name)
+    return `${c.bgColor} ${c.textColor} ${c.borderColor}`
   }
 
   // Assign models to clusters based on naming
@@ -95,7 +89,7 @@ function detectClusters(models: string[]): Cluster[] {
     .map(([name, modelSet]) => ({
       name,
       models: Array.from(modelSet),
-      color: clusterColors[name] || clusterColors['Other'],
+      color: getClusterClasses(name),
     }))
     .sort((a, b) => b.models.length - a.models.length)
 }

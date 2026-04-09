@@ -19,7 +19,7 @@ import {
 import type { DemokitSchema, GenerationState } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap } from "lucide-react";
+import { Wand2, Zap } from "lucide-react";
 
 // Animation variants for sections
 const sectionVariants = {
@@ -194,7 +194,7 @@ export function FixtureCreationFlow({
               onClick={() => onLevelChange("narrative-driven")}
               disabled={isGenerating}
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Wand2 className="h-3.5 w-3.5" />
               <span>AI-Powered (L3)</span>
             </Button>
           </div>

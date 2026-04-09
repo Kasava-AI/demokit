@@ -1,0 +1,45 @@
+{
+  "name": "create-demokit",
+  "version": "0.1.1",
+  "description": "Set up DemoKit in your project — interactive product demos with mock data",
+  "type": "module",
+  "bin": {
+    "create-demokit": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --no-dts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@demokit-ai/core": "workspace:*",
+    "@types/node": "^22.15.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kasava-AI/demokit.git",
+    "directory": "packages/create-demokit"
+  },
+  "keywords": [
+    "demokit",
+    "demo",
+    "mock",
+    "fixtures",
+    "interactive-demo",
+    "product-demo"
+  ]
+}

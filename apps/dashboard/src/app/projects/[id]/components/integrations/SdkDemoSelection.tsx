@@ -26,7 +26,7 @@ import {
   ChevronDown,
   Copy,
   Code2,
-  Sparkles,
+  Wand2,
   Package,
   Layers,
 } from 'lucide-react'
@@ -138,7 +138,7 @@ ${hasVariants && demo.variants ? demo.variants.slice(0, 2).map(v => `    '/demo/
         <CollapsibleTrigger className="w-full">
           <div className="flex items-start gap-3 p-4 text-left">
             <div className="p-2 rounded-md bg-primary/10 shrink-0">
-              <Sparkles className="h-4 w-4 text-primary" />
+              <Wand2 className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -306,7 +306,7 @@ export function SdkDemoSelection({ projectId }: SdkDemoSelectionProps) {
         </CardHeader>
         <CardContent>
           <div className="py-8 text-center">
-            <Sparkles className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Wand2 className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
               No published demos yet
             </p>

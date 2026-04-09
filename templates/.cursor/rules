@@ -1,0 +1,109 @@
+# DemoKit Integration Rules
+
+This project uses DemoKit (https://github.com/Kasava-AI/demokit) to create interactive product demos by intercepting API calls and returning mock data.
+
+## Framework Detection
+
+Detect the framework from package.json and use the correct DemoKit adapter:
+
+| Framework       | Package                            |
+|-----------------|------------------------------------|
+| React           | `@demokit-ai/core` (built-in)      |
+| Next.js         | `@demokit-ai/next`                 |
+| Remix           | `@demokit-ai/remix`                |
+| React Router v7 | `@demokit-ai/react-router`         |
+| TanStack Query  | `@demokit-ai/tanstack-query`       |
+| SWR             | `@demokit-ai/swr`                  |
+| tRPC            | `@demokit-ai/trpc`                 |
+
+Always install `@demokit-ai/core` as a peer alongside any adapter.
+
+## Fixture Patterns
+
+Fixtures define the mock data returned when demo mode is active.
+
+- Place fixtures in `lib/fixtures.ts` or `lib/demokit/fixtures.ts`
+- Use the format `'METHOD /api/path/:param'` as fixture keys
+- Prefer function fixtures over static objects for dynamic behavior
+- Always destructure `params`, `body`, `searchParams` as needed
+
+```typescript
+// Good: function fixture with params
+'GET /api/users/:id': ({ params }) => ({ id: params.id, name: 'Demo User' })
+
+// Good: static fixture for simple responses
+'GET /api/config': { theme: 'dark', features: ['billing', 'analytics'] }
+
+// Good: POST with body
+'POST /api/users': ({ body }) => ({ id: crypto.randomUUID(), ...body })
+```
+
+## Provider Setup
+
+### React (default)
+```tsx
+import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/core/react'
+<DemoKitProvider fixtures={fixtures}>
+  <DemoModeBanner />
+  <App />
+</DemoKitProvider>
+```
+
+### Next.js
+Requires three things:
+1. A `DemoKitNextProvider` wrapping the app in a client component
+2. A `createDemoConfig()` call for configuration
+3. Middleware to handle the `?demo=true` URL parameter
+
+### Remix / React Router
+Use the framework-specific adapter which handles loader/action mocking.
+
+## Data Generation Guidelines
+
+When generating fixture data:
+- Create realistic, domain-appropriate data (not "lorem ipsum" or "test123")
+- Include believable names, emails, dates, and prices
+- Maintain referential integrity (order.user_id should reference an existing user)
+- Generate at least 2 named scenarios: `default` (happy path) and `empty-state`
+- Consider edge cases: empty arrays, null optional fields, items in various states
+- Use consistent IDs across related entities (UUIDs preferred)
+
+## Scenarios
+
+Scenarios are named sets of fixtures for different demo states:
+
+```typescript
+export const scenarios = {
+  default: defaultFixtures,
+  'empty-state': emptyFixtures,
+  'enterprise': enterpriseFixtures,
+  'error-state': errorFixtures,
+}
+```
+
+## Demo Mode Activation
+
+- URL parameter: `?demo=true` on any page
+- React hook: `useDemoMode()` returns `{ isDemoMode, toggle, enable, disable }`
+- Programmatic: `demo.enable()` / `demo.disable()` / `demo.toggle()`
+
+## Session State
+
+DemoKit supports mutable state within a demo session (e.g., cart operations):
+
+```typescript
+'POST /api/cart': ({ body, session }) => {
+  const cart = session.get('cart') ?? []
+  cart.push(body.item)
+  session.set('cart', cart)
+  return { items: cart }
+}
+```
+
+## Important Notes
+
+- DemoKit intercepts `globalThis.fetch` at the client level - no backend changes needed
+- Fixtures only activate when demo mode is enabled
+- Session state persists across page refreshes (localStorage by default)
+- All packages are published under the `@demokit-ai` scope on npm
+- For AI-powered narrative data generation, see DemoKit Cloud (https://demokit.dev/cloud)

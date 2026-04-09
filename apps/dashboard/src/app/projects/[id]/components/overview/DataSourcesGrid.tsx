@@ -39,7 +39,7 @@ import {
   RefreshCw,
   Calendar,
   Link2,
-  Sparkles,
+  Wand2,
   ChevronDown,
   Users,
   Lightbulb,
@@ -315,7 +315,7 @@ function AnalysisSection({ analysis }: { analysis: SourceAnalysis }) {
       <CollapsibleTrigger asChild>
         <button className="flex items-center justify-between w-full p-3 rounded-lg border bg-gradient-to-r from-purple-500/5 to-blue-500/5 hover:from-purple-500/10 hover:to-blue-500/10 transition-colors">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-purple-600" />
+            <Wand2 className="h-4 w-4 text-purple-600" />
             <span className="text-sm font-medium">AI Analysis</span>
             <Badge variant="outline" className="text-xs">
               {Math.round(analysis.confidence * 100)}% confidence
@@ -585,7 +585,7 @@ function SourceDetailSheet({
             <AnalysisSection analysis={analysis as SourceAnalysis} />
           ) : (
             <div className="p-4 rounded-lg border border-dashed bg-muted/20 text-center">
-              <Sparkles className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <Wand2 className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground mb-3">
                 No AI analysis yet
               </p>
@@ -602,7 +602,7 @@ function SourceDetailSheet({
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-1.5" />
+                    <Wand2 className="h-4 w-4 mr-1.5" />
                     Analyze with AI
                   </>
                 )}
@@ -665,7 +665,7 @@ function SourceDetailSheet({
                 onClick={handleAnalyze}
                 disabled={analyzeSourceMutation.isPending}
               >
-                <Sparkles className="h-4 w-4" />
+                <Wand2 className="h-4 w-4" />
                 Re-analyze
               </Button>
             ) : null}

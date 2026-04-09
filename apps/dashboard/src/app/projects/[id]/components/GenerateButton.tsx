@@ -20,7 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Loader2, Sparkles, RefreshCw, AlertCircle } from 'lucide-react'
+import { Loader2, Wand2, RefreshCw, AlertCircle } from 'lucide-react'
 
 // ============================================================================
 // Types
@@ -83,7 +83,7 @@ export function GenerateButton({
       default:
         return (
           <>
-            <Sparkles className="h-4 w-4" />
+            <Wand2 className="h-4 w-4" />
             <span>Generate Demo Data</span>
           </>
         )

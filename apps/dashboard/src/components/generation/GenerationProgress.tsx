@@ -20,7 +20,7 @@ import {
   HelpCircle,
   BookOpen,
   Brain,
-  Sparkles,
+  Wand2,
   X,
 } from 'lucide-react'
 
@@ -72,7 +72,7 @@ const PHASE_CONFIG: Record<IntelligencePhase, PhaseConfig> = {
     description: 'Understanding your application',
   },
   generating_templates: {
-    icon: Sparkles,
+    icon: Wand2,
     label: 'Generating Templates',
     description: 'Creating narrative templates',
   },
@@ -357,7 +357,7 @@ export function DataGenerationProgress({
         }
       default:
         return {
-          icon: <Sparkles className="h-5 w-5" />,
+          icon: <Wand2 className="h-5 w-5" />,
           label: 'Ready to generate',
           color: 'text-muted-foreground',
         }

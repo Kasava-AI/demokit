@@ -28,7 +28,7 @@ import {
   ChevronRight,
   Star,
   Check,
-  Sparkles,
+  Wand2,
 } from 'lucide-react'
 import { DynamicTemplateGrid } from '@/components/intelligence/DynamicTemplateGrid'
 
@@ -127,7 +127,7 @@ function SelectedBanner({ template, onClear, onBrowse, disabled }: SelectedBanne
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-lg bg-primary/10">
-              <Sparkles className="w-4 h-4 text-primary" />
+              <Wand2 className="w-4 h-4 text-primary" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">

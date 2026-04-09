@@ -21,7 +21,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
-  Sparkles,
+  Wand2,
   ArrowRight,
   Plus,
   User,
@@ -189,7 +189,7 @@ function ScenarioCard({ template, fixtures, isExpanded, onToggle, onCreateFixtur
                       variant="outline"
                       className={`text-xs shrink-0 ${getRelevanceColor(template.relevanceScore)}`}
                     >
-                      <Sparkles className="h-3 w-3 mr-1" />
+                      <Wand2 className="h-3 w-3 mr-1" />
                       {relevancePercent}% match
                     </Badge>
                   )}

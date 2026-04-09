@@ -1,14 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useProjects } from '@/hooks/use-projects'
 import { useOrganizationContext } from '@/contexts/organization-context'
 import { AppLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Loader2, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+
+const DEFAULT_VISIBLE = 6
 
 export default function ProjectsPage() {
   const { currentOrg, isLoading: orgLoading } = useOrganizationContext()
+  const [showAll, setShowAll] = useState(false)
   const { data: projects, isLoading, error } = useProjects(currentOrg?.id)
 
   // Header action for creating new project
@@ -25,8 +30,14 @@ export default function ProjectsPage() {
     <AppLayout title="Projects" headerActions={headerActions}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isLoading || orgLoading ? (
-          <div className="flex justify-center items-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="p-5 bg-card rounded-lg border border-border">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-full mt-2" />
+                <Skeleton className="h-3 w-24 mt-3" />
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="text-center py-16">
@@ -53,30 +64,52 @@ export default function ProjectsPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Link
-                key={project.id}
-                href={`/projects/${project.id}`}
-                className="block p-5 bg-card rounded-lg border border-border hover:border-border/80 transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <h3 className="font-medium text-foreground">
-                    {project.name}
-                  </h3>
-                  <StatusBadge status={project.status} />
-                </div>
-                {project.description && (
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                    {project.description}
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {(showAll ? projects : projects.slice(0, DEFAULT_VISIBLE)).map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="block p-5 bg-card rounded-lg border border-border hover:border-border/80 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-medium text-foreground">
+                      {project.name}
+                    </h3>
+                    <StatusBadge status={project.status} />
+                  </div>
+                  {project.description && (
+                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                      {project.description}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground/70">
+                    Created {new Date(project.createdAt).toLocaleDateString()}
                   </p>
-                )}
-                <p className="mt-2 text-xs text-muted-foreground/70">
-                  Created {new Date(project.createdAt).toLocaleDateString()}
-                </p>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+            {!showAll && projects.length > DEFAULT_VISIBLE && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="text-sm text-primary hover:text-primary/80 font-medium"
+                >
+                  View all ({projects.length})
+                </button>
+              </div>
+            )}
+            {showAll && projects.length > DEFAULT_VISIBLE && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowAll(false)}
+                  className="text-sm text-muted-foreground hover:text-foreground font-medium"
+                >
+                  Show less
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </AppLayout>

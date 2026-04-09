@@ -24,7 +24,7 @@ import {
   Database,
   Users,
   Settings,
-  Sparkles,
+  Wand2,
 } from 'lucide-react'
 
 interface Template {
@@ -107,7 +107,7 @@ function TemplateItem({ template, isExpanded, onToggle }: TemplateItemProps) {
                     variant="outline"
                     className={`text-xs shrink-0 ${getRelevanceColor(template.relevanceScore)}`}
                   >
-                    <Sparkles className="h-3 w-3 mr-1" />
+                    <Wand2 className="h-3 w-3 mr-1" />
                     {relevancePercent}% match
                   </Badge>
                 )}

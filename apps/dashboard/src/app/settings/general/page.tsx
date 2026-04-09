@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Settings, Palette, FileJson } from 'lucide-react'
 
 // Local storage keys
 const STORAGE_KEYS = {
@@ -92,15 +91,8 @@ export default function GeneralSettingsPage() {
       {/* Appearance */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-500/10">
-              <Palette className="h-4 w-4 text-purple-500" />
-            </div>
-            <div>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>Customize how DemoKit looks</CardDescription>
-            </div>
-          </div>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Customize how DemoKit looks</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -125,15 +117,8 @@ export default function GeneralSettingsPage() {
       {/* Export Settings */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <FileJson className="h-4 w-4 text-blue-500" />
-            </div>
-            <div>
-              <CardTitle>Export</CardTitle>
-              <CardDescription>Default export settings for fixtures</CardDescription>
-            </div>
-          </div>
+          <CardTitle>Export</CardTitle>
+          <CardDescription>Default export settings for fixtures</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -159,15 +144,8 @@ export default function GeneralSettingsPage() {
       {/* About */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <Settings className="h-4 w-4 text-green-500" />
-            </div>
-            <div>
-              <CardTitle>About</CardTitle>
-              <CardDescription>DemoKit OSS information</CardDescription>
-            </div>
-          </div>
+          <CardTitle>About</CardTitle>
+          <CardDescription>DemoKit OSS information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">

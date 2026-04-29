@@ -25,14 +25,14 @@
 
 DemoKit is an open-source SDK that lets SaaS companies create interactive product demos by intercepting API calls and returning mock data. No backend changes required.
 
-- [x] **Zero Backend Changes** - Intercepts fetch calls at the client level
-- [x] **Framework Adapters** - React, Next.js, Remix, React Router, TanStack Query, SWR, tRPC
-- [x] **AI-Powered Generation** - Generate realistic demo data with your own API keys (BYOK)
-- [x] **URL Pattern Matching** - Flexible route matching with `:params` and `*` wildcards
-- [x] **Session Persistence** - Demo mode survives page refreshes
-- [x] **Self-Hostable Dashboard** - Full web UI for managing fixtures
+- [x] **Zero Backend Changes**: intercepts fetch calls at the client level
+- [x] **Framework Adapters**: React, Next.js, Remix, React Router, TanStack Query, SWR, tRPC
+- [x] **LLM Fixture Generation**: generate realistic demo data with your own API keys (BYOK)
+- [x] **URL Pattern Matching**: flexible route matching with `:params` and `*` wildcards
+- [x] **Session Persistence**: demo mode survives page refreshes
+- [x] **Self-Hostable Dashboard**: full web UI for managing fixtures
 
-**Created by [Kasava](https://kasava.dev)** - AI-powered development platform for GitHub integration, semantic code analysis, and intelligent development workflows.
+**Created by [Kasava](https://kasava.dev)**, the team building developer tools that read your repo.
 
 ---
 
@@ -42,14 +42,14 @@ DemoKit is an open-source SDK that lets SaaS companies create interactive produc
 
 Every SaaS company needs product demos. Sales teams demo to prospects. Marketing embeds them on landing pages. Documentation shows features in action. Onboarding guides new users through workflows.
 
-But current solutions create a painful tradeoff:
+But every approach has a painful tradeoff:
 
 | Approach                          | Feels Real?                       | Maintainable?                       | Cost      |
 | --------------------------------- | --------------------------------- | ----------------------------------- | --------- |
-| **Screenshots & videos**          | No - static, quickly outdated     | No - remake on every UI change      | Low       |
-| **Demo tools** (Navattic, Walnut) | Partial - overlays on screenshots | Partial - still breaks on changes   | $$$$      |
-| **Staging environments**          | Yes - it's your real app          | No - data gets stale, security risk | High      |
-| **Manual mocking**                | Yes - your real UI                | No - engineering time sink          | Very High |
+| **Screenshots & videos**          | No, static and quickly outdated   | No, remake on every UI change       | Low       |
+| **Demo tools** (Navattic, Walnut) | Partial, overlays on screenshots  | Partial, still breaks on changes    | $$$$      |
+| **Staging environments**          | Yes, it's your real app           | No, data gets stale; security risk  | High      |
+| **Manual mocking**                | Yes, your real UI                 | No, engineering time sink           | Very High |
 
 The core issue: **demos that feel real are expensive to create and impossible to maintain.**
 
@@ -59,15 +59,13 @@ Prospects can tell when they're looking at a screenshot with hotspots versus act
 
 - **Interactive demos convert 2-3x better** than static content
 - **Self-serve demos reduce sales cycles** by letting prospects explore on their own time
-- **Real UI builds trust** - prospects see exactly what they're buying
+- **Real UI builds trust**; prospects see exactly what they're buying
 
 But the engineering cost of maintaining demo environments kills most teams' ambitions. Every feature change means updating fixtures. Every schema migration breaks the demo. Engineers end up spending 10-20% of their time on demo infrastructure.
 
 ### The LLM Opportunity
 
-This is where AI changes everything.
-
-The hard part of demo data isn't the plumbing - it's creating **realistic, coherent data that tells a story**. An e-commerce demo needs:
+The hard part of demo data isn't the plumbing; it's creating **realistic, coherent data that tells a story**. An e-commerce demo needs:
 
 - Products that make sense together
 - A customer with a believable purchase history
@@ -76,7 +74,7 @@ The hard part of demo data isn't the plumbing - it's creating **realistic, coher
 
 Manually crafting this takes days. LLMs can generate it in seconds.
 
-DemoKit combines **simple fetch interception** (the plumbing) with **AI-powered data generation** (the hard part):
+DemoKit combines **simple fetch interception** (the plumbing) with **LLM-generated fixture data** (the hard part):
 
 ```typescript
 // The plumbing: intercept API calls
@@ -84,7 +82,7 @@ DemoKit combines **simple fetch interception** (the plumbing) with **AI-powered 
   <YourApp />
 </DemoKitProvider>;
 
-// The magic: AI generates realistic demo data
+// LLMs generate fixture data that fits the narrative
 const fixtures = await generateNarrativeData({
   schema: yourOpenAPISpec,
   narrative: {
@@ -215,7 +213,7 @@ First-class support for popular frameworks:
 | SWR             | `@demokit-ai/core/swr`            |
 | tRPC            | `@demokit-ai/core/trpc`           |
 
-### AI-Powered Data Generation (BYOK)
+### LLM Data Generation (BYOK)
 
 Generate realistic demo data with your own API keys:
 
@@ -242,7 +240,7 @@ const data = await generateNarrativeData({
 | -------------------------- | ----------------------- | ----------- |
 | **L1: Schema-valid**       | Data matches types only | No          |
 | **L2: Relationship-valid** | Foreign keys are valid  | No          |
-| **L3: Narrative-driven**   | AI-powered storytelling | Yes (BYOK)  |
+| **L3: Narrative-driven**   | LLM-generated story fixtures | Yes (BYOK)  |
 
 ---
 
@@ -266,12 +264,12 @@ Access the dashboard at <http://localhost:3000>
 
 ## Resources
 
-- [Documentation](https://demokit.dev/docs) - Full guides and API reference
-- [Getting Started](https://demokit.dev/docs/getting-started) - First steps
-- [React Integration](https://demokit.dev/docs/react) - React-specific guide
-- [Next.js Integration](https://demokit.dev/docs/nextjs) - Next.js App Router guide
-- [API Reference](https://demokit.dev/docs/api) - Complete API docs
-- [Example Workflows](https://demokit.dev/workflows) - Common patterns
+- [Documentation](https://demokit.dev/docs): full guides and API reference
+- [Getting Started](https://demokit.dev/docs/getting-started): first steps
+- [React Integration](https://demokit.dev/docs/react): React-specific guide
+- [Next.js Integration](https://demokit.dev/docs/nextjs): Next.js App Router guide
+- [API Reference](https://demokit.dev/docs/api): complete API docs
+- [Example Workflows](https://demokit.dev/workflows): common patterns
 
 ---
 
@@ -279,11 +277,11 @@ Access the dashboard at <http://localhost:3000>
 
 For teams who prefer managed infrastructure, [DemoKit Cloud](https://demokit.dev/cloud) offers:
 
-- **Managed AI** - No API key management needed
-- **Team collaboration** - Share and version configurations
-- **Visual dashboard** - Manage fixtures without code
-- **Usage analytics** - Track demo engagement
-- **Demo composition** - Combine features, journeys, and scenarios
+- **Managed AI**: no API key management needed
+- **Team collaboration**: share and version configurations
+- **Visual dashboard**: manage fixtures without code
+- **Usage analytics**: track demo engagement
+- **Demo composition**: combine features, flows, and scenarios
 
 ---
 

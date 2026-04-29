@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/db",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Database schema and utilities for DemoKit (PostgreSQL + pgvector with Drizzle ORM). Schema-only package - migrations handled by consuming apps.",
   "type": "module",
   "main": "./dist/index.cjs",

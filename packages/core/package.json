@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/core",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Framework-agnostic demo mode SDK with fetch interception and fixture generation",
   "type": "module",
   "main": "./dist/index.cjs",

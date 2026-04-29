@@ -1,6 +1,6 @@
 {
   "name": "create-demokit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Set up DemoKit in your project — interactive product demos with mock data",
   "type": "module",
   "bin": {

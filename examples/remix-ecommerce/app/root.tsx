@@ -66,7 +66,7 @@ export default function App() {
             <p className="text-center text-sm text-gray-500">
               This is a demo application powered by{' '}
               <a
-                href="https://github.com/demokit-ai/demokit"
+                href="https://github.com/kasava-ai/demokit"
                 className="font-medium text-blue-600 hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"

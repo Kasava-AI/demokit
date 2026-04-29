@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/swr",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "SWR integration for DemoKit",
   "type": "module",
   "main": "./dist/index.cjs",

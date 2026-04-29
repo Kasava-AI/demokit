@@ -1,6 +1,6 @@
 {
   "name": "@demokit-ai/intelligence",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "App intelligence scanning and analysis for DemoKit (BYOK support)",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -8,11 +8,19 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch --no-dts",
@@ -42,7 +50,9 @@
       "optional": true
     }
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "Apache-2.0",
   "sideEffects": false
 }

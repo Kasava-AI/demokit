@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import type {
   DemoNarrative,
   DemoData,
@@ -18,8 +18,9 @@ import {
 } from ".";
 import type { DemokitSchema, GenerationState } from "./types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Wand2, Zap } from "lucide-react";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { cn } from "@/lib/utils";
+import { Zap } from "lucide-react";
 
 // Animation variants for sections
 const sectionVariants = {
@@ -116,6 +117,7 @@ export function FixtureCreationFlow({
 }: FixtureCreationFlowProps) {
   const currentLevel = generation.level || "relationship-valid";
   const isL3 = currentLevel === "narrative-driven";
+  const prefersReducedMotion = useReducedMotion();
   return (
     <div className="space-y-6">
       <AnimatePresence mode="wait">
@@ -175,29 +177,54 @@ export function FixtureCreationFlow({
       {/* Generation Level Toggle */}
       <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/30">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Generation Mode:</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={isL3 ? "ghost" : "secondary"}
-              size="sm"
-              className="h-7 px-2.5 gap-1.5"
-              onClick={() => onLevelChange("relationship-valid")}
-              disabled={isGenerating}
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span>Fast (L2)</span>
-            </Button>
-            <Button
-              variant={isL3 ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 px-2.5 gap-1.5"
-              onClick={() => onLevelChange("narrative-driven")}
-              disabled={isGenerating}
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              <span>AI-Powered (L3)</span>
-            </Button>
-          </div>
+          <span className="text-muted-foreground">Mode:</span>
+          <LayoutGroup id="generation-mode">
+            <div className="relative flex items-center gap-1 rounded-md bg-background/60 p-0.5">
+              {(["relationship-valid", "narrative-driven"] as const).map(
+                (level) => {
+                  const active = currentLevel === level;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => onLevelChange(level)}
+                      disabled={isGenerating}
+                      className={cn(
+                        "relative h-7 px-2.5 rounded-sm text-xs font-medium flex items-center gap-1.5 transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "disabled:opacity-50 disabled:cursor-not-allowed",
+                        active
+                          ? "text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="generation-mode-indicator"
+                          className="absolute inset-0 rounded-sm bg-secondary"
+                          transition={
+                            prefersReducedMotion
+                              ? { duration: 0 }
+                              : { type: "spring", stiffness: 400, damping: 30 }
+                          }
+                        />
+                      )}
+                      <span className="relative z-10 flex items-center gap-1.5">
+                        {level === "relationship-valid" ? (
+                          <>
+                            <Zap className="h-3.5 w-3.5" />
+                            Fast (L2)
+                          </>
+                        ) : (
+                          "Narrative (L3)"
+                        )}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          </LayoutGroup>
         </div>
         {isL3 && (
           <Badge

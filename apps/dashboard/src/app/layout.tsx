@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'DemoKit Dashboard',
-  description: 'AI-powered demo data generation',
+  description: 'Generate demo fixtures from your API schema',
 }
 
 export default function RootLayout({

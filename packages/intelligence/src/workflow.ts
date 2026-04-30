@@ -1,97 +1,134 @@
 /**
  * Intelligence Workflow
  *
- * Declarative Mastra workflow that replaces the imperative orchestrator.
- * Benefits over the old approach:
- * - Type-safe state propagation between steps (Zod-validated)
- * - Built-in retry per step
- * - Declarative .then() chaining
- * - Streaming support for real-time progress
+ * Declarative Mastra workflow that drives intelligence building. Steps are
+ * Zod-typed end-to-end (no `z.any()` pass-throughs), the workflow is
+ * registered on a Mastra instance so observability/scorers/Studio see it,
+ * and callers can either `.start()` for the final result or `.stream()` to
+ * track per-step progress.
+ *
+ * Pipeline: parseSchema → fetchSources → synthesize → generateTemplates
  *
  * @module
  */
 
 import { createWorkflow, createStep } from '@mastra/core/workflows'
+import { Mastra } from '@mastra/core/mastra'
 import { z } from 'zod'
 import { parseOpenAPIFromString, type DemokitSchema } from '@demokit-ai/core'
-import type { AppIntelligence, IntelligenceSource } from './types'
-import { synthesizeIntelligence, generateTemplates } from './synthesis-agent'
-import type { SynthesisResult } from './synthesis-agent'
+import {
+  IntelligenceSourceSchema,
+  type AppIntelligence,
+  type IntelligenceSource,
+} from './types'
+import {
+  synthesizeIntelligence,
+  generateTemplates,
+  type SynthesisResult,
+} from './synthesis-agent'
 import { scrapeWebsite, scrapeHelpCenter } from './web-scraper'
 import {
   scrapeWebsiteWithFirecrawl,
   scrapeHelpCenterWithFirecrawl,
 } from './firecrawl-scraper'
 import { INTELLIGENCE_DEFAULTS } from './config'
+import { intelligenceScorers } from './evals'
 
 // ============================================================================
-// Step Schemas
+// Schemas — each piece of opaque structured state gets a real Zod type
 // ============================================================================
 
-const WorkflowInputSchema = z.object({
-  schemaContent: z.string().optional().describe('Raw OpenAPI spec string'),
-  schema: z.record(z.string(), z.unknown()).optional().describe('Pre-parsed schema object'),
+const SchemaPayloadSchema = z.custom<DemokitSchema>(
+  (v) => typeof v === 'object' && v !== null && 'models' in v && 'endpoints' in v,
+  { message: 'Expected a parsed DemokitSchema' },
+)
+
+const ScrapeOptionsSchema = z.object({
   websiteUrl: z.string().optional(),
   helpCenterUrl: z.string().optional(),
   readmeContent: z.string().optional(),
   documentationUrls: z.array(z.string()).optional(),
-  maxFeatures: z.number().optional(),
-  maxJourneys: z.number().optional(),
-  maxTemplates: z.number().optional(),
-  schemaOnly: z.boolean().optional(),
-  useFirecrawl: z.boolean().optional(),
-  scrapeTimeout: z.number().optional(),
+  schemaOnly: z.boolean(),
+  useFirecrawl: z.boolean(),
+  scrapeTimeout: z.number(),
 })
 
-export type WorkflowInput = z.infer<typeof WorkflowInputSchema>
+const SynthesisOptionsSchema = z.object({
+  maxFeatures: z.number(),
+  maxJourneys: z.number(),
+  maxTemplates: z.number(),
+})
 
-const ParsedSchemaOutputSchema = z.object({
-  schema: z.any().describe('Parsed DemokitSchema'),
-  sources: z.array(z.any()).describe('Initial sources array'),
-  options: z.object({
+const WorkflowInputSchema = z
+  .object({
+    schemaContent: z.string().optional().describe('Raw OpenAPI spec string'),
+    schema: z.record(z.string(), z.unknown()).optional().describe('Pre-parsed schema object'),
     websiteUrl: z.string().optional(),
     helpCenterUrl: z.string().optional(),
     readmeContent: z.string().optional(),
     documentationUrls: z.array(z.string()).optional(),
-    maxFeatures: z.number(),
-    maxJourneys: z.number(),
-    maxTemplates: z.number(),
-    schemaOnly: z.boolean(),
-    useFirecrawl: z.boolean(),
-    scrapeTimeout: z.number(),
-  }),
+    maxFeatures: z.number().optional(),
+    maxJourneys: z.number().optional(),
+    maxTemplates: z.number().optional(),
+    schemaOnly: z.boolean().optional(),
+    useFirecrawl: z.boolean().optional(),
+    scrapeTimeout: z.number().optional(),
+  })
+  .refine((v) => v.schemaContent != null || v.schema != null, {
+    message: 'Either schemaContent or schema must be provided',
+  })
+
+export type WorkflowInput = z.infer<typeof WorkflowInputSchema>
+
+const ParsedSchemaOutputSchema = z.object({
+  schema: SchemaPayloadSchema,
+  sources: z.array(IntelligenceSourceSchema),
+  scrapeOptions: ScrapeOptionsSchema,
+  synthesisOptions: SynthesisOptionsSchema,
 })
 
 const SourcesOutputSchema = z.object({
-  schema: z.any(),
-  sources: z.array(z.any()),
-  options: z.object({
-    maxFeatures: z.number(),
-    maxJourneys: z.number(),
-    maxTemplates: z.number(),
-  }),
+  schema: SchemaPayloadSchema,
+  sources: z.array(IntelligenceSourceSchema),
+  synthesisOptions: SynthesisOptionsSchema,
 })
+
+/**
+ * SynthesisResult is shaped slightly differently from its agent-output Zod
+ * schema (e.g. exampleValues is a Record at the type level but an array in
+ * structured-output JSON). Use a structural pass-through schema so the
+ * workflow type matches the runtime-normalized form.
+ */
+const SynthesisResultPayloadSchema = z.custom<SynthesisResult>(
+  (v) => typeof v === 'object' && v !== null && 'features' in v && 'journeys' in v,
+  { message: 'Expected a SynthesisResult' },
+)
 
 const SynthesisOutputSchema = z.object({
-  schema: z.any(),
-  synthesis: z.any(),
-  sources: z.array(z.any()),
-  options: z.object({
-    maxTemplates: z.number(),
-  }),
+  schema: SchemaPayloadSchema,
+  sources: z.array(IntelligenceSourceSchema),
+  synthesis: SynthesisResultPayloadSchema,
+  synthesisOptions: SynthesisOptionsSchema,
 })
 
+const AppIntelligencePayloadSchema = z.custom<AppIntelligence>(
+  (v) =>
+    typeof v === 'object' &&
+    v !== null &&
+    'features' in v &&
+    'journeys' in v &&
+    'templates' in v,
+  { message: 'Expected an AppIntelligence' },
+)
+
 const IntelligenceOutputSchema = z.object({
-  intelligence: z.any().describe('Complete AppIntelligence object'),
+  intelligence: AppIntelligencePayloadSchema,
 })
 
 // ============================================================================
 // Steps
 // ============================================================================
 
-/**
- * Step 1: Parse OpenAPI schema
- */
 const parseSchemaStep = createStep({
   id: 'parse-schema',
   description: 'Parse OpenAPI schema and prepare initial state',
@@ -113,10 +150,6 @@ const parseSchemaStep = createStep({
       useFirecrawl = true,
       scrapeTimeout = 30000,
     } = inputData
-
-    if (!schemaContent && !providedSchema) {
-      throw new Error('Either schemaContent or schema must be provided')
-    }
 
     const sources: IntelligenceSource[] = []
     let schema: DemokitSchema
@@ -142,28 +175,20 @@ const parseSchemaStep = createStep({
     return {
       schema,
       sources,
-      options: {
+      scrapeOptions: {
         websiteUrl,
         helpCenterUrl,
         readmeContent,
         documentationUrls,
-        maxFeatures,
-        maxJourneys,
-        maxTemplates,
         schemaOnly,
         useFirecrawl,
         scrapeTimeout,
       },
+      synthesisOptions: { maxFeatures, maxJourneys, maxTemplates },
     }
   },
 })
 
-/**
- * Step 2: Fetch all sources (website, help center, docs, readme)
- *
- * Runs scraping operations in parallel within the step for efficiency.
- * Uses Firecrawl by default for production-grade scraping.
- */
 const fetchSourcesStep = createStep({
   id: 'fetch-sources',
   description: 'Fetch website, help center, docs, and README content in parallel',
@@ -171,86 +196,71 @@ const fetchSourcesStep = createStep({
   outputSchema: SourcesOutputSchema,
   retries: 1,
   execute: async ({ inputData }) => {
-    const { schema, sources, options } = inputData
-    const updatedSources = [...sources]
+    const { schema, sources, scrapeOptions, synthesisOptions } = inputData
+    const updatedSources: IntelligenceSource[] = [...sources]
 
-    if (options.schemaOnly) {
-      return {
-        schema,
-        sources: updatedSources,
-        options: {
-          maxFeatures: options.maxFeatures,
-          maxJourneys: options.maxJourneys,
-          maxTemplates: options.maxTemplates,
-        },
-      }
+    if (scrapeOptions.schemaOnly) {
+      return { schema, sources: updatedSources, synthesisOptions }
     }
 
-    // Run all scraping operations in parallel
-    const scrapePromises: Promise<void>[] = []
+    const work: Promise<void>[] = []
 
-    // Website scraping
-    if (options.websiteUrl) {
-      scrapePromises.push(
+    if (scrapeOptions.websiteUrl) {
+      work.push(
         (async () => {
-          const result = options.useFirecrawl
-            ? await scrapeWebsiteWithFirecrawl(options.websiteUrl!)
-            : await scrapeWebsite(options.websiteUrl!)
-
+          const result = scrapeOptions.useFirecrawl
+            ? await scrapeWebsiteWithFirecrawl(scrapeOptions.websiteUrl!)
+            : await scrapeWebsite(scrapeOptions.websiteUrl!)
           if (result.success) {
             updatedSources.push({
               type: 'website',
-              location: options.websiteUrl!,
+              location: scrapeOptions.websiteUrl!,
               content: result.content,
               status: 'success',
             })
           } else {
             throw new Error(`Website scraping failed: ${result.error}`)
           }
-        })()
+        })(),
       )
     }
 
-    // Help center scraping
-    if (options.helpCenterUrl) {
-      scrapePromises.push(
+    if (scrapeOptions.helpCenterUrl) {
+      work.push(
         (async () => {
-          const result = options.useFirecrawl
-            ? await scrapeHelpCenterWithFirecrawl(options.helpCenterUrl!)
-            : await scrapeHelpCenter(options.helpCenterUrl!)
-
+          const result = scrapeOptions.useFirecrawl
+            ? await scrapeHelpCenterWithFirecrawl(scrapeOptions.helpCenterUrl!)
+            : await scrapeHelpCenter(scrapeOptions.helpCenterUrl!)
           if (result.success) {
             updatedSources.push({
               type: 'helpCenter',
-              location: options.helpCenterUrl!,
+              location: scrapeOptions.helpCenterUrl!,
               content: result.content,
               status: 'success',
             })
           } else {
             throw new Error(`Help center scraping failed: ${result.error}`)
           }
-        })()
+        })(),
       )
     }
 
-    // README
-    if (options.readmeContent) {
+    if (scrapeOptions.readmeContent) {
       updatedSources.push({
         type: 'readme',
         location: 'provided',
-        content: options.readmeContent,
+        content: scrapeOptions.readmeContent,
         status: 'success',
       })
     }
 
-    // Documentation URLs — fetch in parallel
-    if (options.documentationUrls && options.documentationUrls.length > 0) {
-      for (const url of options.documentationUrls) {
-        scrapePromises.push(
+    if (scrapeOptions.documentationUrls?.length) {
+      for (const url of scrapeOptions.documentationUrls) {
+        work.push(
           (async () => {
             const response = await fetch(url, {
               headers: { 'User-Agent': 'DemoKit/1.0' },
-              signal: AbortSignal.timeout(options.scrapeTimeout),
+              signal: AbortSignal.timeout(scrapeOptions.scrapeTimeout),
             })
             if (response.ok) {
               const content = await response.text()
@@ -263,31 +273,16 @@ const fetchSourcesStep = createStep({
             } else {
               throw new Error(`Documentation fetch failed for ${url}: HTTP ${response.status}`)
             }
-          })()
+          })(),
         )
       }
     }
 
-    // Wait for all scraping to complete
-    await Promise.all(scrapePromises)
-
-    return {
-      schema,
-      sources: updatedSources,
-      options: {
-        maxFeatures: options.maxFeatures,
-        maxJourneys: options.maxJourneys,
-        maxTemplates: options.maxTemplates,
-      },
-    }
+    await Promise.all(work)
+    return { schema, sources: updatedSources, synthesisOptions }
   },
 })
 
-/**
- * Step 3: Synthesize intelligence from all sources
- *
- * Uses the synthesis agent with quality guardrails and fallback error strategy.
- */
 const synthesizeStep = createStep({
   id: 'synthesize-intelligence',
   description: 'Synthesize features, journeys, and entity maps from all sources',
@@ -295,31 +290,15 @@ const synthesizeStep = createStep({
   outputSchema: SynthesisOutputSchema,
   retries: 1,
   execute: async ({ inputData }) => {
-    const { schema, sources, options } = inputData
-
-    const synthesis = await synthesizeIntelligence(
-      schema as DemokitSchema,
-      sources as IntelligenceSource[],
-      {
-        maxFeatures: options.maxFeatures,
-        maxJourneys: options.maxJourneys,
-      }
-    )
-
-    return {
-      schema,
-      synthesis,
-      sources,
-      options: {
-        maxTemplates: options.maxTemplates,
-      },
-    }
+    const { schema, sources, synthesisOptions } = inputData
+    const synthesis = await synthesizeIntelligence(schema, sources, {
+      maxFeatures: synthesisOptions.maxFeatures,
+      maxJourneys: synthesisOptions.maxJourneys,
+    })
+    return { schema, sources, synthesis, synthesisOptions }
   },
 })
 
-/**
- * Step 4: Generate narrative templates from synthesis
- */
 const generateTemplatesStep = createStep({
   id: 'generate-templates',
   description: 'Generate narrative demo templates from synthesized intelligence',
@@ -327,29 +306,24 @@ const generateTemplatesStep = createStep({
   outputSchema: IntelligenceOutputSchema,
   retries: 1,
   execute: async ({ inputData }) => {
-    const { schema, synthesis, sources, options } = inputData
-    const typedSchema = schema as DemokitSchema
-    const typedSynthesis = synthesis as SynthesisResult
-    const typedSources = sources as IntelligenceSource[]
-
-    const templates = await generateTemplates(typedSynthesis, typedSchema, {
-      maxTemplates: options.maxTemplates,
+    const { schema, sources, synthesis, synthesisOptions } = inputData
+    const templates = await generateTemplates(synthesis, schema, {
+      maxTemplates: synthesisOptions.maxTemplates,
     })
 
-    // Assemble complete intelligence
     const intelligence: AppIntelligence = {
-      appName: typedSynthesis.appName,
-      appDescription: typedSynthesis.appDescription,
-      domain: typedSynthesis.domain,
-      industry: typedSynthesis.industry,
-      sources: typedSources,
-      features: typedSynthesis.features,
-      journeys: typedSynthesis.journeys,
-      entityMaps: typedSynthesis.entityMaps as AppIntelligence['entityMaps'],
+      appName: synthesis.appName,
+      appDescription: synthesis.appDescription,
+      domain: synthesis.domain,
+      industry: synthesis.industry,
+      sources,
+      features: synthesis.features,
+      journeys: synthesis.journeys,
+      entityMaps: synthesis.entityMaps as AppIntelligence['entityMaps'],
       templates,
       generatedAt: new Date().toISOString(),
-      overallConfidence: calculateWorkflowConfidence(typedSynthesis, typedSources),
-      suggestions: typedSynthesis.suggestions,
+      overallConfidence: calculateWorkflowConfidence(synthesis, sources),
+      suggestions: synthesis.suggestions,
     }
 
     return { intelligence }
@@ -357,15 +331,13 @@ const generateTemplatesStep = createStep({
 })
 
 // ============================================================================
-// Workflow Definition
+// Workflow definition + Mastra registration
 // ============================================================================
 
 /**
  * The intelligence workflow — declarative pipeline for building app intelligence.
  *
  * Pipeline: parseSchema → fetchSources → synthesize → generateTemplates
- *
- * Each step has its own retry policy and Zod-validated input/output schemas.
  */
 export const intelligenceWorkflow = createWorkflow({
   id: 'build-app-intelligence',
@@ -379,31 +351,62 @@ export const intelligenceWorkflow = createWorkflow({
 
 intelligenceWorkflow.commit()
 
+/**
+ * Mastra instance with the intelligence workflow + scorers registered.
+ *
+ * Use this when you want Studio/Mastra Cloud observability or want to
+ * resolve the workflow via `intelligenceMastra.getWorkflow('intelligenceWorkflow')`.
+ */
+export const intelligenceMastra = new Mastra({
+  workflows: { intelligenceWorkflow },
+  scorers: intelligenceScorers,
+})
+
 // ============================================================================
-// Workflow Execution Helper
+// Execution helpers
 // ============================================================================
 
 /**
- * Execute the intelligence workflow and return the result.
+ * Execute the intelligence workflow and return the final result.
  *
- * This is a convenience wrapper that handles workflow run lifecycle.
+ * Prefer this when you only need the final `AppIntelligence`. Use
+ * `streamIntelligenceWorkflow` when you want per-step progress events.
  */
 export async function executeIntelligenceWorkflow(
-  input: WorkflowInput
+  input: WorkflowInput,
 ): Promise<AppIntelligence> {
   const run = await intelligenceWorkflow.createRun()
   const result = await run.start({ inputData: input })
 
   if (result.status === 'success') {
-    const output = result.result as { intelligence: AppIntelligence }
-    return output.intelligence
+    return result.result.intelligence
   }
-
   if (result.status === 'failed') {
     throw new Error(`Intelligence workflow failed: ${result.error.message}`)
   }
-
   throw new Error(`Intelligence workflow ended with status: ${result.status}`)
+}
+
+/**
+ * Stream execution of the intelligence workflow.
+ *
+ * Returns the run-stream alongside a `result` promise that resolves to the
+ * final `AppIntelligence`. Iterate the stream's `fullStream` to get per-step
+ * `step-start` / `step-result` events for progress reporting.
+ */
+export async function streamIntelligenceWorkflow(input: WorkflowInput) {
+  const run = await intelligenceWorkflow.createRun()
+  const stream = run.stream({ inputData: input })
+  return {
+    stream,
+    result: (async (): Promise<AppIntelligence> => {
+      const result = await stream.result
+      if (result.status === 'success') return result.result.intelligence
+      if (result.status === 'failed')
+        throw new Error(`Intelligence workflow failed: ${result.error.message}`)
+      throw new Error(`Intelligence workflow ended with status: ${result.status}`)
+    })(),
+  }
 }
 
 // ============================================================================
@@ -412,13 +415,13 @@ export async function executeIntelligenceWorkflow(
 
 function calculateWorkflowConfidence(
   synthesis: SynthesisResult,
-  sources: IntelligenceSource[]
+  sources: IntelligenceSource[],
 ): number {
   const featureConfidence = synthesis.features.length > 0
     ? synthesis.features.reduce((sum, f) => sum + f.confidence, 0) / synthesis.features.length
     : 0.3
 
-  const successfulSources = sources.filter(s => s.status === 'success').length
+  const successfulSources = sources.filter((s) => s.status === 'success').length
   const sourceBonus = Math.min(successfulSources * 0.1, 0.3)
   const journeyPenalty = synthesis.journeys.length === 0 ? 0.1 : 0
 

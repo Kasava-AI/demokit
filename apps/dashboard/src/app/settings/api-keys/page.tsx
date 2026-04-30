@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/select'
 import {
   Key,
-  Wand2,
   Globe,
   Brain,
   Eye,
@@ -54,7 +53,7 @@ const PROVIDERS = {
     icon: Brain,
     color: 'text-primary',
     bgColor: 'bg-primary/10',
-    description: 'Required for L3 AI-powered fixture generation',
+    description: 'Required for L3 narrative-driven generation',
     placeholder: 'sk-ant-api...',
     docsUrl: 'https://console.anthropic.com/settings/keys',
   },
@@ -69,7 +68,7 @@ const PROVIDERS = {
   },
   openai: {
     name: 'OpenAI',
-    icon: Wand2,
+    icon: Brain,
     color: 'text-primary',
     bgColor: 'bg-primary/10',
     description: 'Alternative embedding provider',
@@ -202,7 +201,7 @@ export default function ApiKeysSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold">API Keys</h1>
           <p className="text-muted-foreground mt-1">
-            Configure your API keys for AI-powered features
+            Configure your API keys for narrative generation
           </p>
         </div>
         <Card>
@@ -222,7 +221,7 @@ export default function ApiKeysSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">API Keys</h1>
         <p className="text-muted-foreground mt-1">
-          Configure your API keys for AI-powered features (BYOK - Bring Your Own Key)
+          Configure your API keys for narrative generation (BYOK)
         </p>
       </div>
 

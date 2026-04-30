@@ -53,9 +53,6 @@
     "@mastra/core": {
       "optional": true
     },
-    "@mastra/langfuse": {
-      "optional": true
-    },
     "@supabase/supabase-js": {
       "optional": true
     }

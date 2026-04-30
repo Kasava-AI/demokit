@@ -39,7 +39,7 @@ import {
   RefreshCw,
   Calendar,
   Link2,
-  Wand2,
+  FileSearch,
   ChevronDown,
   Users,
   Lightbulb,
@@ -315,8 +315,8 @@ function AnalysisSection({ analysis }: { analysis: SourceAnalysis }) {
       <CollapsibleTrigger asChild>
         <button className="flex items-center justify-between w-full p-3 rounded-lg border bg-gradient-to-r from-purple-500/5 to-blue-500/5 hover:from-purple-500/10 hover:to-blue-500/10 transition-colors">
           <div className="flex items-center gap-2">
-            <Wand2 className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium">AI Analysis</span>
+            <FileSearch className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-medium">Source analysis</span>
             <Badge variant="outline" className="text-xs">
               {Math.round(analysis.confidence * 100)}% confidence
             </Badge>
@@ -580,14 +580,14 @@ function SourceDetailSheet({
             </div>
           </div>
 
-          {/* AI Analysis Section */}
+          {/* Source analysis section */}
           {hasAnalysis ? (
             <AnalysisSection analysis={analysis as SourceAnalysis} />
           ) : (
             <div className="p-4 rounded-lg border border-dashed bg-muted/20 text-center">
-              <Wand2 className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <FileSearch className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground mb-3">
-                No AI analysis yet
+                No analysis yet
               </p>
               <Button
                 size="sm"
@@ -601,10 +601,7 @@ function SourceDetailSheet({
                     Analyzing...
                   </>
                 ) : (
-                  <>
-                    <Wand2 className="h-4 w-4 mr-1.5" />
-                    Analyze with AI
-                  </>
+                  'Analyze source'
                 )}
               </Button>
               {!source.content && (
@@ -661,11 +658,10 @@ function SourceDetailSheet({
             {hasAnalysis ? (
               <Button
                 variant="outline"
-                className="flex-1 gap-2"
+                className="flex-1"
                 onClick={handleAnalyze}
                 disabled={analyzeSourceMutation.isPending}
               >
-                <Wand2 className="h-4 w-4" />
                 Re-analyze
               </Button>
             ) : null}

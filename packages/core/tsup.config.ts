@@ -13,7 +13,6 @@ export default defineConfig({
   treeshake: true,
   external: [
     '@mastra/core',
-    '@mastra/langfuse',
     '@ai-sdk/anthropic',
     '@supabase/supabase-js',
   ],

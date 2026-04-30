@@ -25,7 +25,8 @@ import {
 import {
   Building2,
   Target,
-  Wand2,
+  Box,
+  Lightbulb,
   Globe,
   Users,
   ChevronDown,
@@ -91,10 +92,10 @@ const DOMAIN_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
   'e-commerce': Globe,
   'healthcare': Building2,
   'fintech': Building2,
-  'saas': Wand2,
+  'saas': Box,
   'social': Users,
   'education': Building2,
-  'default': Wand2,
+  'default': Box,
 }
 
 function getDomainIcon(domain?: string | null) {
@@ -232,12 +233,11 @@ export function ProductSummaryCard({
               )}
             </div>
 
-            {/* AI Analysis Summary */}
+            {/* Schema analysis summary */}
             {hasAnalysisSummary && (
               <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
                 <div className="flex items-center gap-2 mb-2">
-                  <Wand2 className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-medium text-foreground">AI Analysis</p>
+                  <p className="text-sm font-medium text-foreground">Schema analysis</p>
                   {analysisSummary.analyzedAt && (
                     <span className="text-xs text-muted-foreground ml-auto">
                       {formatTimeAgo(analysisSummary.analyzedAt)}
@@ -293,7 +293,7 @@ export function ProductSummaryCard({
                     {appIdentity?.valueProposition && (
                       <div className="p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center gap-2 mb-1">
-                          <Wand2 className="h-3 w-3 text-muted-foreground" />
+                          <Lightbulb className="h-3 w-3 text-muted-foreground" />
                           <p className="text-xs font-medium text-muted-foreground">
                             Value Proposition
                           </p>

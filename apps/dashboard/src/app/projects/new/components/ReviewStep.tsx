@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, ArrowRight, Wand2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { FeatureList } from '@/components/intelligence/FeatureList'
 import { JourneyList } from '@/components/intelligence/JourneyList'
 import { DynamicTemplateGrid } from '@/components/intelligence/DynamicTemplateGrid'
@@ -131,7 +131,7 @@ export function ReviewStep({ data, onUpdate, onNext, onBack, isCreating, createE
         <Button onClick={onNext} disabled={isCreating}>
           {isCreating ? (
             <>
-              <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating...
             </>
           ) : (

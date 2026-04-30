@@ -42,7 +42,7 @@
  * - **Schema-Guided**: Uses Zod structured output for type-safe generation
  * - **BYOK Support**: Works with your own Anthropic API key
  * - **Streaming**: Real-time progress for UI integration
- * - **Observability**: Optional Langfuse integration for tracing
+ * - **Observability**: Provided by Mastra Cloud
  *
  * @license Apache-2.0
  * @packageDocumentation
@@ -64,7 +64,6 @@ export {
 // Mastra configuration and agents
 export {
   createMastra,
-  createMastraSync,
   mastra,
   createNarrativeAgent,
   createContextAgent,
@@ -75,7 +74,6 @@ export {
   createPartialDemoDataSchema,
   AppContextSchema,
   EntityContextSchema,
-  type MastraOptions,
 } from './mastra'
 
 // Agent aliases for convenience

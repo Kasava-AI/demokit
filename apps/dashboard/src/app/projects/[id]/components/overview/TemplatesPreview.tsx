@@ -24,7 +24,6 @@ import {
   Database,
   Users,
   Settings,
-  Wand2,
 } from 'lucide-react'
 
 interface Template {
@@ -107,7 +106,6 @@ function TemplateItem({ template, isExpanded, onToggle }: TemplateItemProps) {
                     variant="outline"
                     className={`text-xs shrink-0 ${getRelevanceColor(template.relevanceScore)}`}
                   >
-                    <Wand2 className="h-3 w-3 mr-1" />
                     {relevancePercent}% match
                   </Badge>
                 )}

@@ -1,53 +1,66 @@
 /**
  * Intelligence Processors
  *
- * Quality guardrails for intelligence synthesis and template generation.
- * Follows the Mastra processor pattern (input/output processors on agents).
+ * Mastra `outputProcessors` that validate structured agent output and
+ * trigger retries via the tripwire mechanism when quality is poor.
  *
- * Patterns borrowed from kasava mastra-cloud:
- * - Quality guardrails: detect empty/hallucinated outputs, retry with feedback
- * - Output verification: validate that structured output references valid entities
+ * Each processor reads its expected schema/feature/journey context out of
+ * the agent call's `requestContext`. On a quality failure it calls
+ * `args.abort(reason, { retry: true, metadata })` — the agent loop then
+ * re-prompts with the reason as feedback (up to `maxProcessorRetries`).
+ *
+ * The pure validation logic stays exported as `validateSynthesisQuality` /
+ * `validateTemplateQuality` for callers that want to inspect quality without
+ * running through the agent (e.g. in tests).
  *
  * @module
  */
 
+import type {
+  Processor,
+  ProcessOutputResultArgs,
+  ProcessorMessageResult,
+} from '@mastra/core/processors'
 import type { SynthesisResult } from './synthesis-agent'
 import type { DynamicNarrativeTemplate } from './types'
 
 // ============================================================================
-// Synthesis Quality Validation
+// RequestContext keys
 // ============================================================================
 
-/**
- * Result of a quality validation check
- */
+/** Keys used to thread validation context to processors via requestContext. */
+export const SYNTHESIS_CONTEXT_KEY = 'intelligence.schemaModelNames'
+export const TEMPLATE_CONTEXT_KEY = 'intelligence.templateRefs'
+
+export interface TemplateRefs {
+  featureIds: string[]
+  journeyIds: string[]
+}
+
+// ============================================================================
+// Quality validation (pure functions)
+// ============================================================================
+
 export interface QualityValidationResult {
-  /** Whether the output passes quality checks */
   valid: boolean
-  /** Issues found during validation */
   issues: string[]
-  /** Quality score (0-1) */
   score: number
 }
 
+/** Minimum quality score below which the processor will trip and retry. */
+export const MIN_QUALITY_SCORE = 0.6
+
 /**
- * Validate synthesis result quality
- *
- * Checks that the synthesis output is complete and internally consistent:
- * - Has non-empty features with valid categories
- * - Features reference models that exist in the schema
- * - Journeys reference valid feature IDs
- * - Entity maps cover the main models
- * - Confidence scores are within range
+ * Validate a synthesis result against the schema models the agent should
+ * have referenced.
  */
 export function validateSynthesisQuality(
   synthesis: SynthesisResult,
-  schemaModelNames: string[]
+  schemaModelNames: string[],
 ): QualityValidationResult {
   const issues: string[] = []
   let score = 1.0
 
-  // Check basic completeness
   if (!synthesis.appName || synthesis.appName.trim() === '') {
     issues.push('Missing application name')
     score -= 0.2
@@ -63,9 +76,8 @@ export function validateSynthesisQuality(
     score -= 0.4
   }
 
-  // Check feature quality
   const featureIds = new Set<string>()
-  for (const feature of synthesis.features) {
+  for (const feature of synthesis.features ?? []) {
     if (featureIds.has(feature.id)) {
       issues.push(`Duplicate feature ID: ${feature.id}`)
       score -= 0.05
@@ -77,7 +89,6 @@ export function validateSynthesisQuality(
       score -= 0.05
     }
 
-    // Check that referenced models exist in schema
     for (const model of feature.relatedModels) {
       if (schemaModelNames.length > 0 && !schemaModelNames.includes(model)) {
         issues.push(`Feature "${feature.id}" references unknown model: ${model}`)
@@ -86,14 +97,12 @@ export function validateSynthesisQuality(
     }
   }
 
-  // Check journey quality
-  for (const journey of synthesis.journeys) {
+  for (const journey of synthesis.journeys ?? []) {
     if (journey.confidence < 0 || journey.confidence > 1) {
       issues.push(`Journey "${journey.id}" has invalid confidence: ${journey.confidence}`)
       score -= 0.05
     }
 
-    // Check that journey references valid feature IDs
     for (const featureId of journey.featuresUsed) {
       if (!featureIds.has(featureId)) {
         issues.push(`Journey "${journey.id}" references unknown feature: ${featureId}`)
@@ -101,7 +110,6 @@ export function validateSynthesisQuality(
       }
     }
 
-    // Verify steps are ordered
     for (let i = 0; i < journey.steps.length; i++) {
       if (journey.steps[i].order !== i + 1) {
         issues.push(`Journey "${journey.id}" step ${i} has wrong order: ${journey.steps[i].order}`)
@@ -110,55 +118,22 @@ export function validateSynthesisQuality(
     }
   }
 
-  // Check entity map coverage
-  if (synthesis.entityMaps.length === 0 && schemaModelNames.length > 0) {
+  if ((synthesis.entityMaps?.length ?? 0) === 0 && schemaModelNames.length > 0) {
     issues.push('No entity maps generated despite having schema models')
     score -= 0.1
   }
 
   score = Math.max(0, Math.min(1, score))
-
-  return {
-    valid: issues.length === 0,
-    issues,
-    score,
-  }
+  return { valid: issues.length === 0, issues, score }
 }
 
 /**
- * Build a retry prompt with quality feedback
- *
- * When synthesis quality is poor, this generates a focused prompt
- * that tells the agent what to fix.
- */
-export function buildSynthesisRetryPrompt(
-  validation: QualityValidationResult,
-  originalPrompt: string
-): string {
-  return `${originalPrompt}
-
-IMPORTANT: Your previous response had quality issues that need to be corrected:
-${validation.issues.map((issue) => `- ${issue}`).join('\n')}
-
-Quality score: ${validation.score.toFixed(2)}/1.00
-
-Please fix these issues in your response. Ensure all features have valid model references,
-all journeys reference valid feature IDs, and confidence scores are between 0 and 1.`
-}
-
-// ============================================================================
-// Template Quality Validation
-// ============================================================================
-
-/**
- * Validate template generation quality
- *
- * Checks that templates are complete and reference valid features/journeys.
+ * Validate template quality against known feature and journey IDs.
  */
 export function validateTemplateQuality(
   templates: DynamicNarrativeTemplate[],
   featureIds: string[],
-  journeyIds: string[]
+  journeyIds: string[],
 ): QualityValidationResult {
   const issues: string[] = []
   let score = 1.0
@@ -179,7 +154,6 @@ export function validateTemplateQuality(
     }
     templateIds.add(template.id)
 
-    // Check feature references
     for (const featureId of template.featuresShowcased) {
       if (!featureIdSet.has(featureId)) {
         issues.push(`Template "${template.id}" showcases unknown feature: ${featureId}`)
@@ -187,13 +161,11 @@ export function validateTemplateQuality(
       }
     }
 
-    // Check journey reference
     if (template.journeyId && !journeyIdSet.has(template.journeyId)) {
       issues.push(`Template "${template.id}" references unknown journey: ${template.journeyId}`)
       score -= 0.02
     }
 
-    // Check narrative completeness
     if (!template.narrative.scenario || template.narrative.scenario.trim() === '') {
       issues.push(`Template "${template.id}" has empty scenario`)
       score -= 0.1
@@ -204,14 +176,12 @@ export function validateTemplateQuality(
       score -= 0.05
     }
 
-    // Check relevance score range
     if (template.relevanceScore < 0 || template.relevanceScore > 1) {
       issues.push(`Template "${template.id}" has invalid relevance score: ${template.relevanceScore}`)
       score -= 0.05
     }
   }
 
-  // Check template diversity — warn if all same category
   const categories = new Set(templates.map((t) => t.category))
   if (templates.length >= 3 && categories.size === 1) {
     issues.push(`All ${templates.length} templates have the same category: ${templates[0].category}`)
@@ -219,29 +189,164 @@ export function validateTemplateQuality(
   }
 
   score = Math.max(0, Math.min(1, score))
+  return { valid: issues.length === 0, issues, score }
+}
 
-  return {
-    valid: issues.length === 0,
-    issues,
-    score,
+// ============================================================================
+// Helpers — extract structured output from a finished generation
+// ============================================================================
+
+/**
+ * Pull the structured object out of an agent's finished generation.
+ *
+ * When `structuredOutput` is configured on the agent, the StructuredOutputProcessor
+ * leaves the parsed JSON either as the response text (most common) or in a tool
+ * call result. This helper handles both cases and silently returns `undefined`
+ * if it can't find/parse anything — the caller decides whether that's an issue.
+ */
+function extractStructuredObject<T = unknown>(
+  args: ProcessOutputResultArgs<unknown>,
+): T | undefined {
+  const text = args.result?.text
+  if (typeof text === 'string' && text.trim().length > 0) {
+    try {
+      return JSON.parse(text) as T
+    } catch {
+      // Fall through — the StructuredOutputProcessor may have already wrapped it.
+    }
   }
+
+  // Fallback: dig through the last step's tool calls / results.
+  const steps = args.result?.steps ?? []
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const step = steps[i] as Record<string, unknown>
+    const toolResults = (step?.toolResults as Array<{ output?: unknown; result?: unknown }>) ?? []
+    for (const tr of toolResults) {
+      if (tr.output && typeof tr.output === 'object') return tr.output as T
+      if (tr.result && typeof tr.result === 'object') return tr.result as T
+    }
+  }
+  return undefined
+}
+
+// ============================================================================
+// Synthesis Quality Processor
+// ============================================================================
+
+export interface SynthesisQualityMetadata {
+  issues: string[]
+  score: number
 }
 
 /**
- * Build a retry prompt for template generation
+ * Validates a synthesis result and trips with retry feedback when the quality
+ * score is below `MIN_QUALITY_SCORE`. Reads `schemaModelNames: string[]` from
+ * `requestContext[SYNTHESIS_CONTEXT_KEY]`.
  */
-export function buildTemplateRetryPrompt(
-  validation: QualityValidationResult,
-  originalPrompt: string
-): string {
-  return `${originalPrompt}
+export class SynthesisQualityProcessor
+  implements Processor<'intelligence-synthesis-quality', SynthesisQualityMetadata>
+{
+  readonly id = 'intelligence-synthesis-quality'
+  readonly name = 'Synthesis Quality'
+  readonly description =
+    'Trips with retry feedback when synthesis output is incomplete or references unknown models.'
 
-IMPORTANT: Your previous response had quality issues:
-${validation.issues.map((issue) => `- ${issue}`).join('\n')}
+  processOutputResult(
+    args: ProcessOutputResultArgs<SynthesisQualityMetadata>,
+  ): ProcessorMessageResult {
+    const synthesis = extractStructuredObject<SynthesisResult>(
+      args as ProcessOutputResultArgs<unknown>,
+    )
+    if (!synthesis) {
+      args.abort('Synthesis output could not be parsed as structured JSON', {
+        retry: true,
+        metadata: { issues: ['Output was not valid structured JSON'], score: 0 },
+      })
+    }
 
-Quality score: ${validation.score.toFixed(2)}/1.00
+    const schemaModelNames =
+      (args.requestContext?.get(SYNTHESIS_CONTEXT_KEY) as string[] | undefined) ?? []
+    const validation = validateSynthesisQuality(synthesis!, schemaModelNames)
 
-Please fix these issues. Ensure all templates reference valid feature IDs and journey IDs,
-have complete narratives with scenarios and key points, and scores between 0 and 1.
-Create diverse templates across different categories.`
+    if (validation.score < MIN_QUALITY_SCORE) {
+      const reason = [
+        `Synthesis quality ${validation.score.toFixed(2)} is below threshold ${MIN_QUALITY_SCORE}.`,
+        'Issues to fix:',
+        ...validation.issues.map((i) => `- ${i}`),
+        '',
+        'Ensure all features have valid model references, all journeys reference valid feature IDs, and confidence scores are between 0 and 1.',
+      ].join('\n')
+      args.abort(reason, {
+        retry: true,
+        metadata: { issues: validation.issues, score: validation.score },
+      })
+    }
+
+    return args.messages
+  }
 }
+
+// ============================================================================
+// Template Quality Processor
+// ============================================================================
+
+export interface TemplateQualityMetadata {
+  issues: string[]
+  score: number
+}
+
+/**
+ * Validates generated templates and trips with retry feedback when quality is
+ * poor. Reads `{ featureIds, journeyIds }` from
+ * `requestContext[TEMPLATE_CONTEXT_KEY]`.
+ */
+export class TemplateQualityProcessor
+  implements Processor<'intelligence-template-quality', TemplateQualityMetadata>
+{
+  readonly id = 'intelligence-template-quality'
+  readonly name = 'Template Quality'
+  readonly description =
+    'Trips with retry feedback when generated templates reference unknown features/journeys, lack diversity, or have empty narratives.'
+
+  processOutputResult(
+    args: ProcessOutputResultArgs<TemplateQualityMetadata>,
+  ): ProcessorMessageResult {
+    const wrapper = extractStructuredObject<{ templates?: DynamicNarrativeTemplate[] }>(
+      args as ProcessOutputResultArgs<unknown>,
+    )
+    const templates = wrapper?.templates
+    if (!Array.isArray(templates)) {
+      args.abort('Template output could not be parsed as structured JSON', {
+        retry: true,
+        metadata: { issues: ['Output was not valid structured JSON'], score: 0 },
+      })
+    }
+
+    const refs =
+      (args.requestContext?.get(TEMPLATE_CONTEXT_KEY) as TemplateRefs | undefined) ?? {
+        featureIds: [],
+        journeyIds: [],
+      }
+    const validation = validateTemplateQuality(templates!, refs.featureIds, refs.journeyIds)
+
+    if (validation.score < MIN_QUALITY_SCORE) {
+      const reason = [
+        `Template quality ${validation.score.toFixed(2)} is below threshold ${MIN_QUALITY_SCORE}.`,
+        'Issues to fix:',
+        ...validation.issues.map((i) => `- ${i}`),
+        '',
+        'Ensure all templates reference valid feature IDs and journey IDs, have complete narratives with scenarios and key points, and produce a diverse set of categories.',
+      ].join('\n')
+      args.abort(reason, {
+        retry: true,
+        metadata: { issues: validation.issues, score: validation.score },
+      })
+    }
+
+    return args.messages
+  }
+}
+
+/** Singleton instances to attach via `outputProcessors: [...]`. */
+export const synthesisQualityProcessor = new SynthesisQualityProcessor()
+export const templateQualityProcessor = new TemplateQualityProcessor()

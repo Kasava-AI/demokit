@@ -29,7 +29,6 @@ import {
   ArrowRight,
   Globe,
   Database,
-  Wand2,
   Check,
 } from 'lucide-react'
 
@@ -392,11 +391,9 @@ export function UserJourneysPreview({
             {onCreateDemoFromJourney && (
               <Button
                 size="sm"
-                className="gap-1.5"
                 onClick={handleCreateDemo}
               >
-                <Wand2 className="h-3.5 w-3.5" />
-                Create Demo
+                Create demo
               </Button>
             )}
           </div>

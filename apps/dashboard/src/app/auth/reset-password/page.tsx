@@ -2,8 +2,39 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Loader2 } from 'lucide-react'
+
+function ResetPasswordSkeleton() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2, delay: 0.15 }}
+      className="min-h-screen flex items-center justify-center px-4"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div className="max-w-sm w-full space-y-6">
+        <div className="space-y-2 text-center">
+          <Skeleton className="h-7 w-32 mx-auto" />
+          <Skeleton className="h-4 w-48 mx-auto" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    </motion.div>
+  )
+}
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -87,11 +118,7 @@ function ResetPasswordContent() {
   }
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
-      </div>
-    )
+    return <ResetPasswordSkeleton />
   }
 
   return (
@@ -137,34 +164,24 @@ function ResetPasswordContent() {
             )}
 
             <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-foreground"
-                >
-                  New Password
-                </label>
-                <input
+              <div className="space-y-1.5">
+                <Label htmlFor="password">New password</Label>
+                <Input
                   id="password"
                   name="password"
                   type="password"
                   autoComplete="new-password"
                   required
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-input rounded-lg shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-                  placeholder="********"
+                  placeholder="At least 8 characters"
                 />
               </div>
 
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-foreground"
-                >
-                  Confirm New Password
-                </label>
-                <input
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword">Confirm new password</Label>
+                <Input
                   id="confirmPassword"
                   name="confirmPassword"
                   type="password"
@@ -172,19 +189,17 @@ function ResetPasswordContent() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-input rounded-lg shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-                  placeholder="********"
+                  placeholder="Re-enter password"
                 />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? 'Updating password...' : 'Update password'}
-            </button>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isSubmitting ? 'Updating password…' : 'Update password'}
+            </Button>
           </form>
         )}
       </div>
@@ -194,13 +209,7 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
-        </div>
-      }
-    >
+    <Suspense fallback={<ResetPasswordSkeleton />}>
       <ResetPasswordContent />
     </Suspense>
   )

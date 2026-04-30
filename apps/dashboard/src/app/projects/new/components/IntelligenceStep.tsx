@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { CardTitle, CardDescription } from '@/components/ui/card'
-import { ArrowLeft, ArrowRight, Wand2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, FileSearch, AlertCircle } from 'lucide-react'
 import { IntelligenceProgress as IntelligenceProgressDisplay } from '@/components/intelligence/IntelligenceProgress'
 import { useStreamIntelligence } from '@/hooks/use-stream-intelligence'
 import type { IntelligenceProgress } from '@intelligence'
@@ -52,17 +52,17 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
     return (
       <div className="space-y-6">
         <div>
-          <CardTitle className="text-xl">AI Intelligence Complete</CardTitle>
+          <CardTitle className="text-xl">Schema analysis complete</CardTitle>
           <CardDescription className="mt-1">
-            Analysis has been completed for your application
+            Features, journeys, and templates extracted from your schema
           </CardDescription>
         </div>
 
         <Card className="border-success/30 bg-success/5">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-success mb-4">
-              <Wand2 className="h-5 w-5" />
-              <span className="font-medium">Intelligence gathered successfully</span>
+              <Check className="h-5 w-5" />
+              <span className="font-medium">Analysis finished</span>
             </div>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
@@ -88,8 +88,7 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" onClick={runIntelligence}>
-              <Wand2 className="mr-2 h-4 w-4" />
-              Re-run Analysis
+              Re-run analysis
             </Button>
             <Button onClick={onNext}>
               Continue
@@ -104,9 +103,9 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
   return (
     <div className="space-y-6">
       <div>
-        <CardTitle className="text-xl">AI Intelligence Gathering</CardTitle>
+        <CardTitle className="text-xl">Analyze your schema</CardTitle>
         <CardDescription className="mt-1">
-          Analyzing your schema and sources to understand your application
+          Reads your schema and sources to extract features, journeys, and templates
         </CardDescription>
       </div>
 
@@ -114,16 +113,15 @@ export function IntelligenceStep({ data, onUpdate, onNext, onBack }: StepProps) 
         <Card>
           <CardContent className="p-8 text-center">
             <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Wand2 className="h-8 w-8 text-primary" />
+              <FileSearch className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-lg font-medium mb-2">Ready to Analyze</h3>
+            <h3 className="text-lg font-medium mb-2">Ready to analyze</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              We&apos;ll analyze your schema{data.sources.websiteUrl ? ', website' : ''}
-              {data.sources.readmeContent ? ', and documentation' : ''} to understand your application.
+              We&apos;ll read your schema{data.sources.websiteUrl ? ', website' : ''}
+              {data.sources.readmeContent ? ', and documentation' : ''} to extract features and journeys.
             </p>
             <Button onClick={runIntelligence} size="lg" disabled={!data.schemaContent}>
-              <Wand2 className="mr-2 h-4 w-4" />
-              Start Analysis
+              Start analysis
             </Button>
             {!data.schemaContent && (
               <p className="text-sm text-warning mt-2">

@@ -2,12 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { useProjects } from '@/hooks/use-projects'
 import { useOrganizationContext } from '@/contexts/organization-context'
 import { AppLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { cn } from '@/lib/utils'
 
 const DEFAULT_VISIBLE = 6
 
@@ -66,27 +69,8 @@ export default function ProjectsPage() {
         ) : (
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {(showAll ? projects : projects.slice(0, DEFAULT_VISIBLE)).map((project) => (
-                <Link
-                  key={project.id}
-                  href={`/projects/${project.id}`}
-                  className="block p-5 bg-card rounded-lg border border-border hover:border-border/80 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-medium text-foreground">
-                      {project.name}
-                    </h3>
-                    <StatusBadge status={project.status} />
-                  </div>
-                  {project.description && (
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                      {project.description}
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-muted-foreground/70">
-                    Created {new Date(project.createdAt).toLocaleDateString()}
-                  </p>
-                </Link>
+              {(showAll ? projects : projects.slice(0, DEFAULT_VISIBLE)).map((project, i) => (
+                <ProjectCard key={project.id} project={project} index={i} />
               ))}
             </div>
             {!showAll && projects.length > DEFAULT_VISIBLE && (
@@ -116,20 +100,65 @@ export default function ProjectsPage() {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles = {
-    pending: 'bg-muted text-muted-foreground',
-    analyzing: 'bg-primary/10 text-primary',
-    ready: 'bg-success/10 text-success',
-    error: 'bg-destructive/10 text-destructive',
-  }
+type ProjectCardProject = {
+  id: string
+  name: string
+  description: string | null
+  status: string
+  createdAt: string | Date
+}
 
+function ProjectCard({ project, index }: { project: ProjectCardProject; index: number }) {
+  const prefersReducedMotion = useReducedMotion()
   return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-        styles[status as keyof typeof styles] || styles.pending
-      }`}
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index, 5) * 0.04, duration: 0.2, ease: 'easeOut' }}
     >
+      <Link
+        href={`/projects/${project.id}`}
+        className="block p-5 bg-card rounded-lg border border-border hover:border-border/80 transition-colors"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-medium text-foreground">{project.name}</h3>
+          <StatusBadge status={project.status} />
+        </div>
+        {project.description && (
+          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+            {project.description}
+          </p>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground/70">
+          Created {new Date(project.createdAt).toLocaleDateString()}
+        </p>
+      </Link>
+    </motion.div>
+  )
+}
+
+const STATUS_DOT: Record<string, string> = {
+  pending: 'bg-muted-foreground/60',
+  analyzing: 'bg-primary',
+  ready: 'bg-success',
+  error: 'bg-destructive',
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const prefersReducedMotion = useReducedMotion()
+  const dotClass = STATUS_DOT[status] ?? STATUS_DOT.pending
+  const isAnimating = status === 'analyzing'
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 mt-1">
+      {isAnimating && !prefersReducedMotion ? (
+        <motion.span
+          className={cn('size-1.5 rounded-full', dotClass)}
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      ) : (
+        <span className={cn('size-1.5 rounded-full', dotClass)} />
+      )}
       {status}
     </span>
   )

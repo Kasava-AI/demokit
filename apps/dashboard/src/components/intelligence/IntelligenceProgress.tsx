@@ -17,7 +17,7 @@ import {
   HelpCircle,
   BookOpen,
   Brain,
-  Wand2,
+  FileText,
   Check,
   Loader2,
   AlertCircle,
@@ -55,7 +55,7 @@ const ALL_STEPS: StepConfig[] = [
   { phase: 'fetching_help_center', icon: HelpCircle, label: 'Analyze Help Center', optional: true },
   { phase: 'analyzing_readme', icon: BookOpen, label: 'Analyze README', optional: true },
   { phase: 'synthesizing', icon: Brain, label: 'Synthesize Intelligence' },
-  { phase: 'generating_templates', icon: Wand2, label: 'Generate Templates' },
+  { phase: 'generating_templates', icon: FileText, label: 'Generate Templates' },
 ]
 
 const PHASE_ORDER: IntelligencePhase[] = [

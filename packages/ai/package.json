@@ -41,14 +41,6 @@
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
   },
-  "peerDependenciesMeta": {
-    "@mastra/langfuse": {
-      "optional": true
-    },
-    "langfuse": {
-      "optional": true
-    }
-  },
   "engines": {
     "node": ">=20"
   },

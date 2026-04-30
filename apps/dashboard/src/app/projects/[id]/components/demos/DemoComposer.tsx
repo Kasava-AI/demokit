@@ -47,7 +47,6 @@ import {
 import {
   ArrowRight,
   ArrowLeft,
-  Wand2,
   Check,
   Boxes,
   Route,
@@ -387,10 +386,7 @@ export function DemoComposer({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-primary" />
-            Create Demo
-          </DialogTitle>
+          <DialogTitle>Create demo</DialogTitle>
           <DialogDescription>
             Compose a compelling demo by selecting features, defining the journey, and
             setting the scenario context.
@@ -882,8 +878,7 @@ export function DemoComposer({
             </Button>
             {isLastStep ? (
               <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Create Demo'}
-                <Wand2 className="h-4 w-4 ml-2" />
+                {isSubmitting ? 'Creating...' : 'Create demo'}
               </Button>
             ) : (
               <Button onClick={goNext}>

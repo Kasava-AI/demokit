@@ -85,27 +85,47 @@ export {
   fetchDocumentationTool,
 } from './tools'
 
-// Quality processors (validation and retry prompts)
+// Quality processors (Mastra outputProcessors + sync validators)
 export {
   validateSynthesisQuality,
   validateTemplateQuality,
-  buildSynthesisRetryPrompt,
-  buildTemplateRetryPrompt,
+  synthesisQualityProcessor,
+  templateQualityProcessor,
+  SynthesisQualityProcessor,
+  TemplateQualityProcessor,
+  SYNTHESIS_CONTEXT_KEY,
+  TEMPLATE_CONTEXT_KEY,
+  MIN_QUALITY_SCORE,
   type QualityValidationResult,
+  type TemplateRefs,
+  type SynthesisQualityMetadata,
+  type TemplateQualityMetadata,
 } from './processors'
 
-// Evals / Scorers
+// Evals / Scorers (Mastra createScorer instances + sync compute helpers)
 export {
-  scoreFeatureCompleteness,
-  scoreJourneyCoherence,
-  scoreTemplateRelevance,
-  scoreIntelligenceQuality,
+  featureCompletenessScorer,
+  journeyCoherenceScorer,
+  templateRelevanceScorer,
+  intelligenceQualityScorer,
+  intelligenceScorers,
+  computeFeatureCompleteness,
+  computeJourneyCoherence,
+  computeTemplateRelevance,
+  computeIntelligenceQuality,
   type ScorerResult,
+  type FeatureCompletenessInput,
+  type JourneyCoherenceInput,
+  type TemplateRelevanceInput,
+  type IntelligenceQualityInput,
+  type IntelligenceQualityOutput,
 } from './evals'
 
-// Workflow
+// Workflow + Mastra instance
 export {
   intelligenceWorkflow,
+  intelligenceMastra,
   executeIntelligenceWorkflow,
+  streamIntelligenceWorkflow,
   type WorkflowInput,
 } from './workflow'

@@ -16,6 +16,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useCreateProject } from '@/hooks/use-projects'
 import { useSaveIntelligence } from '@/hooks/use-intelligence'
+import { useCurrentOrganization } from '@/contexts/organization-context'
 import type { FeatureCategory } from '@intelligence'
 import { ArrowLeft } from 'lucide-react'
 import { AppLayout } from '@/components/layout'
@@ -53,6 +54,7 @@ export default function NewProjectPage() {
 
   const createProjectMutation = useCreateProject()
   const saveIntelligenceMutation = useSaveIntelligence()
+  const { currentOrg } = useCurrentOrganization()
 
   const handleUpdate = useCallback((updates: Partial<ProjectData>) => {
     setData((prev) => ({ ...prev, ...updates }))
@@ -76,12 +78,18 @@ export default function NewProjectPage() {
   const handleCreateProject = useCallback(async () => {
     setCreateError(null)
 
+    if (!currentOrg) {
+      setCreateError('No organization selected. Pick an organization before creating a project.')
+      return
+    }
+
     try {
       // Create the project with schema if available
       const project = await createProjectMutation.mutateAsync({
         name: data.name,
         description: data.description || undefined,
         schema: data.schema as Record<string, unknown> | undefined,
+        organizationId: currentOrg.id,
       })
 
       setCreatedProjectId(project.id)
@@ -152,7 +160,7 @@ export default function NewProjectPage() {
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create project')
     }
-  }, [data, createProjectMutation, saveIntelligenceMutation])
+  }, [data, createProjectMutation, saveIntelligenceMutation, currentOrg])
 
   const stepProps: StepProps = {
     data,

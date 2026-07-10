@@ -53,6 +53,11 @@
   --color-sidebar-primary-foreground: hsl(0 0% 100%);
 }
 
+/* Display serif for onboarding/wizard headings (system stack — no font download) */
+@utility font-display-serif {
+  font-family: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+}
+
 /* Light mode CSS variables (legacy support) */
 :root {
   /* Background Colors */

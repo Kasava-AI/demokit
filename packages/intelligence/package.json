@@ -26,15 +26,15 @@
     "dev": "tsup --watch --no-dts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@demokit-ai/core": "workspace:*",
-    "@ai-sdk/anthropic": "^3.0.68",
-    "@mastra/core": "^1.24.0",
-    "cheerio": "^1.0.0",
-    "zod": "^4.3.6"
+    "@ai-sdk/anthropic": "^4.0.12",
+    "@mastra/core": "^1.50.1",
+    "cheerio": "^1.2.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -43,7 +43,7 @@
     "vitest": "^4.1.1"
   },
   "peerDependencies": {
-    "@mendable/firecrawl-js": "4.17.0"
+    "@mendable/firecrawl-js": "^4.17.0"
   },
   "peerDependenciesMeta": {
     "@mendable/firecrawl-js": {

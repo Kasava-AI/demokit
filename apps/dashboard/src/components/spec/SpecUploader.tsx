@@ -33,6 +33,8 @@ import {
 
 interface SpecUploaderProps {
   onSchemaLoaded?: (schema: DemokitSchema, content: string) => void
+  /** Called when the user clears a previously loaded/failed spec */
+  onReset?: () => void
   disabled?: boolean
 }
 
@@ -51,7 +53,7 @@ interface ParseResult {
 // Component
 // ============================================================================
 
-export function SpecUploader({ onSchemaLoaded, disabled = false }: SpecUploaderProps) {
+export function SpecUploader({ onSchemaLoaded, onReset, disabled = false }: SpecUploaderProps) {
   const [state, setState] = useState<UploadState>('idle')
   const [parseResult, setParseResult] = useState<ParseResult>({})
   const [dragActive, setDragActive] = useState(false)
@@ -147,7 +149,8 @@ export function SpecUploader({ onSchemaLoaded, disabled = false }: SpecUploaderP
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }, [])
+    onReset?.()
+  }, [onReset])
 
   const renderDropZone = () => (
     <div

@@ -32,7 +32,7 @@
   "dependencies": {
     "@scalar/openapi-parser": "^0.10.0",
     "@scalar/openapi-types": "^0.2.0",
-    "zod": "^4.2.1"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
@@ -42,9 +42,9 @@
     "vitest": "^2.1.9"
   },
   "peerDependencies": {
-    "@ai-sdk/anthropic": "3.0.63",
-    "@mastra/core": "1.15.0",
-    "@supabase/supabase-js": "2.100.0"
+    "@ai-sdk/anthropic": "^3.0.63 || ^4.0.0",
+    "@mastra/core": ">=1.15.0 <2.0.0",
+    "@supabase/supabase-js": "^2.100.0"
   },
   "peerDependenciesMeta": {
     "@ai-sdk/anthropic": {

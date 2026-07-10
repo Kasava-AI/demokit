@@ -453,10 +453,11 @@ describe('buildValidationPrompt', () => {
 // ============================================================================
 
 describe('createMappingValidatorAgent', () => {
-  it('creates an agent with correct name', () => {
+  it('creates an agent with correct id and name', () => {
     const agent = createMappingValidatorAgent()
 
-    expect(agent.name).toBe('demokit-mapping-validator')
+    expect(agent.id).toBe('demokit-mapping-validator')
+    expect(agent.name).toBe('DemoKit Mapping Validator')
   })
 
   it('agent has instructions', () => {

@@ -1,64 +1,125 @@
 'use client'
 
 /**
- * NewProjectPage - Multi-step project creation with AI intelligence flow
+ * NewProjectPage — three-step project creation
  *
- * Steps:
- * 1. Project basics (name, description)
- * 2. OpenAPI spec upload
- * 3. Additional sources (website, help center, README)
- * 4. Intelligence gathering (with progress)
- * 5. Review features & templates
- * 6. Generate data & complete
+ * 1. connect  — point DemoKit at the app (OpenAPI spec and/or website URL)
+ * 2. confirm  — confirm the derived name/description while intelligence
+ *               analysis streams in the background; optionally add context
+ * 3. generate — pick narrative templates (selection is honored) and generate
+ *               relationship-valid demo data immediately, in the wizard
+ *
+ * The completion screen ends on the value moment: the generated fixtures and
+ * a quick start personalized from the user's real schema.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { useCreateProject } from '@/hooks/use-projects'
-import { useSaveIntelligence } from '@/hooks/use-intelligence'
-import { useCurrentOrganization } from '@/contexts/organization-context'
-import type { FeatureCategory } from '@intelligence'
 import { ArrowLeft } from 'lucide-react'
 import { AppLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { useStreamIntelligence } from '@/hooks/use-stream-intelligence'
+import { useCurrentOrganization } from '@/contexts/organization-context'
 
 import {
   type WizardStep,
   type ProjectData,
-  type StepProps,
-  STEP_ORDER,
+  type WizardResult,
   getStepIndex,
-  generateProjectKey,
-  BasicsStep,
-  SpecStep,
-  SourcesStep,
-  IntelligenceStep,
-  ReviewStep,
+  STEP_ORDER,
+  ConnectStep,
+  ConfirmStep,
+  GenerateStep,
   CompleteStep,
   StepIndicator,
+  useWizardPipeline,
 } from './components'
 
-export default function NewProjectPage() {
-  const [step, setStep] = useState<WizardStep>('basics')
-  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [data, setData] = useState<ProjectData>({
-    name: '',
-    description: '',
-    projectKey: generateProjectKey(),
-    sources: {},
-    selectedTemplates: [],
-    selectedFeatures: [],
-  })
+const initialData: ProjectData = {
+  name: '',
+  nameEdited: false,
+  description: '',
+  descriptionEdited: false,
+  sources: {},
+  selectedTemplateIds: [],
+}
 
-  const createProjectMutation = useCreateProject()
-  const saveIntelligenceMutation = useSaveIntelligence()
+export default function NewProjectPage() {
+  const [step, setStep] = useState<WizardStep>('connect')
+  const [data, setData] = useState<ProjectData>(initialData)
+  const [result, setResult] = useState<WizardResult | null>(null)
+  const [orgError, setOrgError] = useState<string | null>(null)
+  // Fingerprint of the last analysis run so revisiting a step with unchanged
+  // inputs never restarts (and never discards) a completed analysis
+  const lastAnalysisKeyRef = useRef<string | null>(null)
+
   const { currentOrg } = useCurrentOrganization()
+  const pipeline = useWizardPipeline()
 
   const handleUpdate = useCallback((updates: Partial<ProjectData>) => {
     setData((prev) => ({ ...prev, ...updates }))
   }, [])
+
+  // Analysis streams at page level so it keeps running across steps
+  const stream = useStreamIntelligence({
+    onComplete: (intelligence) => {
+      setData((prev) => ({
+        ...prev,
+        intelligence,
+        // Derived identity only fills fields the user hasn't touched
+        name: prev.nameEdited || !intelligence.appName ? prev.name : intelligence.appName,
+        description:
+          prev.descriptionEdited || !intelligence.appDescription
+            ? prev.description
+            : intelligence.appDescription,
+        // Preselect the most relevant scenarios — user can still toggle
+        selectedTemplateIds: [...intelligence.templates]
+          .sort((a, b) => b.relevanceScore - a.relevanceScore)
+          .slice(0, 3)
+          .map((t) => t.id),
+      }))
+    },
+  })
+
+  const analysisInputOf = useCallback(
+    (d: ProjectData) => ({
+      schemaContent: d.schemaContent,
+      websiteUrl: d.sources.websiteUrl?.trim() || undefined,
+      readmeContent: d.sources.readmeContent || undefined,
+      documentationUrls: d.sources.documentationUrls?.map((u) => u.trim()).filter(Boolean),
+    }),
+    []
+  )
+
+  const startAnalysis = useCallback(() => {
+    if (!data.schemaContent) return
+    const input = analysisInputOf(data)
+    lastAnalysisKeyRef.current = JSON.stringify(input)
+    setData((prev) => ({ ...prev, intelligence: undefined, selectedTemplateIds: [] }))
+    void stream.start(input)
+  }, [data, analysisInputOf, stream])
+
+  // Leaving the connect step: derive identity from the parsed spec right away
+  // and kick off analysis in the background if the inputs changed
+  const handleConnectContinue = useCallback(() => {
+    setData((prev) => {
+      const info = prev.schema?.info
+      return {
+        ...prev,
+        name: !prev.nameEdited && info?.title ? info.title : prev.name,
+        description:
+          !prev.descriptionEdited && info?.description ? info.description : prev.description,
+      }
+    })
+    if (data.schemaContent) {
+      const key = JSON.stringify(analysisInputOf(data))
+      if (key !== lastAnalysisKeyRef.current) {
+        startAnalysis()
+      }
+    }
+    setStep('confirm')
+  }, [data, analysisInputOf, startAnalysis])
 
   const goNext = useCallback(() => {
     const currentIndex = getStepIndex(step)
@@ -74,136 +135,86 @@ export default function NewProjectPage() {
     }
   }, [step])
 
-  // Handle project creation when moving from review to complete
-  const handleCreateProject = useCallback(async () => {
-    setCreateError(null)
-
+  const handleCreate = useCallback(async () => {
+    setOrgError(null)
     if (!currentOrg) {
-      setCreateError('No organization selected. Pick an organization before creating a project.')
+      setOrgError('No organization selected. Pick an organization before creating a project.')
       return
     }
-
-    try {
-      // Create the project with schema if available
-      const project = await createProjectMutation.mutateAsync({
-        name: data.name,
-        description: data.description || undefined,
-        schema: data.schema as Record<string, unknown> | undefined,
-        organizationId: currentOrg.id,
-      })
-
-      setCreatedProjectId(project.id)
-
-      // Save intelligence data if available
-      if (data.intelligence && project.id) {
-        try {
-          // Transform AppIntelligence to SaveIntelligenceInput format
-          const intelligenceData = {
-            appIdentity: {
-              name: data.intelligence.appName,
-              description: data.intelligence.appDescription,
-              domain: data.intelligence.domain,
-              confidence: data.intelligence.overallConfidence,
-            },
-            features: data.intelligence.features.map((f) => ({
-              name: f.name,
-              description: f.description,
-              category: f.category as FeatureCategory | undefined,
-              relatedModels: f.relatedModels,
-              confidence: f.confidence,
-            })),
-            journeys: data.intelligence.journeys.map((j) => ({
-              name: j.name,
-              description: j.description,
-              persona: j.persona,
-              steps: j.steps?.map((s, idx) => ({
-                order: s.order ?? idx + 1,
-                action: s.action,
-                description: s.outcome,
-              })),
-              relatedFeatures: j.featuresUsed,
-              confidence: j.confidence,
-            })),
-            templates: data.intelligence.templates.map((t) => {
-              // Map intelligence categories to DB-compatible categories
-              const dbCategories = ['demo', 'happyPath', 'edgeCase', 'onboarding', 'migration'] as const
-              type DbCategory = typeof dbCategories[number]
-              const category: DbCategory = dbCategories.includes(t.category as DbCategory)
-                ? (t.category as DbCategory)
-                : 'demo'
-              return {
-                name: t.name,
-                description: t.description,
-                category,
-                narrative: t.narrative,
-                instructions: {
-                  recordCounts: t.suggestedCounts,
-                },
-                relevanceScore: t.relevanceScore,
-                isDefault: true,
-              }
-            }),
-          }
-
-          await saveIntelligenceMutation.mutateAsync({
-            projectId: project.id,
-            data: intelligenceData,
-          })
-        } catch (intellErr) {
-          // Log but don't fail - project is already created
-          console.error('Failed to save intelligence:', intellErr)
-        }
-      }
-
-      // Move to complete step
+    const res = await pipeline.run(data, currentOrg.id)
+    if (res) {
+      setResult(res)
       setStep('complete')
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create project')
     }
-  }, [data, createProjectMutation, saveIntelligenceMutation, currentOrg])
+  }, [currentOrg, data, pipeline])
 
-  const stepProps: StepProps = {
+  const analysis = {
+    isStreaming: stream.isStreaming,
+    progress: stream.progress,
+    message: stream.message,
+    error: stream.error,
+  }
+
+  const pipelineView = {
+    phase: pipeline.phase,
+    generatingTemplate: pipeline.generatingTemplate,
+    generatingIndex: pipeline.generatingIndex,
+    totalToGenerate: pipeline.totalToGenerate,
+    error: pipeline.error ?? orgError,
+    isRunning: pipeline.isRunning,
+  }
+
+  const stepProps = {
     data,
     onUpdate: handleUpdate,
     onNext: goNext,
     onBack: goBack,
   }
 
-  // Back button for AppLayout
-  const backButton = step === 'basics' ? (
-    <Link href="/projects">
-      <Button variant="ghost" size="icon" className="h-8 w-8">
-        <ArrowLeft className="h-4 w-4" />
-      </Button>
-    </Link>
-  ) : undefined
-
   return (
-    <AppLayout
-      backButton={backButton}
-      title="New Project"
-      defaultSidebarCollapsed={true}
-    >
-      <div className="py-8 px-4">
-        <div className="max-w-3xl mx-auto">
-          {/* Step Indicator */}
-          {step !== 'complete' && <StepIndicator currentStep={step} />}
+    <AppLayout title="New project" defaultSidebarCollapsed={true}>
+      <div className="px-4 py-10">
+        <div className="mx-auto max-w-2xl">
+          <Card className="rounded-2xl p-8 sm:p-10">
+            {/* Header: back chevron + progress dots (hidden on completion) */}
+            {step !== 'complete' && (
+              <div className="mb-8 flex items-center justify-between">
+                {step === 'connect' ? (
+                  <Link href="/projects">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Back to projects">
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={goBack}
+                    disabled={pipeline.isRunning}
+                    aria-label="Previous step"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
+                <StepIndicator currentStep={step} />
+                <div className="w-8" aria-hidden />
+              </div>
+            )}
 
-          {/* Step Content */}
-          <Card className="p-6">
-            {step === 'basics' && <BasicsStep {...stepProps} />}
-            {step === 'spec' && <SpecStep {...stepProps} />}
-            {step === 'sources' && <SourcesStep {...stepProps} />}
-            {step === 'intelligence' && <IntelligenceStep {...stepProps} />}
-            {step === 'review' && (
-              <ReviewStep
+            {step === 'connect' && <ConnectStep {...stepProps} onNext={handleConnectContinue} />}
+            {step === 'confirm' && (
+              <ConfirmStep {...stepProps} analysis={analysis} onRerunAnalysis={startAnalysis} />
+            )}
+            {step === 'generate' && (
+              <GenerateStep
                 {...stepProps}
-                onNext={handleCreateProject}
-                isCreating={createProjectMutation.isPending || saveIntelligenceMutation.isPending}
-                createError={createError}
+                analysis={analysis}
+                pipeline={pipelineView}
+                onCreate={handleCreate}
               />
             )}
-            {step === 'complete' && <CompleteStep data={data} createdProjectId={createdProjectId} />}
+            {step === 'complete' && <CompleteStep data={data} result={result} />}
           </Card>
         </div>
       </div>

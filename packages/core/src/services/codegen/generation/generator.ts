@@ -15,6 +15,7 @@ import type {
   GenerationRulesConfig,
   StorySpec,
   AnchorEntity,
+  TrendSpec,
 } from '../types'
 import { validateData } from '../validation/validator'
 import { generateIdForModel } from './id-generator'
@@ -24,7 +25,7 @@ import {
   modelHasAddressFields,
   type RecordContext,
 } from './value-generators'
-import { applyPins, parsePinPath } from './story'
+import { applyPins, parsePinPath, generateTrendDate } from './story'
 
 /**
  * Default record counts per model
@@ -83,6 +84,8 @@ export function generateDemoData(
     usedIds[modelName] = []
     anchorIds[modelName] = []
 
+    const trend = story?.trends.find((t) => t.model === modelName)
+
     for (let i = 0; i < count; i++) {
       const record = generateRecord(
         model,
@@ -93,7 +96,8 @@ export function generateDemoData(
         level,
         baseTimestamp,
         seed,
-        customRules
+        customRules,
+        trend
       )
       const anchor = modelAnchors[i]
       if (anchor) {
@@ -178,7 +182,8 @@ function generateRecord(
   level: string,
   baseTimestamp?: number,
   seed: number = 0,
-  customRules?: GenerationRulesConfig
+  customRules?: GenerationRulesConfig,
+  trend?: TrendSpec
 ): Record<string, unknown> {
   const record: Record<string, unknown> = {}
   const properties = model.properties ?? {}
@@ -203,7 +208,8 @@ function generateRecord(
     // Skip optional fields sometimes (but always include required ones)
     // Use seeded random for deterministic results
     const fieldSeed = seed + index * 1000 + hashString(fieldName)
-    if (!isRequired && seededRandom(fieldSeed) > 0.7) {
+    const isTrendField = trend !== undefined && fieldName === trend.dateField
+    if (!isRequired && !isTrendField && seededRandom(fieldSeed) > 0.7) {
       continue
     }
 
@@ -239,15 +245,17 @@ function generateRecord(
 
     // Generate value based on field type, passing record context for correlated generation
     // and datasets for fromDataset rules (Phase 2)
-    const value = generateValue(
-      propDef,
-      index,
-      baseTimestamp,
-      seed,
-      recordContext,
-      customRule,
-      customRules?.datasets
-    )
+    const value = isTrendField
+      ? generateTrendDate(trend, index, seed, baseTimestamp, propDef.format)
+      : generateValue(
+          propDef,
+          index,
+          baseTimestamp,
+          seed,
+          recordContext,
+          customRule,
+          customRules?.datasets
+        )
     record[fieldName] = value
 
     // Track timestamp fields

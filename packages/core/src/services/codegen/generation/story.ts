@@ -92,6 +92,46 @@ export function scaleColumnToSum(
   rows[last]![field] = round2(Number(rows[last]![field]) + round2(target - finalSum))
 }
 
+/** Trend window: rows are distributed over the year ending at baseTimestamp. */
+export const TREND_WINDOW_MS = 365 * 86400000
+
+/**
+ * Deterministic trend-shaped date: draw a uniform per (seed,row,field), warp
+ * it through the shape's inverse-CDF, and map onto the window (1.0 = most
+ * recent). 'up' concentrates rows near the window end, 'down' near the start,
+ * 'seasonal' adds sinusoidal clustering. `slope` steepens the warp.
+ */
+export function generateTrendDate(
+  trend: TrendSpec,
+  index: number,
+  seed: number,
+  baseTimestamp: number | undefined,
+  format: string | undefined
+): string {
+  const end = baseTimestamp ?? Date.now()
+  const u = seededRandom(seed + index * 1000 + hashString(trend.dateField) + 7)
+  const slope = trend.slope ?? 1
+  let position: number
+  switch (trend.shape) {
+    case 'up':
+      position = Math.pow(u, 1 / (1 + slope))
+      break
+    case 'down':
+      position = 1 - Math.pow(u, 1 / (1 + slope))
+      break
+    case 'seasonal': {
+      const wobble = 0.12 * Math.min(slope, 2)
+      position = Math.min(1, Math.max(0, u + wobble * Math.sin(4 * Math.PI * u)))
+      break
+    }
+    case 'flat':
+    default:
+      position = u
+  }
+  const date = new Date(end - (1 - position) * TREND_WINDOW_MS)
+  return format === 'date' ? (date.toISOString().split('T')[0] ?? '') : date.toISOString()
+}
+
 /** Post-generation pin pass. Field pins first — they become held values. */
 export function applyPins(data: DemoData, story: StorySpec, held: HeldFields): void {
   const parsed = story.pins.map(parsePinPath)

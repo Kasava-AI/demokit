@@ -54,7 +54,7 @@ export {
 // Story spec (spec §5) — executable IR for LLM-authored demo narratives
 export { storySpecSchema, fieldRuleSchema, pinSchema, anchorEntitySchema, trendSpecSchema, parseStorySpec } from './story-spec'
 export { generateFromStorySpec } from './generation/generator'
-export { parsePinPath, applyPins, scaleColumnToSum } from './generation/story'
+export { parsePinPath, applyPins, scaleColumnToSum, generateTrendDate, TREND_WINDOW_MS } from './generation/story'
 export type { ParsedPin, HeldFields } from './generation/story'
 
 // Context (rule-based inference)

@@ -24,6 +24,7 @@ import {
   modelHasAddressFields,
   type RecordContext,
 } from './value-generators'
+import { applyPins, parsePinPath } from './story'
 
 /**
  * Default record counts per model
@@ -41,6 +42,10 @@ export function generateDemoData(
   const { level, baseTimestamp, validate = true, story } = options
   const seed = options.seed ?? story?.seed ?? 0
   const counts: Record<string, number> = { ...(story?.counts ?? {}), ...(options.counts ?? {}) }
+  for (const pin of story?.pins ?? []) {
+    const parsed = parsePinPath(pin)
+    if (parsed?.kind === 'count') counts[parsed.model] = parsed.value
+  }
   const customRules: GenerationRulesConfig | undefined =
     story && Object.keys(story.fieldRules).length > 0
       ? {
@@ -61,8 +66,6 @@ export function generateDemoData(
   const anchorIds: Record<string, string[]> = {}
   // (model → row index → fields set by anchors/pins; the aggregate pass must not rewrite them)
   const heldFields: Record<string, Map<number, Set<string>>> = {}
-  // consumed in applyPins (Task 3)
-  void heldFields
 
   // Get model names in order (respecting dependencies for relationship-valid)
   const modelOrder = level === 'relationship-valid'
@@ -111,6 +114,10 @@ export function generateDemoData(
     }
 
     data[modelName] = records
+  }
+
+  if (story) {
+    applyPins(data, story, heldFields)
   }
 
   // Calculate metadata

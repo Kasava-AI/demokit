@@ -16,6 +16,7 @@ import {
   httpMethod,
   endpointResponseType,
   mappingStatus,
+  apiCallEventType,
 } from './enums';
 
 // Forward declaration for circular reference
@@ -134,6 +135,15 @@ export const fixtureGenerations = pgTable(
      */
     unreviewedRows: jsonb('unreviewed_rows').$type<Record<string, string[]>>(),
 
+    /**
+     * Advisory narrative-linter findings (spec §5.2.4). Shown at publish
+     * time; never blocks. path uses the pin vocabulary ('Model.field',
+     * 'sum(Model.field)') or 'events'.
+     */
+    linterFindings: jsonb('linter_findings').$type<
+      Array<{ severity: 'notice' | 'warning'; message: string; path: string }>
+    >(),
+
     // Generation status
     status: fixtureStatus('status').default('completed'),
     startedAt: timestamp('started_at', { withTimezone: true }),
@@ -171,6 +181,16 @@ export const apiCallLogs = pgTable(
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
 
+    /** Coverage health (spec §8): what kind of event this row records. */
+    eventType: apiCallEventType('event_type').notNull().default('fixture_fetch'),
+
+    /** Request path (no query string — paths and methods only, spec §8). */
+    path: text('path'),
+    method: text('method'),
+
+    /** Batched-report multiplier: identical events collapse client-side. */
+    count: integer('count').notNull().default(1),
+
     // Response metadata
     responseTimeMs: integer('response_time_ms'),
     statusCode: integer('status_code'),
@@ -179,6 +199,7 @@ export const apiCallLogs = pgTable(
   (table) => ({
     fixtureIdIdx: index('idx_api_call_logs_fixture_id').on(table.fixtureId),
     timestampIdx: index('idx_api_call_logs_timestamp').on(table.timestamp),
+    eventTypeIdx: index('idx_api_call_logs_event_type').on(table.fixtureId, table.eventType),
   })
 );
 

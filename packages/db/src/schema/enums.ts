@@ -87,3 +87,12 @@ export const mappingStatus = pgEnum('mapping_status', [
   'flagged', // Uncertain, needs user review
   'disabled', // User disabled this mapping
 ]);
+
+/** Coverage-health event types on api_call_logs (spec §8). */
+export const apiCallEventType = pgEnum('api_call_event_type', [
+  'fixture_fetch',
+  'unmatched_request',
+  'blocked_mutation',
+  'unregistered_transform',
+  'projection_error',
+]);

@@ -10,23 +10,14 @@ DemoKit patches `globalThis.fetch` at the client level. When demo mode is active
 
 ### Package Selection
 
-Detect the framework from `package.json` and install the correct packages:
-
-- **React**: `npm install @demokit-ai/core`
-- **Next.js**: `npm install @demokit-ai/core @demokit-ai/next`
-- **Remix**: `npm install @demokit-ai/core @demokit-ai/remix`
-- **React Router v7**: `npm install @demokit-ai/core @demokit-ai/react-router`
-- **TanStack Query**: `npm install @demokit-ai/core @demokit-ai/tanstack-query`
-- **SWR**: `npm install @demokit-ai/core @demokit-ai/swr`
-- **tRPC**: `npm install @demokit-ai/core @demokit-ai/trpc`
+`npm install @demokit-ai/core @demokit-ai/react`. This works for any React app, including TanStack Query and SWR apps (standard network interception, no adapter needed) and Next.js apps that fetch client-side.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
 | `lib/fixtures.ts` | Fixture definitions — mock data mapped to API patterns |
-| `app/providers.tsx` | Provider wrapper component (Next.js App Router) |
-| `middleware.ts` | Next.js middleware for `?demo=true` URL param (Next.js only) |
+| `app/providers.tsx` | Provider wrapper component |
 
 ### Fixture Format
 
@@ -49,13 +40,10 @@ export const fixtures: FixtureMap = {
 
 ### Provider Wrapping
 
-**React:**
 ```tsx
 import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/core/react'
 <DemoKitProvider fixtures={fixtures}><DemoModeBanner /><App /></DemoKitProvider>
 ```
-
-**Next.js:** Wrap with `DemoKitNextProvider` in a client component. Use `createDemoConfig()` for configuration. Add middleware for `?demo=true` handling.
 
 ## Data Generation Guidelines
 

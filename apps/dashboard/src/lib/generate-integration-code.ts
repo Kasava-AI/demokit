@@ -11,10 +11,8 @@ export type Framework =
   | 'javascript'
   | 'react'
   | 'nextjs'
-  | 'remix'
   | 'tanstack-query'
   | 'swr'
-  | 'trpc'
 
 export type IntegrationMode = 'local' | 'remote'
 
@@ -57,14 +55,10 @@ export function generateIntegrationCode(options: GenerateCodeOptions): Generated
       return generateReactCode(mode, fixturesData, projectName, apiEndpoint)
     case 'nextjs':
       return generateNextJSCode(mode, fixturesData, projectName, apiEndpoint)
-    case 'remix':
-      return generateRemixCode(mode, fixturesData, projectName, apiEndpoint)
     case 'tanstack-query':
       return generateTanStackQueryCode(mode, fixturesData, projectName, apiEndpoint)
     case 'swr':
       return generateSWRCode(mode, fixturesData, projectName, apiEndpoint)
-    case 'trpc':
-      return generateTRPCCode(mode, fixturesData, projectName, apiEndpoint)
     default:
       return generateReactCode(mode, fixturesData, projectName, apiEndpoint)
   }
@@ -248,73 +242,13 @@ export function DemoToggle() {
   return { install, fixtures, provider, usage }
 }
 
-function generateRemixCode(
-  mode: IntegrationMode,
-  fixturesData: string,
-  projectName: string,
-  apiEndpoint: string
-): GeneratedCode {
-  const install = 'npm install @demokit-ai/remix @demokit-ai/core'
-
-  const fixtures = mode === 'local'
-    ? `// app/lib/fixtures.ts
-import type { DemoData } from '@demokit-ai/core';
-
-export const ${projectName.toLowerCase()}Fixtures: DemoData = ${fixturesData};`
-    : `// app/lib/demokit-config.ts
-export const demokitConfig = {
-  apiEndpoint: '${apiEndpoint}',
-  apiKey: process.env.DEMOKIT_API_KEY,
-};`
-
-  const provider = `// app/routes/users.tsx
-import { createDemoLoader } from '@demokit-ai/remix';
-import { ${projectName.toLowerCase()}Fixtures } from '~/lib/fixtures';
-
-export const loader = createDemoLoader(
-  async ({ request }) => {
-    // Your real loader logic
-    const users = await db.user.findMany();
-    return json({ users });
-  },
-  {
-    fixtures: ${projectName.toLowerCase()}Fixtures,
-    path: 'users',
-  }
-);`
-
-  const usage = `// app/root.tsx
-import { DemoKitProvider, useDemoMode } from '@demokit-ai/remix';
-
-export default function App() {
-  return (
-    <DemoKitProvider>
-      <Outlet />
-    </DemoKitProvider>
-  );
-}
-
-// Toggle demo mode via URL: ?demo=true
-// Or programmatically:
-function DemoToggle() {
-  const { isDemoMode, setDemoMode } = useDemoMode();
-  return (
-    <button onClick={() => setDemoMode(!isDemoMode)}>
-      Toggle Demo
-    </button>
-  );
-}`
-
-  return { install, fixtures, provider, usage }
-}
-
 function generateTanStackQueryCode(
   mode: IntegrationMode,
   fixturesData: string,
   projectName: string,
   apiEndpoint: string
 ): GeneratedCode {
-  const install = 'npm install @demokit-ai/tanstack-query @demokit-ai/core @tanstack/react-query'
+  const install = 'npm install @demokit-ai/react @demokit-ai/core @tanstack/react-query'
 
   const fixtures = mode === 'local'
     ? `// src/lib/fixtures.ts
@@ -329,7 +263,7 @@ export const demokitConfig = {
 
   const provider = `// src/App.tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DemoKitQueryProvider } from '@demokit-ai/tanstack-query';
+import { DemoKitProvider } from '@demokit-ai/react';
 import { ${projectName.toLowerCase()}Fixtures } from './lib/fixtures';
 
 const queryClient = new QueryClient();
@@ -337,9 +271,9 @@ const queryClient = new QueryClient();
 export function App({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <DemoKitQueryProvider fixtures={${projectName.toLowerCase()}Fixtures}>
+      <DemoKitProvider fixtures={${projectName.toLowerCase()}Fixtures}>
         {children}
-      </DemoKitQueryProvider>
+      </DemoKitProvider>
     </QueryClientProvider>
   );
 }`
@@ -347,8 +281,9 @@ export function App({ children }: { children: React.ReactNode }) {
   const usage = `// src/hooks/useUsers.ts
 import { useQuery } from '@tanstack/react-query';
 
-// Your existing queries work unchanged!
-// DemoKit intercepts based on queryKey patterns
+// Your existing queries work unchanged, as long as your queryFn calls fetch().
+// DemoKit intercepts globalThis.fetch and matches on the request URL — no
+// TanStack-specific adapter needed.
 export function useUsers() {
   return useQuery({
     queryKey: ['users'],
@@ -357,7 +292,7 @@ export function useUsers() {
 }
 
 // Toggle demo mode:
-import { useDemoMode } from '@demokit-ai/tanstack-query';
+import { useDemoMode } from '@demokit-ai/react';
 
 function DemoToggle() {
   const { isDemoMode, setDemoMode } = useDemoMode();
@@ -373,7 +308,7 @@ function generateSWRCode(
   projectName: string,
   apiEndpoint: string
 ): GeneratedCode {
-  const install = 'npm install @demokit-ai/swr @demokit-ai/core swr'
+  const install = 'npm install @demokit-ai/react @demokit-ai/core swr'
 
   const fixtures = mode === 'local'
     ? `// src/lib/fixtures.ts
@@ -387,91 +322,34 @@ export const demokitConfig = {
 };`
 
   const provider = `// src/App.tsx
-import { SWRConfig } from 'swr';
-import { createDemoMiddleware } from '@demokit-ai/swr';
+import { DemoKitProvider } from '@demokit-ai/react';
 import { ${projectName.toLowerCase()}Fixtures } from './lib/fixtures';
-
-const demoMiddleware = createDemoMiddleware(${projectName.toLowerCase()}Fixtures);
 
 export function App({ children }: { children: React.ReactNode }) {
   return (
-    <SWRConfig value={{ use: [demoMiddleware] }}>
+    <DemoKitProvider fixtures={${projectName.toLowerCase()}Fixtures}>
       {children}
-    </SWRConfig>
+    </DemoKitProvider>
   );
 }`
 
   const usage = `// src/hooks/useUsers.ts
 import useSWR from 'swr';
 
-// Your existing SWR hooks work unchanged!
-// DemoKit intercepts based on URL patterns
+// Your existing SWR hooks work unchanged, as long as your fetcher calls fetch().
+// DemoKit intercepts globalThis.fetch and matches on the request URL — no
+// SWR-specific adapter needed.
 export function useUsers() {
   return useSWR('/api/users', (url) => fetch(url).then(res => res.json()));
 }
 
 // Toggle demo mode:
-import { useDemoMode } from '@demokit-ai/swr';
+import { useDemoMode } from '@demokit-ai/react';
 
 function DemoToggle() {
   const { isDemoMode, setDemoMode } = useDemoMode();
   return <button onClick={() => setDemoMode(!isDemoMode)}>Toggle</button>;
 }`
-
-  return { install, fixtures, provider, usage }
-}
-
-function generateTRPCCode(
-  mode: IntegrationMode,
-  fixturesData: string,
-  projectName: string,
-  apiEndpoint: string
-): GeneratedCode {
-  const install = 'npm install @demokit-ai/trpc @demokit-ai/core @trpc/client @trpc/react-query'
-
-  const fixtures = mode === 'local'
-    ? `// src/lib/fixtures.ts
-import type { DemoData } from '@demokit-ai/core';
-
-export const ${projectName.toLowerCase()}Fixtures: DemoData = ${fixturesData};`
-    : `// src/lib/demokit-config.ts
-export const demokitConfig = {
-  apiEndpoint: '${apiEndpoint}',
-  apiKey: import.meta.env.VITE_DEMOKIT_API_KEY,
-};`
-
-  const provider = `// src/lib/trpc.ts
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
-import { createDemoLink } from '@demokit-ai/trpc';
-import { ${projectName.toLowerCase()}Fixtures } from './fixtures';
-import type { AppRouter } from '../server/router';
-
-const demoLink = createDemoLink<AppRouter>(${projectName.toLowerCase()}Fixtures);
-
-export const trpc = createTRPCClient<AppRouter>({
-  links: [
-    demoLink,
-    httpBatchLink({ url: '/api/trpc' }),
-  ],
-});`
-
-  const usage = `// src/components/UserList.tsx
-import { trpc } from '../lib/trpc';
-
-// Your existing tRPC queries work unchanged!
-// DemoKit intercepts based on procedure names
-function UserList() {
-  const { data: users } = trpc.users.list.useQuery();
-  return (
-    <ul>
-      {users?.map(user => <li key={user.id}>{user.name}</li>)}
-    </ul>
-  );
-}
-
-// Toggle demo mode via localStorage:
-localStorage.setItem('demo-mode', 'true');
-// Then reload the page`
 
   return { install, fixtures, provider, usage }
 }

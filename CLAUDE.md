@@ -37,17 +37,10 @@ demokit-oss/
 │   │       ├── types.ts      # Shared types
 │   │       └── services/     # Service modules
 │   ├── react/                # React provider, hooks, components
-│   ├── next/                 # Next.js SSR adapter
-│   ├── remix/                # Remix loader/action mocking
-│   ├── react-router/         # React Router v7 adapter
-│   ├── tanstack-query/       # TanStack Query integration
-│   ├── swr/                  # SWR integration
-│   ├── trpc/                 # tRPC v11 type-safe adapter
 │   ├── ai/                   # AI generation (server-only)
 │   ├── db/                   # Database utilities
 │   └── intelligence/         # App intelligence synthesis
 ├── apps/                     # Example/playground apps
-├── examples/                 # Working example apps
 ├── docs/                     # Mintlify documentation
 ├── scripts/                  # Build and utility scripts
 ├── package.json              # Workspace root
@@ -63,12 +56,6 @@ All packages are published under the `@demokit-ai` scope:
 | ------- | ----------- |
 | `@demokit-ai/core` | Core fetch interception, session, state |
 | `@demokit-ai/react` | React provider, hooks, components |
-| `@demokit-ai/next` | Next.js SSR adapter |
-| `@demokit-ai/remix` | Remix integration |
-| `@demokit-ai/react-router` | React Router v7 adapter |
-| `@demokit-ai/tanstack-query` | TanStack Query integration |
-| `@demokit-ai/swr` | SWR integration |
-| `@demokit-ai/trpc` | tRPC integration |
 | `@demokit-ai/ai` | AI generation (server-only) |
 | `@demokit-ai/db` | Database utilities |
 | `@demokit-ai/intelligence` | App intelligence |
@@ -110,15 +97,6 @@ React provider, hooks, and components.
 - `useDemoMode` - Hook for demo mode state
 - `useDemoState` - Hook for scenario state
 - `DemoModeBanner` - Visual indicator component
-
-### Framework Adapters
-
-- `@demokit-ai/next` - Next.js SSR support
-- `@demokit-ai/remix` - Remix loader/action mocking
-- `@demokit-ai/react-router` - React Router v7 adapter
-- `@demokit-ai/tanstack-query` - TanStack Query integration
-- `@demokit-ai/swr` - SWR integration
-- `@demokit-ai/trpc` - tRPC type-safe adapter
 
 ## Common Patterns
 

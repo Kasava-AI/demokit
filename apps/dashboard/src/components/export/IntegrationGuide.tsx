@@ -65,12 +65,7 @@ const FRAMEWORKS: { value: Framework; label: string; description: string }[] = [
   {
     value: "nextjs",
     label: "Next.js",
-    description: "App Router or Pages Router",
-  },
-  {
-    value: "remix",
-    label: "Remix",
-    description: "Server-side loaders/actions",
+    description: "App Router or Pages Router (client-side fetching)",
   },
   {
     value: "tanstack-query",
@@ -81,11 +76,6 @@ const FRAMEWORKS: { value: Framework; label: string; description: string }[] = [
     value: "swr",
     label: "SWR",
     description: "Vercel SWR",
-  },
-  {
-    value: "trpc",
-    label: "tRPC",
-    description: "Type-safe tRPC v11",
   },
 ];
 
@@ -230,96 +220,50 @@ export function IntegrationGuide({
                 </p>
               </>
             )}
-            {mode === "local" && selectedFramework === "remix" && (
-              <>
-                <p>
-                  DemoKit wraps your Remix loaders and actions with{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    createDemoLoader
-                  </code>{" "}
-                  and{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    createDemoAction
-                  </code>
-                  . When demo mode is enabled (via URL param, cookie, or
-                  header), your fixtures are returned instead of running the
-                  real loader.
-                </p>
-                <p>
-                  Demo mode is detected server-side, so your loaders never hit
-                  the database in demo mode. Enable via{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    ?demo=true
-                  </code>{" "}
-                  or set a cookie.
-                </p>
-              </>
-            )}
-            {mode === "local" && selectedFramework === "tanstack-query" && (
-              <>
-                <p>
-                  DemoKit intercepts TanStack Query calls based on{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    queryKey
-                  </code>{" "}
-                  patterns. When demo mode is enabled, matching queries return
-                  fixture data instead of calling your queryFn.
-                </p>
-                <p>
-                  Your existing{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    useQuery
-                  </code>{" "}
-                  calls work unchanged. Fixtures match on query keys like{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    [&quot;users&quot;]
-                  </code>{" "}
-                  or{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    [&quot;users&quot;, id]
-                  </code>
-                  .
-                </p>
-              </>
-            )}
-            {mode === "local" && selectedFramework === "swr" && (
-              <>
-                <p>
-                  DemoKit uses SWR middleware to intercept fetches based on key
-                  patterns. When demo mode is enabled, matching keys return
-                  fixture data instead of calling your fetcher.
-                </p>
-                <p>
-                  Your existing{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    useSWR
-                  </code>{" "}
-                  calls work unchanged. Fixtures match on URL patterns like{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    /api/users
-                  </code>{" "}
-                  or{" "}
-                  <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                    /api/users/:id
-                  </code>
-                  .
-                </p>
-              </>
-            )}
-            {mode === "local" && selectedFramework === "trpc" && (
-              <>
-                <p>
-                  DemoKit uses a tRPC link to intercept procedure calls. When
-                  demo mode is enabled, matching procedures return fixture data
-                  instead of hitting your server.
-                </p>
-                <p>
-                  Fixtures are fully type-safe — TypeScript infers input/output
-                  types from your router. Toggle demo mode via localStorage and
-                  reload to apply.
-                </p>
-              </>
-            )}
+            {mode === "local" &&
+              (selectedFramework === "tanstack-query" ||
+                selectedFramework === "swr") && (
+                <>
+                  <p>
+                    DemoKit intercepts{" "}
+                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                      fetch()
+                    </code>{" "}
+                    calls and matches on the request URL — no{" "}
+                    {selectedFramework === "tanstack-query"
+                      ? "TanStack Query"
+                      : "SWR"}
+                    -specific adapter needed. When demo mode is enabled,
+                    matching requests return fixture data instead of hitting
+                    your real API.
+                  </p>
+                  <p>
+                    Your existing{" "}
+                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                      {selectedFramework === "tanstack-query"
+                        ? "useQuery"
+                        : "useSWR"}
+                    </code>{" "}
+                    calls work unchanged, as long as your{" "}
+                    {selectedFramework === "tanstack-query"
+                      ? "queryFn"
+                      : "fetcher"}{" "}
+                    calls the native{" "}
+                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                      fetch()
+                    </code>{" "}
+                    API. Fixtures match on URL patterns like{" "}
+                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                      /api/users
+                    </code>{" "}
+                    or{" "}
+                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                      /api/users/:id
+                    </code>
+                    .
+                  </p>
+                </>
+              )}
             {mode === "local" &&
               (selectedFramework === "react" ||
                 selectedFramework === "nextjs") && (
@@ -443,11 +387,9 @@ export function IntegrationGuide({
                   <CardDescription className="text-sm">
                     Save this as{" "}
                     <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                      {selectedFramework === "nextjs"
-                        ? "src/lib/fixtures.ts"
-                        : selectedFramework === "remix"
-                        ? "app/lib/fixtures.ts"
-                        : selectedFramework === "trpc"
+                      {selectedFramework === "nextjs" ||
+                      selectedFramework === "tanstack-query" ||
+                      selectedFramework === "swr"
                         ? "src/lib/fixtures.ts"
                         : "src/fixtures.ts"}
                     </code>
@@ -654,9 +596,7 @@ export function IntegrationGuide({
                       3
                     </Badge>
                     <CardTitle className="text-base">
-                      {selectedFramework === "trpc"
-                        ? "Configure tRPC client"
-                        : selectedFramework === "javascript"
+                      {selectedFramework === "javascript"
                         ? "Create fetch wrapper"
                         : "Wrap your app"}
                     </CardTitle>
@@ -668,9 +608,7 @@ export function IntegrationGuide({
                   />
                 </div>
                 <CardDescription className="text-sm">
-                  {selectedFramework === "trpc"
-                    ? "Add the demo link to your tRPC client"
-                    : selectedFramework === "javascript"
+                  {selectedFramework === "javascript"
                     ? "Create a demo-aware fetch wrapper"
                     : "Add the DemoKit provider to your app's root"}
                 </CardDescription>

@@ -17,7 +17,6 @@
 <p align="center">
   <a href="https://demokit.dev/docs">Documentation</a> |
   <a href="#quick-start">Quick Start</a> |
-  <a href="#examples">Examples</a> |
   <a href="https://discord.gg/demokit">Discord</a>
 </p>
 
@@ -26,7 +25,7 @@
 DemoKit is an open-source SDK that lets SaaS companies create interactive product demos by intercepting API calls and returning mock data. No backend changes required.
 
 - [x] **Zero Backend Changes**: intercepts fetch calls at the client level
-- [x] **Framework Adapters**: React, Next.js, Remix, React Router, TanStack Query, SWR, tRPC
+- [x] **Framework Support**: TanStack Query and SWR apps work through standard network interception — no adapter needed. Next.js apps that fetch client-side can use `@demokit-ai/react` directly.
 - [x] **LLM Fixture Generation**: generate realistic demo data with your own API keys (BYOK)
 - [x] **URL Pattern Matching**: flexible route matching with `:params` and `*` wildcards
 - [x] **Session Persistence**: demo mode survives page refreshes
@@ -98,24 +97,11 @@ Your real app. AI-generated data that tells a story. Zero backend changes. Demos
 
 ## Quick Start
 
-Try DemoKit instantly by running one of the examples:
-
-```bash
-git clone https://github.com/Kasava-AI/demokit.git
-cd demokit/examples/nextjs-ecommerce
-npm install
-npm run dev
-```
-
-Visit <http://localhost:3000?demo=true> to see demo mode in action.
-
-See the [Examples](#examples) section below for all available examples (Next.js, TanStack Query, SWR, Remix, React Router, tRPC).
-
 ### Set up with AI
 
 The fastest way to add DemoKit is to paste this prompt into your AI coding tool (Claude Code, Cursor, Codex, Copilot, etc.):
 
-> **Add DemoKit to this project.** Analyze my codebase to detect the framework (Next.js, Remix, React Router, TanStack Query, SWR, tRPC, or plain React), find my API routes and fetch calls, install the correct `@demokit-ai` packages, generate realistic fixture data for each endpoint, wire up `DemoKitProvider` in my root layout, and add Next.js middleware if needed. Create a `lib/fixtures.ts` with at least 2 scenarios (default and empty-state). Reference the [examples](./examples) for patterns. After setup, visiting any page with `?demo=true` should activate demo mode.
+> **Add DemoKit to this project.** Analyze my codebase to find my API routes and fetch calls, install `@demokit-ai/core` and `@demokit-ai/react`, generate realistic fixture data for each endpoint, and wire up `DemoKitProvider` in my root layout. Create a `lib/fixtures.ts` with at least 2 scenarios (default and empty-state). After setup, visiting any page with `?demo=true` should activate demo mode.
 
 For deeper integration with your AI tool, grab a config template from [`templates/`](./templates):
 
@@ -157,23 +143,6 @@ Access at <http://localhost:3000?demo=true>
 
 ---
 
-## Examples
-
-Learn by example with complete demo applications:
-
-| Example                                                         | Framework       | Description                                        |
-| --------------------------------------------------------------- | --------------- | -------------------------------------------------- |
-| [nextjs-ecommerce](./examples/nextjs-ecommerce)                 | Next.js 15      | Full e-commerce with cart, checkout, order history |
-| [tanstack-query-ecommerce](./examples/tanstack-query-ecommerce) | TanStack Query  | Data fetching integration                          |
-| [swr-ecommerce](./examples/swr-ecommerce)                       | SWR             | SWR integration                                    |
-| [remix-ecommerce](./examples/remix-ecommerce)                   | Remix           | Loader/action mocking                              |
-| [react-router-ecommerce](./examples/react-router-ecommerce)     | React Router v7 | React Router data patterns                         |
-| [trpc-ecommerce](./examples/trpc-ecommerce)                     | tRPC            | Type-safe API mocking                              |
-
-Each example includes demo mode toggle, multiple scenarios, and full TypeScript support.
-
----
-
 ## How It Works
 
 ```
@@ -199,19 +168,13 @@ Each example includes demo mode toggle, multiple scenarios, and full TypeScript 
 
 ## Key Capabilities
 
-### Framework Adapters
+### Framework Support
 
-First-class support for popular frameworks:
+TanStack Query and SWR apps work through standard network interception — no adapter needed. Next.js apps that fetch client-side can use `@demokit-ai/react` directly.
 
-| Adapter         | Import                            |
-| --------------- | --------------------------------- |
-| React           | `@demokit-ai/core/react`          |
-| Next.js         | `@demokit-ai/core/next`           |
-| Remix           | `@demokit-ai/core/remix`          |
-| React Router v7 | `@demokit-ai/core/react-router`   |
-| TanStack Query  | `@demokit-ai/core/tanstack-query` |
-| SWR             | `@demokit-ai/core/swr`            |
-| tRPC            | `@demokit-ai/core/trpc`           |
+| Framework | Import                   |
+| --------- | ------------------------ |
+| React     | `@demokit-ai/core/react` |
 
 ### LLM Data Generation (BYOK)
 
@@ -267,7 +230,6 @@ Access the dashboard at <http://localhost:3000>
 - [Documentation](https://demokit.dev/docs): full guides and API reference
 - [Getting Started](https://demokit.dev/docs/getting-started): first steps
 - [React Integration](https://demokit.dev/docs/react): React-specific guide
-- [Next.js Integration](https://demokit.dev/docs/nextjs): Next.js App Router guide
 - [API Reference](https://demokit.dev/docs/api): complete API docs
 - [Example Workflows](https://demokit.dev/workflows): common patterns
 

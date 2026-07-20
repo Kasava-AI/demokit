@@ -9,7 +9,6 @@
     "build:packages": "pnpm --filter './packages/*' build",
     "build:core": "pnpm --filter @demokit-ai/core build",
     "build:react": "pnpm --filter @demokit-ai/core --filter @demokit-ai/react build",
-    "build:pkg": "pnpm --filter @demokit-ai/core --filter @demokit-ai/react --filter",
     "setup": "./scripts/setup.sh",
     "setup:db": "docker compose up -d && pnpm db:migrate",
     "db:generate": "pnpm --filter @demokit-ai/dashboard db:generate",
@@ -24,9 +23,7 @@
     "version": "changeset version",
     "publish": "pnpm build:packages && changeset publish",
     "release": "pnpm build:packages && pnpm -r --filter './packages/*' publish --access public --no-git-checks",
-    "validate:types": "tsx scripts/validate-openapi-types.ts",
-    "examples:link": "node scripts/link-examples.js link",
-    "examples:unlink": "node scripts/link-examples.js unlink"
+    "validate:types": "tsx scripts/validate-openapi-types.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

@@ -55,12 +55,6 @@ demokit/
 ├── packages/           # NPM packages
 │   ├── core/          # Foundation (fetch interception)
 │   ├── react/         # React bindings
-│   ├── next/          # Next.js adapter
-│   ├── remix/         # Remix adapter
-│   ├── react-router/  # React Router adapter
-│   ├── tanstack-query/# TanStack Query integration
-│   ├── swr/           # SWR integration
-│   ├── trpc/          # tRPC integration
 │   ├── auth/          # Auth abstraction
 │   ├── schema/        # Schema parsing
 │   ├── codegen/       # Data generation
@@ -192,9 +186,8 @@ When modifying packages:
 
 1. **core** - Changes here affect all packages. Be careful!
 2. **react** - Keep SSR-safe. Test with Next.js.
-3. **Framework adapters** - Follow framework conventions
-4. **codegen** - Ensure deterministic output with seeds
-5. **schema** - Support multiple schema formats
+3. **codegen** - Ensure deterministic output with seeds
+4. **schema** - Support multiple schema formats
 
 ### Breaking Changes
 

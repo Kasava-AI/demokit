@@ -11,24 +11,13 @@ This project uses [DemoKit](https://github.com/Kasava-AI/demokit) to create inte
 
 ## Package Selection
 
-Choose the right packages based on the framework in `package.json`:
-
-| Framework       | Packages to install                              |
-|-----------------|--------------------------------------------------|
-| React (plain)   | `@demokit-ai/core`                               |
-| Next.js         | `@demokit-ai/core @demokit-ai/next`               |
-| Remix           | `@demokit-ai/core @demokit-ai/remix`               |
-| React Router v7 | `@demokit-ai/core @demokit-ai/react-router`        |
-| TanStack Query  | `@demokit-ai/core @demokit-ai/tanstack-query`      |
-| SWR             | `@demokit-ai/core @demokit-ai/swr`                 |
-| tRPC            | `@demokit-ai/core @demokit-ai/trpc`                |
+Install `@demokit-ai/core` and `@demokit-ai/react`. This works for any React app, including TanStack Query and SWR apps (standard network interception, no adapter needed) and Next.js apps that fetch client-side.
 
 ## Key Files
 
 - `lib/fixtures.ts` — fixture definitions (mock data mapped to API patterns)
 - `lib/demokit-config.ts` — DemoKit configuration (optional, for Cloud or advanced setup)
-- `app/providers.tsx` — provider wrapper (Next.js App Router pattern)
-- `middleware.ts` — Next.js middleware for `?demo=true` handling (Next.js only)
+- `app/providers.tsx` — provider wrapper
 
 ## Fixture Format
 
@@ -78,21 +67,6 @@ import { fixtures } from '@/lib/fixtures'
   <DemoModeBanner />
   <App />
 </DemoKitProvider>
-```
-
-### Next.js
-```tsx
-// app/providers.tsx — 'use client'
-import { DemoKitNextProvider } from '@demokit-ai/next/client'
-import { demoConfig } from '@/lib/demo'
-
-export function Providers({ children }) {
-  return <DemoKitNextProvider {...demoConfig}>{children}</DemoKitNextProvider>
-}
-
-// lib/demo.ts
-import { createDemoConfig, defineFixtures } from '@demokit-ai/next'
-export const demoConfig = createDemoConfig({ fixtures: defineFixtures({...}) })
 ```
 
 ## Scenarios

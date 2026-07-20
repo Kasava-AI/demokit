@@ -183,12 +183,7 @@ function generateHandler(ep: DetectedEndpoint, allEndpoints: DetectedEndpoint[])
  */
 export function getFixturesPath(framework: Framework): string {
   switch (framework) {
-    case 'next':
-      return 'lib/demo-fixtures.ts'
-    case 'remix':
-    case 'react-router':
-      return 'app/demo/fixtures.ts'
-    default:
+    case 'react':
       return 'src/demo/fixtures.ts'
   }
 }

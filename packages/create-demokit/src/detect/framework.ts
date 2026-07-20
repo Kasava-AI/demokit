@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import type { Framework, DetectionResult } from '../types'
+import type { Framework, UnsupportedFramework, DetectionResult } from '../types'
 import { readJson } from '../utils/fs'
 
 interface PackageJson {
@@ -11,9 +11,11 @@ interface PackageJson {
 /**
  * Framework detection rules in priority order.
  * First match wins — more specific frameworks checked before generic ones.
+ * Non-React frameworks are still detected so the CLI can fail with a
+ * helpful message instead of silently mis-wiring.
  */
 const DETECTION_RULES: Array<{
-  framework: Framework
+  framework: Framework | UnsupportedFramework
   deps: string[]
   label: string
 }> = [
@@ -27,12 +29,6 @@ const DETECTION_RULES: Array<{
 ]
 
 export const FRAMEWORK_LABELS: Record<Framework, string> = {
-  next: 'Next.js',
-  remix: 'Remix',
-  'react-router': 'React Router v7',
-  'tanstack-query': 'TanStack Query',
-  swr: 'SWR',
-  trpc: 'tRPC',
   react: 'React',
 }
 
@@ -74,7 +70,7 @@ export function detectFramework(dir: string): DetectionResult {
   return { framework: 'react', confidence: 'low', evidence: ['No framework detected, defaulting to React'] }
 }
 
-function verifyStructure(dir: string, framework: Framework): string | null {
+function verifyStructure(dir: string, framework: Framework | UnsupportedFramework): string | null {
   switch (framework) {
     case 'next':
       if (existsSync(join(dir, 'app'))) return 'Found app/ directory (App Router)'
@@ -89,12 +85,4 @@ function verifyStructure(dir: string, framework: Framework): string | null {
     default:
       return null
   }
-}
-
-/**
- * Detect if this is a Next.js App Router or Pages Router project.
- */
-export function detectNextRouterType(dir: string): 'app' | 'pages' {
-  if (existsSync(join(dir, 'app'))) return 'app'
-  return 'pages'
 }

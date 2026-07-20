@@ -9,14 +9,13 @@ import { installPackages } from './install/runner'
 import { scanProject } from './scan/scanner'
 import { generateFixturesFile, getFixturesPath } from './generate/fixtures'
 import { generateProviderFile, getProviderPath } from './generate/provider'
-import { generateMiddlewareFile } from './generate/middleware'
 import { generateCloudConfig, generateEnvEntries } from './generate/config'
 import { wireProvider } from './wire/index'
 import { confirmFramework, confirmEndpoints, confirmOverwrite } from './ui/prompts'
 import { printSummary } from './ui/summary'
 import { detectPackageManager } from './utils/package-manager'
 import { fileExists, writeFile, readFile } from './utils/fs'
-import { setVerbose, verbose, warn, error } from './utils/logger'
+import { setVerbose, warn, error } from './utils/logger'
 
 export async function run(options: CliOptions): Promise<void> {
   const dir = resolve(options.directory)
@@ -47,8 +46,20 @@ export async function run(options: CliOptions): Promise<void> {
     s1.stop(`Framework: ${FRAMEWORK_LABELS[framework]} (specified)`)
   } else {
     const detection = detectFramework(dir)
+    s1.stop(`Detected: ${detection.framework}`)
+
+    if (detection.framework !== 'react') {
+      console.error(
+        `\nDemoKit now targets React SPAs with a separate API.\n` +
+          `Detected: ${detection.framework}.\n\n` +
+          `Next.js apps that fetch client-side can use @demokit-ai/react directly.\n` +
+          `TanStack Query and SWR apps need no adapter — network interception covers them.\n` +
+          `Docs: https://demokit.ai/docs/integrations/react\n`
+      )
+      process.exit(1)
+    }
+
     framework = detection.framework
-    s1.stop(`Detected: ${FRAMEWORK_LABELS[framework]}`)
 
     if (!options.yes) {
       framework = await confirmFramework(framework)
@@ -139,24 +150,6 @@ export async function run(options: CliOptions): Promise<void> {
       action: options.dryRun ? 'skipped' : 'created',
       description: 'DemoKit provider wrapper',
     })
-  }
-
-  // Next.js: generate middleware
-  if (framework === 'next') {
-    const mwPath = join(dir, 'middleware.ts')
-    if (!fileExists(mwPath)) {
-      const mwContent = generateMiddlewareFile()
-      if (!options.dryRun) {
-        writeFile(mwPath, mwContent)
-      }
-      result.filesChanged.push({
-        path: 'middleware.ts',
-        action: options.dryRun ? 'skipped' : 'created',
-        description: 'Demo mode middleware',
-      })
-    } else {
-      verbose('middleware.ts already exists, skipping')
-    }
   }
 
   // Cloud config

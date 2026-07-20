@@ -1,11 +1,13 @@
-export type Framework =
+export type Framework = 'react'
+
+/** Frameworks we still detect, to fail with a helpful message instead of silently mis-wiring */
+export type UnsupportedFramework =
   | 'next'
   | 'remix'
   | 'react-router'
   | 'tanstack-query'
   | 'swr'
   | 'trpc'
-  | 'react'
 
 export type GenerationLevel = 'l1' | 'l2'
 
@@ -24,7 +26,7 @@ export interface CliOptions {
 }
 
 export interface DetectionResult {
-  framework: Framework
+  framework: Framework | UnsupportedFramework
   confidence: 'high' | 'medium' | 'low'
   evidence: string[]
 }

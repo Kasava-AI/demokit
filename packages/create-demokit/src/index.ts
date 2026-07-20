@@ -13,7 +13,7 @@ const HELP = `
   Flags:
     --yes, -y          Skip all prompts, use defaults
     --cloud            Set up DemoKit Cloud integration
-    --framework <f>    Override detection: next|remix|react-router|tanstack-query|swr|trpc|react
+    --framework <f>    Override detection: react
     --level <l>        Generation level: l1|l2 (default: l2)
     --dry-run          Show what would be done without changes
     --no-install       Skip package installation
@@ -29,7 +29,7 @@ const HELP = `
     npx create-demokit --cloud            # Set up with DemoKit Cloud
 `
 
-const VALID_FRAMEWORKS = ['next', 'remix', 'react-router', 'tanstack-query', 'swr', 'trpc', 'react']
+const VALID_FRAMEWORKS = ['react']
 
 function parseArgs(argv: string[]): CliOptions {
   const args = argv.slice(2)

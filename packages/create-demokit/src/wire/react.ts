@@ -5,8 +5,7 @@ import { findFile } from '../utils/fs'
 import { warn } from '../utils/logger'
 
 /**
- * Wire DemoKit into a plain React, TanStack Query, SWR, or tRPC project.
- * These all follow the same pattern: find the entry file and wrap with provider.
+ * Wire DemoKit into a React SPA: find the entry file and wrap with provider.
  */
 export function wireReact(dir: string, dryRun: boolean): FileChange[] {
   const changes: FileChange[] = []

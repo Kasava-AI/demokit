@@ -129,10 +129,19 @@ export async function PUT(request: Request, { params }: RouteParams) {
         .where(eq(demoVariants.demoId, demoId))
     }
 
+    // storySpec is a concrete interface (no index signature) but the jsonb
+    // column is typed loosely as Record<string, unknown> — same cast the
+    // POST handler and story-spec route use. Guarded on key presence (not
+    // just spread) so an update that omits storySpec doesn't null it out.
+    const { storySpec, ...rest } = validatedData
+
     const [updatedVariant] = await db
       .update(demoVariants)
       .set({
-        ...validatedData,
+        ...rest,
+        ...('storySpec' in validatedData
+          ? { storySpec: storySpec as unknown as Record<string, unknown> | null }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(demoVariants.id, variantId))

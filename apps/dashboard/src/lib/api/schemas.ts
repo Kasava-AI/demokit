@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { featureCategoryEnum, templateCategoryEnum } from '@intelligence'
+import { storySpecSchema } from '@demokit-ai/core'
 
 // Project schemas
 export const createProjectSchema = z.object({
@@ -146,6 +147,22 @@ export const publishRequestSchema = z.object({
 })
 export type PublishRequestInput = z.infer<typeof publishRequestSchema>
 
+// StorySpec routes (spec §5)
+export const writeStorySpecRequestSchema = z.object({
+  prose: z.string().min(1).max(10_000),
+})
+
+export const generateStoryRequestSchema = z
+  .object({
+    storySpec: storySpecSchema.optional(),
+    variantId: z.string().uuid().optional(),
+    /** Stamped once by the caller and persisted for reproducibility. */
+    baseTimestamp: z.number().int().positive().optional(),
+  })
+  .refine((body) => body.storySpec || body.variantId, {
+    message: 'Provide storySpec inline or a variantId that has one saved',
+  })
+
 // Project source schemas
 export const sourceTypeEnum = z.enum(['website', 'readme', 'documentation'])
 
@@ -240,6 +257,7 @@ export const createDemoVariantSchema = z.object({
     recordCounts: z.record(z.string(), z.number()).optional(),
     constraints: z.record(z.string(), z.unknown()).optional(),
   }).optional(),
+  storySpec: storySpecSchema.nullable().optional(),
 })
 
 export const updateDemoVariantSchema = z.object({
@@ -252,6 +270,7 @@ export const updateDemoVariantSchema = z.object({
     recordCounts: z.record(z.string(), z.number()).optional(),
     constraints: z.record(z.string(), z.unknown()).optional(),
   }).optional(),
+  storySpec: storySpecSchema.nullable().optional(),
 })
 
 // Demo set schemas

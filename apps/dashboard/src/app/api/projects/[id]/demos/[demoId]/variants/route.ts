@@ -132,6 +132,10 @@ export async function POST(request: Request, { params }: RouteParams) {
         description: validatedData.description,
         isDefault: shouldBeDefault,
         generationParams: validatedData.generationParams,
+        // StorySpec is a concrete interface (no index signature); the jsonb
+        // column is typed loosely as Record<string, unknown> — same cast the
+        // story-spec route uses when writing this column.
+        storySpec: (validatedData.storySpec ?? null) as unknown as Record<string, unknown> | null,
       })
       .returning()
 

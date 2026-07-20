@@ -45,9 +45,10 @@ export async function writeStorySpec(options: WriteStorySpecOptions): Promise<Wr
 
 function sanitizeSpec(draft: SpecDraft, schema: DemokitSchema): { sanitized: SpecDraft; warnings: string[] } {
   const warnings: string[] = []
-  const hasModel = (model: string) => model in schema.models
+  const hasOwn = (obj: object, key: string) => Object.prototype.hasOwnProperty.call(obj, key)
+  const hasModel = (model: string) => hasOwn(schema.models, model)
   const hasField = (model: string, field: string) =>
-    hasModel(model) && field in (schema.models[model]!.properties ?? {})
+    hasModel(model) && hasOwn(schema.models[model]!.properties ?? {}, field)
 
   const counts: Record<string, number> = {}
   for (const [model, count] of Object.entries(draft.counts)) {
@@ -80,7 +81,12 @@ function sanitizeSpec(draft: SpecDraft, schema: DemokitSchema): { sanitized: Spe
 
   const fieldRules: SpecDraft['fieldRules'] = {}
   for (const [key, rule] of Object.entries(draft.fieldRules)) {
-    const [model, field] = key.split('.')
+    const segments = key.split('.')
+    if (segments.length !== 2) {
+      warnings.push(`fieldRules: "${key}" is not a Model.field key, dropped`)
+      continue
+    }
+    const [model, field] = segments
     if (model && field && hasField(model, field)) fieldRules[key] = rule
     else warnings.push(`fieldRules: "${key}" not in schema, dropped`)
   }

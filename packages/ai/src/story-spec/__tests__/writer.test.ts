@@ -83,4 +83,41 @@ describe('writeStorySpec', () => {
     expect(callOptions.structuredOutput?.schema).toBeDefined()
     expect(callOptions.providerOptions?.anthropic?.cacheControl?.type).toBe('ephemeral')
   })
+
+  it('drops a fieldRules key with more than one dot even when its Model.field prefix exists', async () => {
+    generateMock.mockResolvedValueOnce({
+      object: {
+        ...structuredClone(LLM_DRAFT),
+        fieldRules: {
+          'Customer.name': { type: 'string', strategy: 'oneOf', values: ['Acme'] },
+          'Customer.name.extra': { type: 'string', strategy: 'oneOf', values: ['Acme'] },
+        },
+      },
+    })
+
+    const { spec, warnings } = await writeStorySpec({ schema: SCHEMA, prose: 'x' })
+
+    expect(Object.keys(spec.fieldRules)).toEqual(['Customer.name'])
+    expect(warnings).toContain('fieldRules: "Customer.name.extra" is not a Model.field key, dropped')
+  })
+
+  it('rejects Object.prototype-shaped names instead of matching them via the "in" operator', async () => {
+    generateMock.mockResolvedValueOnce({
+      object: {
+        ...structuredClone(LLM_DRAFT),
+        counts: { Customer: 8, toString: 3 },
+        trends: [
+          { model: 'Customer', dateField: 'createdAt', shape: 'up' },
+          { model: 'Customer', dateField: 'constructor', shape: 'up' },
+        ],
+      },
+    })
+
+    const { spec, warnings } = await writeStorySpec({ schema: SCHEMA, prose: 'x' })
+
+    expect(spec.counts).toEqual({ Customer: 8 })
+    expect(spec.trends).toEqual([{ model: 'Customer', dateField: 'createdAt', shape: 'up' }])
+    expect(warnings).toContain('counts: unknown model "toString" dropped')
+    expect(warnings).toContain('trends: "Customer.constructor" not in schema, dropped')
+  })
 })

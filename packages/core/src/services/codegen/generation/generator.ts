@@ -14,6 +14,7 @@ import type {
   DemoData,
   GenerationRulesConfig,
   StorySpec,
+  AnchorEntity,
 } from '../types'
 import { validateData } from '../validation/validator'
 import { generateIdForModel } from './id-generator'
@@ -53,6 +54,16 @@ export function generateDemoData(
   const usedIds: Record<string, string[]> = {}
   const data: DemoData = {}
 
+  const anchorsByModel: Record<string, AnchorEntity[]> = {}
+  for (const anchor of story?.anchors ?? []) {
+    ;(anchorsByModel[anchor.model] ??= []).push(anchor)
+  }
+  const anchorIds: Record<string, string[]> = {}
+  // (model → row index → fields set by anchors/pins; the aggregate pass must not rewrite them)
+  const heldFields: Record<string, Map<number, Set<string>>> = {}
+  // consumed in applyPins (Task 3)
+  void heldFields
+
   // Get model names in order (respecting dependencies for relationship-valid)
   const modelOrder = level === 'relationship-valid'
     ? getModelGenerationOrder(schema)
@@ -63,9 +74,11 @@ export function generateDemoData(
     const model = schema.models[modelName]
     if (!model || model.type !== 'object') continue
 
-    const count = counts[modelName] ?? DEFAULT_COUNT
+    const modelAnchors = anchorsByModel[modelName] ?? []
+    const count = Math.max(counts[modelName] ?? DEFAULT_COUNT, modelAnchors.length)
     const records: Record<string, unknown>[] = []
     usedIds[modelName] = []
+    anchorIds[modelName] = []
 
     for (let i = 0; i < count; i++) {
       const record = generateRecord(
@@ -73,17 +86,27 @@ export function generateDemoData(
         schema,
         i,
         usedIds,
+        anchorIds,
         level,
         baseTimestamp,
         seed,
         customRules
       )
+      const anchor = modelAnchors[i]
+      if (anchor) {
+        Object.assign(record, anchor.attrs)
+        const held = (heldFields[modelName] ??= new Map())
+        held.set(i, new Set(Object.keys(anchor.attrs)))
+      }
       records.push(record)
 
       // Track the ID
       const idField = findIdField(model)
       if (idField && record[idField]) {
         usedIds[modelName].push(String(record[idField]))
+        if (anchor) {
+          anchorIds[modelName].push(String(record[idField]))
+        }
       }
     }
 
@@ -144,6 +167,7 @@ function generateRecord(
   schema: DemokitSchema,
   index: number,
   usedIds: Record<string, string[]>,
+  anchorIds: Record<string, string[]>,
   level: string,
   baseTimestamp?: number,
   seed: number = 0,
@@ -181,10 +205,17 @@ function generateRecord(
       const relationship = findRelationshipForField(schema, model.name, fieldName)
       if (relationship) {
         const targetIds = usedIds[relationship.to.model]
+        const targetAnchorIds = anchorIds[relationship.to.model] ?? []
         if (targetIds && targetIds.length > 0) {
-          // Pick a random existing ID from the target model (seeded)
-          const randomIndex = Math.floor(seededRandom(fieldSeed + 1) * targetIds.length)
-          record[fieldName] = targetIds[randomIndex]
+          // Anchors become preferred FK targets (spec §5.2): half of the
+          // references land on anchor rows, deterministically.
+          if (targetAnchorIds.length > 0 && seededRandom(fieldSeed + 2) < 0.5) {
+            const anchorIndex = Math.floor(seededRandom(fieldSeed + 3) * targetAnchorIds.length)
+            record[fieldName] = targetAnchorIds[anchorIndex]
+          } else {
+            const randomIndex = Math.floor(seededRandom(fieldSeed + 1) * targetIds.length)
+            record[fieldName] = targetIds[randomIndex]
+          }
           continue
         } else if (relationship.required) {
           // No IDs available yet - this shouldn't happen with proper ordering

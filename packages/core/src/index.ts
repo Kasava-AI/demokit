@@ -21,7 +21,8 @@
  */
 
 // Main API
-export { createDemoInterceptor } from './interceptor'
+export { createDemoInterceptor, demoResponse, isDemoResponse } from './interceptor'
+export type { DemoResponseValue } from './interceptor'
 
 // Session state management
 export { createSessionState } from './session'
@@ -72,6 +73,8 @@ export type {
   RemoteConfig,
   CloudFixtureResponse,
   EndpointMapping,
+  AggregateConfig,
+  QueryParamConfig,
   DemoKitRemoteConfig,
   RemoteLoadingState,
 } from './types'
@@ -80,6 +83,26 @@ export type { SessionState } from './session'
 
 // Demo state types
 export type { DemoState, DemoStateStore, DemoStateStoreOptions } from './state'
+
+// Canonical dataset store (spec §3-§4)
+export { createDemoStore } from './store/store'
+export { attachOpLogPersistence } from './store/oplog'
+export type { StorageLike, OpLogOptions, OpLogPersistence } from './store/oplog'
+export { buildProjectionMap } from './store/projections'
+export { pruneModelsForRuntime } from './store/prune'
+export { createDemoRuntime } from './store/runtime'
+export type { DemoRuntime, DemoRuntimeOptions } from './store/runtime'
+export { StoreError } from './store/types'
+export type {
+  DemoStore,
+  ModelHandle,
+  Row,
+  StoreOp,
+  DemoStoreOptions,
+  TransformContext,
+  TransformFn,
+  TransformRegistry,
+} from './store/types'
 
 // Services (schema, ai, auth, codegen)
 export * from './services'

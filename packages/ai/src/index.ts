@@ -53,3 +53,9 @@ export {
   createNarrativeAgent as narrativeAgent,
   createContextAgent as contextAgent,
 } from './mastra'
+
+// Spec-writer (spec §5.2 step 1) — prose → StorySpec
+export { writeStorySpec } from './story-spec/writer'
+export type { WriteStorySpecOptions, WriteStorySpecResult } from './story-spec/writer'
+export { createSpecWriterAgent } from './agents/spec-writer-agent'
+export type { CreateSpecWriterAgentOptions } from './agents/spec-writer-agent'

@@ -17,7 +17,15 @@ export type SupportedHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 /**
  * Response type for endpoint mappings
  */
-export type EndpointResponseType = 'collection' | 'single' | 'custom'
+export type EndpointResponseType =
+  | 'collection'
+  | 'single'
+  | 'custom'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'aggregate'
+  | 'transform'
 
 /**
  * An inferred endpoint mapping (before validation/saving to DB)
@@ -312,19 +320,19 @@ export function determineResponseType(
     return 'collection'
   }
 
-  // POST creates a new record (returns single)
+  // POST creates a new record
   if (method === 'POST') {
-    return 'single'
+    return 'create'
   }
 
-  // PUT/PATCH updates a record (returns single)
+  // PUT/PATCH updates a record
   if (method === 'PUT' || method === 'PATCH') {
-    return 'single'
+    return 'update'
   }
 
-  // DELETE removes a record (returns single or nothing)
+  // DELETE removes a record
   if (method === 'DELETE') {
-    return 'single'
+    return 'delete'
   }
 
   return 'collection'
@@ -414,7 +422,10 @@ export function inferEndpointMappings(
     }
 
     // Add lookup configuration for single-record responses
-    if (responseType === 'single' && pathParams.length > 0) {
+    if (
+      ['single', 'update', 'delete'].includes(responseType) &&
+      pathParams.length > 0
+    ) {
       mapping.lookupParam = pathParams[pathParams.length - 1]
       mapping.lookupField = determineLookupField(pathParams, modelMatch.model)
     }

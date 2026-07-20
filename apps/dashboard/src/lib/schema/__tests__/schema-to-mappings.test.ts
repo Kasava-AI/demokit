@@ -180,20 +180,20 @@ describe('determineResponseType', () => {
     expect(determineResponseType('GET', '/users/:id', ['id'])).toBe('single')
   })
 
-  it('returns "single" for POST (creates new record)', () => {
-    expect(determineResponseType('POST', '/users', [])).toBe('single')
+  it('returns "create" for POST (creates new record)', () => {
+    expect(determineResponseType('POST', '/users', [])).toBe('create')
   })
 
-  it('returns "single" for PUT', () => {
-    expect(determineResponseType('PUT', '/users/:id', ['id'])).toBe('single')
+  it('returns "update" for PUT', () => {
+    expect(determineResponseType('PUT', '/users/:id', ['id'])).toBe('update')
   })
 
-  it('returns "single" for PATCH', () => {
-    expect(determineResponseType('PATCH', '/users/:id', ['id'])).toBe('single')
+  it('returns "update" for PATCH', () => {
+    expect(determineResponseType('PATCH', '/users/:id', ['id'])).toBe('update')
   })
 
-  it('returns "single" for DELETE', () => {
-    expect(determineResponseType('DELETE', '/users/:id', ['id'])).toBe('single')
+  it('returns "delete" for DELETE', () => {
+    expect(determineResponseType('DELETE', '/users/:id', ['id'])).toBe('delete')
   })
 
   it('returns "collection" for GET on nested collection', () => {
@@ -484,21 +484,21 @@ describe('inferEndpointMappings', () => {
 
     expect(result.mappings[0]).toMatchObject({
       method: 'POST',
-      responseType: 'single',
+      responseType: 'create',
     })
     expect(result.mappings[1]).toMatchObject({
       method: 'PUT',
-      responseType: 'single',
+      responseType: 'update',
       lookupField: 'id',
     })
     expect(result.mappings[2]).toMatchObject({
       method: 'PATCH',
-      responseType: 'single',
+      responseType: 'update',
       lookupField: 'id',
     })
     expect(result.mappings[3]).toMatchObject({
       method: 'DELETE',
-      responseType: 'single',
+      responseType: 'delete',
       lookupField: 'id',
     })
   })

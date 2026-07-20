@@ -70,9 +70,14 @@ export const httpMethod = pgEnum('http_method', [
 
 // Response type for endpoint mappings
 export const endpointResponseType = pgEnum('endpoint_response_type', [
-  'collection', // Returns array of records
+  'collection', // Returns array of records (query-param filter/sort/pagination)
   'single', // Returns single record (by ID lookup)
-  'custom', // Custom transformation function
+  'custom', // Legacy transform-code type — retired, kept for existing rows
+  'create', // model.create(body) -> 201
+  'update', // model.update(id, body)
+  'delete', // model.delete(id) -> 204
+  'aggregate', // computed projection (count/sum/avg/groupBy)
+  'transform', // named reference into the app's transform registry
 ]);
 
 // Mapping validation status (from Mastra agent)

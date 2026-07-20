@@ -11,7 +11,15 @@ import type {
 
 // Types matching the database schema
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-export type ResponseType = 'collection' | 'single' | 'custom'
+export type ResponseType =
+  | 'collection'
+  | 'single'
+  | 'custom'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'aggregate'
+  | 'transform'
 export type MappingStatus = 'valid' | 'corrected' | 'flagged' | 'disabled'
 
 export interface EndpointMapping {
@@ -24,6 +32,24 @@ export interface EndpointMapping {
   lookupField: string | null
   lookupParam: string | null
   transformCode: string | null
+  aggregateConfig: {
+    function: 'count' | 'sum' | 'avg' | 'groupBy'
+    field?: string
+    groupBy?: string
+  } | null
+  transformName: string | null
+  queryParamConfig: {
+    filters?: Record<string, string>
+    sortParam?: string
+    pagination?: {
+      style: 'offset' | 'page'
+      limitParam?: string
+      offsetParam?: string
+      pageParam?: string
+      defaultLimit?: number
+    }
+    envelope?: 'bare' | 'data-total-page'
+  } | null
   status: MappingStatus
   originalSourceModel: string | null
   validationReason: string | null

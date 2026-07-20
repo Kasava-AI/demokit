@@ -189,8 +189,33 @@ export const endpointMappings = pgTable(
     lookupField: text('lookup_field'), // Field in data to match against (e.g., "id")
     lookupParam: text('lookup_param'), // URL param name to use for lookup (e.g., "id", "userId")
 
-    // For 'custom' response type - transformation code
-    transformCode: text('transform_code'), // JavaScript function body
+    // RETIRED (spec §11): never read or written; values nulled by migration.
+    // Column retained so no destructive DDL is generated.
+    transformCode: text('transform_code'),
+
+    // For 'aggregate' response type (spec §4.1)
+    aggregateConfig: jsonb('aggregate_config').$type<{
+      function: 'count' | 'sum' | 'avg' | 'groupBy';
+      field?: string;
+      groupBy?: string;
+    }>(),
+
+    // For 'transform' response type - name registered in the app's TransformRegistry
+    transformName: text('transform_name'),
+
+    // For 'collection' - query-param filtering/sort/pagination/envelope
+    queryParamConfig: jsonb('query_param_config').$type<{
+      filters?: Record<string, string>;
+      sortParam?: string;
+      pagination?: {
+        style: 'offset' | 'page';
+        limitParam?: string;
+        offsetParam?: string;
+        pageParam?: string;
+        defaultLimit?: number;
+      };
+      envelope?: 'bare' | 'data-total-page';
+    }>(),
 
     // Validation metadata (from Mastra agent)
     status: mappingStatus('status').notNull().default('valid'),

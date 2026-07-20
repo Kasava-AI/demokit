@@ -149,7 +149,7 @@ export function attachOpLogPersistence(options: OpLogOptions): OpLogPersistence 
   const hasWindowEvents =
     typeof window !== 'undefined' && typeof window.addEventListener === 'function'
   if (hasWindowEvents) {
-    window.addEventListener('storage', onStorage as EventListener)
+    window.addEventListener('storage', onStorage as unknown as EventListener)
   }
 
   return {
@@ -166,7 +166,7 @@ export function attachOpLogPersistence(options: OpLogOptions): OpLogPersistence 
       destroyed = true
       unsubscribe()
       if (hasWindowEvents) {
-        window.removeEventListener('storage', onStorage as EventListener)
+        window.removeEventListener('storage', onStorage as unknown as EventListener)
       }
     },
   }

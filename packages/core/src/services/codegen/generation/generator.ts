@@ -13,6 +13,7 @@ import type {
   GenerationMetadata,
   DemoData,
   GenerationRulesConfig,
+  StorySpec,
 } from '../types'
 import { validateData } from '../validation/validator'
 import { generateIdForModel } from './id-generator'
@@ -36,7 +37,17 @@ export function generateDemoData(
   options: GenerationOptions = { level: 'schema-valid' }
 ): GenerationResult {
   const startTime = Date.now()
-  const { level, counts = {}, baseTimestamp, seed = 0, validate = true, customRules } = options
+  const { level, baseTimestamp, validate = true, story } = options
+  const seed = options.seed ?? story?.seed ?? 0
+  const counts: Record<string, number> = { ...(story?.counts ?? {}), ...(options.counts ?? {}) }
+  const customRules: GenerationRulesConfig | undefined =
+    story && Object.keys(story.fieldRules).length > 0
+      ? {
+          version: 1,
+          fieldRules: { ...story.fieldRules, ...(options.customRules?.fieldRules ?? {}) },
+          datasets: options.customRules?.datasets,
+        }
+      : options.customRules
 
   // Track used IDs for each model
   const usedIds: Record<string, string[]> = {}
@@ -373,4 +384,21 @@ function toConstantCase(name: string): string {
     .replace(/([a-z])([A-Z])/g, '$1_$2')
     .replace(/[^a-zA-Z0-9]/g, '_')
     .toUpperCase()
+}
+
+/**
+ * Execute a StorySpec deterministically (spec §5.2). Relationship-valid by
+ * default so anchors can serve as FK targets.
+ */
+export function generateFromStorySpec(
+  schema: DemokitSchema,
+  story: StorySpec,
+  overrides: Partial<Omit<GenerationOptions, 'story'>> = {}
+): GenerationResult {
+  return generateDemoData(schema, {
+    level: 'relationship-valid',
+    validate: true,
+    ...overrides,
+    story,
+  })
 }

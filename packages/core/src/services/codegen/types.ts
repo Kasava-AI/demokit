@@ -240,6 +240,11 @@ export interface GenerationOptions {
   validate?: boolean
   /** Custom generation rules from project settings */
   customRules?: GenerationRulesConfig
+  /**
+   * Executable story spec (spec §5). Supplies defaults for seed/counts and
+   * drives anchors, pins, and trends. Explicit options win over the spec.
+   */
+  story?: StorySpec
 }
 
 // ============================================================================
@@ -504,4 +509,47 @@ export interface MetricTarget {
   trend?: 'increasing' | 'declining' | 'stable'
   /** Percentage change */
   amount?: string
+}
+
+/**
+ * Executable story IR (spec §5.1). The LLM spec-writer emits this; the
+ * deterministic generator executes it. Same seed + same spec → identical
+ * dataset, so edits produce minimal diffs.
+ */
+export interface StorySpec {
+  version: 1
+  /** Prose, sales-readable. */
+  scenario: string
+  /** Determinism anchor. */
+  seed: number
+  /** Per-model record counts (same keys as GenerationOptions.counts). */
+  counts: Record<string, number>
+  /** Facts that MUST hold. Paths: 'Model.field', 'sum(Model.field)', 'avg(Model.field)', 'count(Model)'. */
+  pins: Pin[]
+  /** Named rows sales sees on screen. Generated first; preferred FK targets. */
+  anchors: AnchorEntity[]
+  /** Time-series shaping for a model's date field. */
+  trends: TrendSpec[]
+  /** Existing type; stored + date-order validated, not generative in Phase 2. */
+  events: TimelineEvent[]
+  /** Same shape as GenerationRulesConfig.fieldRules (keys 'Model.field'). */
+  fieldRules: Record<string, FieldRule>
+}
+
+export interface Pin {
+  path: string
+  value: unknown
+}
+
+export interface AnchorEntity {
+  model: string
+  attrs: Record<string, unknown>
+}
+
+export interface TrendSpec {
+  model: string
+  dateField: string
+  shape: 'up' | 'down' | 'flat' | 'seasonal'
+  /** Curvature of the shape; higher = steeper. @default 1 */
+  slope?: number
 }

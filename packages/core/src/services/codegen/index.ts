@@ -51,6 +51,10 @@ export {
   validateDatasetName,
 } from './generation'
 
+// Story spec (spec §5) — executable IR for LLM-authored demo narratives
+export { storySpecSchema, fieldRuleSchema, pinSchema, anchorEntitySchema, trendSpecSchema, parseStorySpec } from './story-spec'
+export { generateFromStorySpec } from './generation/generator'
+
 // Context (rule-based inference)
 export {
   inferAppContext,
@@ -122,4 +126,10 @@ export type {
   Character,
   TimelineEvent,
   MetricTarget,
+
+  // Story spec types (spec §5)
+  StorySpec,
+  Pin,
+  AnchorEntity,
+  TrendSpec,
 } from './types'

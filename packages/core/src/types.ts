@@ -1,4 +1,5 @@
 import type { SessionState } from './session'
+import type { DataModel, Relationship } from './services/schema/types'
 
 /**
  * Configuration for automatic demo mode detection based on URL
@@ -424,6 +425,46 @@ export interface CloudFixtureResponse {
    * Version identifier (generation ID) for cache invalidation
    */
   version: string
+
+  /**
+   * Pruned data models (types, enums, required, relationship targets) so the
+   * store can validate mutations at runtime (spec §3.1). Optional: absent on
+   * legacy payloads, in which case the SDK uses the fixture-map path.
+   */
+  models?: Record<string, DataModel>
+
+  /** Relationship graph for FK enforcement (spec §3.1). Optional, as above. */
+  relationships?: Relationship[]
+}
+
+/** Aggregate projection config: the dashboard number is derived from the rows (spec §4.1). */
+export interface AggregateConfig {
+  function: 'count' | 'sum' | 'avg' | 'groupBy'
+  /** Row field to sum/avg over. */
+  field?: string
+  /** Row field to group by (with 'groupBy', or combined with sum/avg). */
+  groupBy?: string
+}
+
+/** Declares how query params shape a collection response (spec §4.1). Cursor pagination is a v1 non-goal. */
+export interface QueryParamConfig {
+  /** queryParam -> row field, e.g. { status: 'status' } makes ?status=active filter rows. */
+  filters?: Record<string, string>
+  /** Sort query param name (value like 'createdAt' or '-createdAt' for descending). */
+  sortParam?: string
+  pagination?: {
+    style: 'offset' | 'page'
+    /** @default 'limit' (offset) / 'perPage' (page) */
+    limitParam?: string
+    /** @default 'offset' */
+    offsetParam?: string
+    /** @default 'page' */
+    pageParam?: string
+    /** @default 25 */
+    defaultLimit?: number
+  }
+  /** 'bare' returns the array; 'data-total-page' returns { data, total, page }. @default 'bare' */
+  envelope?: 'bare' | 'data-total-page'
 }
 
 /**
@@ -448,12 +489,25 @@ export interface EndpointMapping {
   sourceModel: string
 
   /**
-   * Response type:
-   * - 'collection': Returns all records (array)
-   * - 'single': Returns one record by lookup
-   * - 'custom': Uses custom transform (not yet supported in SDK)
+   * Response type (spec §4.1):
+   * - 'collection': model(x).all() with query-param filtering/sort/pagination
+   * - 'single':     model(x).find(params[lookupParam])
+   * - 'create':     model(x).create(body) -> 201
+   * - 'update':     model(x).update(params[lookupParam], body)
+   * - 'delete':     model(x).delete(...) -> 204
+   * - 'aggregate':  computed per aggregateConfig
+   * - 'transform':  named reference into the transform registry
+   * - 'custom':     legacy; treated as unmapped (warn + skip)
    */
-  responseType: 'collection' | 'single' | 'custom'
+  responseType:
+    | 'collection'
+    | 'single'
+    | 'create'
+    | 'update'
+    | 'delete'
+    | 'aggregate'
+    | 'transform'
+    | 'custom'
 
   /**
    * For 'single' type: field in data to match against
@@ -466,6 +520,15 @@ export interface EndpointMapping {
    * @example 'id' (from :id in pattern)
    */
   lookupParam?: string | null
+
+  /** For 'aggregate'. */
+  aggregateConfig?: AggregateConfig | null
+
+  /** For 'transform': name registered in the app's TransformRegistry. */
+  transformName?: string | null
+
+  /** For 'collection': query-param filtering/sort/pagination/envelope. */
+  queryParamConfig?: QueryParamConfig | null
 }
 
 /**

@@ -39,7 +39,7 @@ cd packages/core
 npm run dev
 
 # Run tests in watch mode
-npm test -- --watch
+npm run test:watch
 
 # Type check
 pnpm typecheck
@@ -52,15 +52,16 @@ pnpm lint
 
 ```
 demokit/
-├── packages/           # NPM packages
-│   ├── core/          # Foundation (fetch interception)
-│   ├── react/         # React bindings
-│   ├── auth/          # Auth abstraction
-│   ├── schema/        # Schema parsing
-│   ├── codegen/       # Data generation
-│   └── cli/           # CLI tool
-├── examples/          # Example applications
-└── docs/              # Documentation (Mintlify)
+├── packages/            # NPM packages
+│   ├── core/            # Interception engine + schema/codegen services
+│   ├── react/           # React SDK (provider, hooks, components)
+│   ├── ai/              # AI data generation
+│   ├── intelligence/    # Demo intelligence service
+│   ├── db/              # Database schema and migrations
+│   └── create-demokit/  # Scaffolding CLI
+├── apps/
+│   └── dashboard/       # DemoKit dashboard
+└── templates/           # Agent instruction templates for scaffolded apps
 ```
 
 ## Making Changes

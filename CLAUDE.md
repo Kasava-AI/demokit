@@ -145,8 +145,8 @@ pnpm test:coverage
 
 ## Development Tips
 
-1. **Core changes affect everything**: Changes to core package affect all adapters
-2. **Test in examples**: Use example apps to verify changes
+1. **Core changes affect everything**: Changes to core package affect the React SDK, CLI, and dashboard
+2. **Test at the seams**: Run package unit tests (`CI=true pnpm test`) and verify in the dashboard app
 3. **Keep SSR-safe**: All code should work server-side
 4. **Minimize bundle size**: Keep dependencies minimal
 5. **TypeScript first**: Full type safety required

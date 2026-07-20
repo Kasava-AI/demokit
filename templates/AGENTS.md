@@ -82,5 +82,4 @@ Fixtures can read/write mutable state within a demo session:
 ## Reference
 
 - Docs: https://demokit.dev/docs
-- Examples: https://github.com/Kasava-AI/demokit/tree/main/examples
 - API Reference: https://demokit.dev/docs/api-reference/core

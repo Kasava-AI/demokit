@@ -29,6 +29,7 @@ function generateId(): string {
 
 /** Default value for a required property that was not provided. */
 function defaultForProperty(prop: PropertyDef): unknown {
+  if (prop.default !== undefined) return prop.default
   if (prop.enum && prop.enum.length > 0) return prop.enum[0]
   switch (prop.type) {
     case 'number':
@@ -73,7 +74,13 @@ export function createDemoStore(options: DemoStoreOptions): DemoStore {
     for (const listener of listeners) listener(op)
   }
 
+  /** Non-mutating: returns empty array if model doesn't exist, without creating key. */
   function rows(model: string): Row[] {
+    return (data[model] as Row[]) ?? []
+  }
+
+  /** Creates the model key if it doesn't exist; used only for mutations. */
+  function ensureRows(model: string): Row[] {
     if (!data[model]) data[model] = []
     return data[model] as Row[]
   }
@@ -132,7 +139,6 @@ export function createDemoStore(options: DemoStoreOptions): DemoStore {
           const isFk = relationships.some(
             (rel) => rel.from.model === model && rel.from.field === name
           )
-          if (name === idField) continue
           if (isFk || !prop) {
             throw new StoreError(`${model}.${name} is required`)
           }
@@ -141,7 +147,7 @@ export function createDemoStore(options: DemoStoreOptions): DemoStore {
       }
     }
     validateAttrs(model, row)
-    rows(model).push(row)
+    ensureRows(model).push(row)
     return deepCopy(row)
   }
 
@@ -205,12 +211,12 @@ export function createDemoStore(options: DemoStoreOptions): DemoStore {
         },
         create: (attrs) => {
           const row = doCreate(name, attrs)
-          record({ model: name, op: 'create', id: String(row[idField]), attrs: row })
+          record({ model: name, op: 'create', id: String(row[idField]), attrs: deepCopy(row) })
           return row
         },
         update: (id, patch) => {
           const row = doUpdate(name, id, patch)
-          record({ model: name, op: 'update', id, attrs: patch as Record<string, unknown> })
+          record({ model: name, op: 'update', id, attrs: deepCopy(patch) as Record<string, unknown> })
           return row
         },
         delete: (id) => {

@@ -230,3 +230,34 @@ describe('permissive mode (no models metadata)', () => {
     expect(store.model('newmodel').all()).toHaveLength(1)
   })
 })
+
+describe('defensive copying (op-log isolation)', () => {
+  it('mutating returned row does not corrupt emitted op attrs', () => {
+    const store = make()
+    const emitted: import('./types').StoreOp[] = []
+    store.onOp((op) => emitted.push(op))
+    const row = store.model('users').create({ name: 'Original' })
+    const originalName = row.name
+    ;(row as { name: string }).name = 'Mutated'
+    expect(emitted[0]?.attrs?.name).toBe(originalName)
+    expect(row.name).toBe('Mutated')
+  })
+
+  it('mutating patch object does not corrupt emitted op attrs', () => {
+    const store = make()
+    const emitted: import('./types').StoreOp[] = []
+    store.onOp((op) => emitted.push(op))
+    const patch = { name: 'Original' }
+    store.model('users').update('u1', patch)
+    patch.name = 'Mutated'
+    expect(emitted[0]?.attrs?.name).toBe('Original')
+    expect(patch.name).toBe('Mutated')
+  })
+
+  it('calling all() on unknown model does not pollute snapshot()', () => {
+    const store = make()
+    store.model('ghosts').all() // read a non-existent model
+    const snapshot = store.snapshot()
+    expect(snapshot.ghosts).toBeUndefined()
+  })
+})

@@ -8,13 +8,12 @@ npx create-demokit
 
 ## What it does
 
-1. **Detects your framework** from `package.json` (Next.js, Remix, React Router, TanStack Query, SWR, tRPC, or plain React)
-2. **Installs packages** — `@demokit-ai/core` plus the correct adapter for your framework
+1. **Detects your framework** from `package.json`. `create-demokit` targets React SPAs — if it finds Next.js, Remix, React Router, TanStack Query, SWR, or tRPC instead, it exits with setup guidance rather than wiring an adapter that no longer exists. TanStack Query and SWR apps work through standard network interception — no adapter needed. Next.js apps that fetch client-side can use `@demokit-ai/react` directly.
+2. **Installs packages** — `@demokit-ai/core` and `@demokit-ai/react`
 3. **Scans your codebase** for API endpoints using schema parsers and fetch-call detection
 4. **Generates fixtures** with realistic placeholder data for each detected endpoint
-5. **Creates a provider wrapper** component tailored to your framework
-6. **Wires the provider** into your root layout or entry file
-7. **Adds middleware** for `?demo=true` URL handling (Next.js only)
+5. **Creates a provider wrapper** component
+6. **Wires the provider** into your entry file
 
 After setup, visit any page with `?demo=true` to activate demo mode.
 
@@ -43,7 +42,7 @@ npx create-demokit --cloud
 |------|-------------|
 | `--yes`, `-y` | Skip all prompts, use defaults |
 | `--cloud` | Generate DemoKit Cloud config and `.env.local` entries |
-| `--framework <f>` | Override detection: `next`, `remix`, `react-router`, `tanstack-query`, `swr`, `trpc`, `react` |
+| `--framework <f>` | Override detection: `react` |
 | `--level <l>` | Data generation level: `l1` (schema-valid) or `l2` (relationship-valid, default) |
 | `--dry-run` | Show what would happen without making changes |
 | `--no-install` | Skip package installation |
@@ -54,31 +53,14 @@ npx create-demokit --cloud
 
 ## What gets created
 
-For a Next.js project, `create-demokit` generates:
+`create-demokit` generates:
 
 ```
-lib/demo-fixtures.ts      # Fixture data for each detected endpoint
-app/demo-providers.tsx     # DemoKitNextProvider wrapper component
-middleware.ts              # Handles ?demo=true URL parameter
+src/demo/fixtures.ts       # Fixture data for each detected endpoint
+src/demo/providers.tsx     # DemoKitProviders wrapper component
 ```
 
-And modifies:
-
-```
-app/layout.tsx             # Wraps children with DemoKitProviders
-```
-
-The exact files vary by framework:
-
-| Framework | Fixtures | Provider | Extra |
-|-----------|----------|----------|-------|
-| Next.js | `lib/demo-fixtures.ts` | `app/demo-providers.tsx` | `middleware.ts` |
-| Remix | `app/demo/fixtures.ts` | `app/demo/providers.tsx` | |
-| React Router | `app/demo/fixtures.ts` | `app/demo/providers.tsx` | |
-| TanStack Query | `src/demo/fixtures.ts` | `src/demo/providers.tsx` | |
-| SWR | `src/demo/fixtures.ts` | `src/demo/providers.tsx` | |
-| tRPC | `src/demo/fixtures.ts` | `src/demo/providers.tsx` | |
-| React | `src/demo/fixtures.ts` | `src/demo/providers.tsx` | |
+And modifies your app's entry file (`src/main.tsx`, `src/App.tsx`, or `src/index.tsx` — whichever exists) to wrap it with `DemoKitProviders`.
 
 ## Endpoint detection
 

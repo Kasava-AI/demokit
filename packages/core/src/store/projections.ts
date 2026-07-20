@@ -52,13 +52,15 @@ function applyQueryParams(
   if (config.pagination) {
     const p = config.pagination
     if (p.style === 'offset') {
-      const limit = Number(searchParams.get(p.limitParam ?? 'limit')) || p.defaultLimit || 25
-      const offset = Number(searchParams.get(p.offsetParam ?? 'offset')) || 0
+      // Clamp so a negative limit/offset query param can't reach .slice()
+      // with negative indices (which slice from the end of the array).
+      const limit = Math.max(1, Number(searchParams.get(p.limitParam ?? 'limit')) || p.defaultLimit || 25)
+      const offset = Math.max(0, Number(searchParams.get(p.offsetParam ?? 'offset')) || 0)
       page = Math.floor(offset / limit) + 1
       result = result.slice(offset, offset + limit)
     } else {
-      const perPage = Number(searchParams.get(p.limitParam ?? 'perPage')) || p.defaultLimit || 25
-      page = Number(searchParams.get(p.pageParam ?? 'page')) || 1
+      const perPage = Math.max(1, Number(searchParams.get(p.limitParam ?? 'perPage')) || p.defaultLimit || 25)
+      page = Math.max(1, Number(searchParams.get(p.pageParam ?? 'page')) || 1)
       result = result.slice((page - 1) * perPage, page * perPage)
     }
   }
@@ -69,12 +71,33 @@ function applyQueryParams(
   return result
 }
 
+/** Dedupe key: mappings that already warned about an all-NaN aggregate don't warn again. */
+const warnedAllNaNAggregates = new Set<string>()
+
+function warnIfAllNaNAggregate(rows: Row[], mapping: EndpointMapping, field: string | undefined): void {
+  if (rows.length === 0) return
+  const allNaN = rows.every((row) => Number.isNaN(Number(row[field ?? ''])))
+  if (!allNaN) return
+  const key = `${mapping.method} ${mapping.pattern}`
+  if (warnedAllNaNAggregates.has(key)) return
+  warnedAllNaNAggregates.add(key)
+  console.warn(
+    `[DemoKit] Aggregate ${mapping.aggregateConfig?.function} on field "${field ?? '(none)'}" for ${key} found no numeric values in any row — check aggregateConfig.field.`
+  )
+}
+
 function aggregate(rows: Row[], mapping: EndpointMapping): unknown {
   const config = mapping.aggregateConfig
   if (!config) {
     throw new StoreError(`Aggregate mapping ${mapping.pattern} has no aggregateConfig`, 500)
   }
   const num = (row: Row): number => Number(row[config.field ?? '']) || 0
+
+  // An all-NaN aggregate (every row missing/non-numeric on `field`) is a
+  // config error, never data noise — warn once per mapping, not per call.
+  if (config.function === 'sum' || config.function === 'avg') {
+    warnIfAllNaNAggregate(rows, mapping, config.field)
+  }
 
   if (config.groupBy) {
     const groups = new Map<unknown, Row[]>()

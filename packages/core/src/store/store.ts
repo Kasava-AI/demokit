@@ -205,7 +205,7 @@ export function createDemoStore(options: DemoStoreOptions): DemoStore {
             typeof pred === 'function'
               ? rows(name).filter(pred)
               : rows(name).filter((r) =>
-                  Object.entries(pred).every(([k, v]) => r[k] === v)
+                  Object.entries(pred).every(([k, v]) => String(r[k]) === String(v))
                 )
           return deepCopy(matches)
         },

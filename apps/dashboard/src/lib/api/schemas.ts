@@ -295,11 +295,15 @@ export const responseTypeEnum = z.enum([
 ])
 export const mappingStatusEnum = z.enum(['valid', 'corrected', 'flagged', 'disabled'])
 
-export const aggregateConfigSchema = z.object({
-  function: z.enum(['count', 'sum', 'avg', 'groupBy']),
-  field: z.string().optional(),
-  groupBy: z.string().optional(),
-})
+export const aggregateConfigSchema = z
+  .object({
+    function: z.enum(['count', 'sum', 'avg', 'groupBy']),
+    field: z.string().optional(),
+    groupBy: z.string().optional(),
+  })
+  .refine((v) => v.function === 'count' || v.function === 'groupBy' || !!v.field, {
+    message: 'field is required for sum/avg aggregates',
+  })
 
 export const queryParamConfigSchema = z.object({
   filters: z.record(z.string(), z.string()).optional(),

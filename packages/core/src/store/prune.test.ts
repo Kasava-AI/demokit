@@ -27,4 +27,32 @@ describe('pruneModelsForRuntime', () => {
     expect(user.properties!.role).toEqual({ name: 'role', type: 'string', enum: ['admin', 'member'], nullable: true })
     expect(user.properties!.orgId!.$ref).toBe('#/components/schemas/Org')
   })
+
+  it('preserves a property default', () => {
+    const models: Record<string, DataModel> = {
+      widgets: {
+        name: 'widgets',
+        type: 'object',
+        properties: {
+          status: { name: 'status', type: 'string', default: 'x' },
+        },
+      },
+    }
+    const pruned = pruneModelsForRuntime(models)
+    expect(pruned.widgets!.properties!.status!.default).toBe('x')
+  })
+
+  it('does not add a default key when the source property has none', () => {
+    const models: Record<string, DataModel> = {
+      widgets: {
+        name: 'widgets',
+        type: 'object',
+        properties: {
+          label: { name: 'label', type: 'string' },
+        },
+      },
+    }
+    const pruned = pruneModelsForRuntime(models)
+    expect('default' in pruned.widgets!.properties!.label!).toBe(false)
+  })
 })

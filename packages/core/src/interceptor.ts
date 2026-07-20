@@ -362,9 +362,16 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
       } catch (error) {
         // Store/handler validation errors that carry a numeric status become
         // that mock status — same behavior a real API would produce (spec §3.2).
+        // Only trust the candidate if it's a valid HTTP status; NaN or
+        // out-of-range values (e.g. 999) would make `new Response()` throw
+        // inside this catch, escaping the patched fetch entirely.
+        const candidateStatus = (error as { status?: unknown } | null)?.status
         const status =
-          typeof (error as { status?: unknown } | null)?.status === 'number'
-            ? ((error as { status: number }).status)
+          typeof candidateStatus === 'number' &&
+          Number.isInteger(candidateStatus) &&
+          candidateStatus >= 200 &&
+          candidateStatus <= 599
+            ? candidateStatus
             : 500
         if (status >= 500) {
           console.error('[DemoKit] Fixture handler error:', error)

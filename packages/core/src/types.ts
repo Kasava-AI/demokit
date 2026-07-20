@@ -491,7 +491,7 @@ export interface EndpointMapping {
   /**
    * Response type (spec §4.1):
    * - 'collection': model(x).all() with query-param filtering/sort/pagination
-   * - 'single':     model(x).find(params[lookupParam])
+   * - 'single':     looks up one row where String(row[lookupField ?? 'id']) matches params[lookupParam ?? 'id']
    * - 'create':     model(x).create(body) -> 201
    * - 'update':     model(x).update(params[lookupParam], body)
    * - 'delete':     model(x).delete(...) -> 204

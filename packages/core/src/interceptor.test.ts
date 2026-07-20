@@ -180,6 +180,52 @@ describe('status-carrying handler results', () => {
     consoleErrorSpy.mockRestore()
   })
 
+  it('falls back to 500 when the thrown status is NaN', async () => {
+    stubNetwork()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    interceptor = createDemoInterceptor({
+      fixtures: {
+        'POST /api/things': () => {
+          const error = new Error('nope') as Error & { status: number }
+          error.status = NaN
+          throw error
+        },
+      },
+      initialEnabled: true,
+    })
+
+    const res = await fetch('/api/things', { method: 'POST' })
+
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { error: string; message: string }
+    expect(body.error).toBe('Fixture handler error')
+    expect(consoleErrorSpy).toHaveBeenCalledOnce()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('falls back to 500 when the thrown status is out of range (999)', async () => {
+    stubNetwork()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    interceptor = createDemoInterceptor({
+      fixtures: {
+        'POST /api/things': () => {
+          const error = new Error('nope') as Error & { status: number }
+          error.status = 999
+          throw error
+        },
+      },
+      initialEnabled: true,
+    })
+
+    const res = await fetch('/api/things', { method: 'POST' })
+
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { error: string; message: string }
+    expect(body.error).toBe('Fixture handler error')
+    expect(consoleErrorSpy).toHaveBeenCalledOnce()
+    consoleErrorSpy.mockRestore()
+  })
+
   it('still logs console.error and returns 500 for a generic throw (regression)', async () => {
     stubNetwork()
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

@@ -89,6 +89,15 @@ describe('reads', () => {
     expect(store.model('posts').where({ userId: 'u1' })).toHaveLength(1)
     expect(store.model('posts').where((r) => (r.views as number) > 4)).toHaveLength(2)
   })
+
+  it('where() object predicate String-coerces both sides', () => {
+    const store = make()
+    store.model('users').create({ id: '1', name: 'Carol' })
+    store.model('posts').create({ id: 'p3', title: 'Numeric userId', userId: '1' })
+    const matches = store.model('posts').where({ userId: 1 })
+    expect(matches).toHaveLength(1)
+    expect(matches[0]!.id).toBe('p3')
+  })
 })
 
 describe('create', () => {

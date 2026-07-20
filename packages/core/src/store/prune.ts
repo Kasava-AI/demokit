@@ -12,6 +12,7 @@ function prunePropertyDef(prop: PropertyDef): PropertyDef {
   if (prop.nullable !== undefined) pruned.nullable = prop.nullable
   if (prop.enum !== undefined) pruned.enum = prop.enum
   if (prop.$ref !== undefined) pruned.$ref = prop.$ref
+  if (prop.default !== undefined) pruned.default = prop.default
   return pruned
 }
 

@@ -68,6 +68,22 @@ describe('collection projections', () => {
     expect(paged.data).toHaveLength(1)
   })
 
+  it('clamps negative limit/offset so no negative-index slicing occurs', async () => {
+    const store = createDemoStore({ data: seed() })
+    const map = buildProjectionMap([mapping], store)
+    const handler = map['GET /api/users']!
+
+    const result = (await run(handler, ctx({ searchParams: new URLSearchParams('limit=-5&offset=-1') }))) as {
+      data: Array<{ id: string }>
+      total: number
+    }
+    expect(result.total).toBe(3)
+    expect(result.data.length).toBeGreaterThanOrEqual(1)
+    // Negative offset/limit clamp to 0/1 — rows come from the start of the
+    // array, never from `.slice()` treating them as from-the-end indices.
+    expect(result.data.map((r) => r.id)).toEqual(['u1'])
+  })
+
   it('returns a bare array without queryParamConfig', async () => {
     const store = createDemoStore({ data: seed() })
     const map = buildProjectionMap(
@@ -140,6 +156,34 @@ describe('aggregate projections', () => {
         { key: 'inactive', sum: 30 },
       ],
     })
+  })
+
+  it('warns once when a sum aggregate field is absent from every row, and returns {sum: 0}', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const map = buildProjectionMap(
+        [
+          {
+            method: 'GET',
+            pattern: '/api/stats-missing-field',
+            sourceModel: 'users',
+            responseType: 'aggregate',
+            aggregateConfig: { function: 'sum', field: 'nope' },
+          },
+        ],
+        store()
+      )
+      const handler = map['GET /api/stats-missing-field']!
+
+      expect(await run(handler, ctx())).toEqual({ sum: 0 })
+      expect(warn).toHaveBeenCalledTimes(1)
+
+      // Second invocation on the same mapping: no repeat warning.
+      expect(await run(handler, ctx())).toEqual({ sum: 0 })
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      warn.mockRestore()
+    }
   })
 })
 

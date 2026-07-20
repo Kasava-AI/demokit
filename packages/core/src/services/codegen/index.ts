@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { generateDemoData, validateData, inferAppContext } from '@demokit-ai/codegen'
+ * import { generateDemoData, validateData, inferAppContext } from '@demokit-ai/core'
  *
  * // Generate demo data from schema (Level 1 or 2)
  * const result = generateDemoData(schema, {

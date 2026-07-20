@@ -14,7 +14,6 @@ export function wireReact(dir: string, dryRun: boolean): FileChange[] {
     'src/main.tsx', 'src/main.jsx',
     'src/App.tsx', 'src/App.jsx',
     'src/index.tsx', 'src/index.jsx',
-    'app/layout.tsx',
   ])
 
   if (!mainPath) {

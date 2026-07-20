@@ -34,24 +34,31 @@ export function MutationBlockedToast({
   return (
     <div
       role="status"
-      onClick={onDismiss}
       style={{
         position: 'fixed',
         bottom: 16,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9999,
-        padding: '10px 16px',
-        borderRadius: 8,
-        background: '#1f2937',
-        color: '#f9fafb',
-        fontSize: 13,
-        fontFamily: 'system-ui, sans-serif',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-        cursor: 'pointer',
       }}
     >
-      This action isn&apos;t part of the demo ({notice})
+      <button
+        type="button"
+        onClick={onDismiss}
+        style={{
+          border: 'none',
+          padding: '10px 16px',
+          borderRadius: 8,
+          background: '#1f2937',
+          color: '#f9fafb',
+          fontSize: 13,
+          fontFamily: 'system-ui, sans-serif',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+          cursor: 'pointer',
+        }}
+      >
+        This action isn&apos;t part of the demo ({notice})
+      </button>
     </div>
   )
 }

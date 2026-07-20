@@ -1,33 +1,5 @@
 import * as p from '@clack/prompts'
-import type { Framework, DetectedEndpoint } from '../types'
-import { FRAMEWORK_LABELS } from '../detect/framework'
-
-/**
- * Confirm or override the detected framework.
- */
-export async function confirmFramework(detected: Framework): Promise<Framework> {
-  const label = FRAMEWORK_LABELS[detected]
-
-  const confirmed = await p.confirm({
-    message: `Detected framework: ${label}. Is this correct?`,
-    initialValue: true,
-  })
-
-  if (p.isCancel(confirmed)) process.exit(0)
-
-  if (confirmed) return detected
-
-  const selected = await p.select({
-    message: 'Select your framework:',
-    options: Object.entries(FRAMEWORK_LABELS).map(([value, label]) => ({
-      value: value as Framework,
-      label,
-    })),
-  })
-
-  if (p.isCancel(selected)) process.exit(0)
-  return selected
-}
+import type { DetectedEndpoint } from '../types'
 
 /**
  * Confirm detected endpoints before generating fixtures.

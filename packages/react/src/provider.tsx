@@ -98,8 +98,9 @@ export function DemoKitProvider({
   const [remoteError, setRemoteError] = useState<Error | null>(null)
   const [remoteVersion, setRemoteVersion] = useState<string | null>(null)
 
-  // Blocked mutation toast state
-  const [blockedNotice, setBlockedNotice] = useState<string | null>(null)
+  // Blocked mutation toast state; seq forces a timer reset even when the
+  // same request is blocked twice in a row (identical text bails out of setState)
+  const [blockedNotice, setBlockedNotice] = useState<{ text: string; seq: number } | null>(null)
 
   // Keep a ref to the interceptor instance
   const interceptorRef = useRef<DemoInterceptor | null>(null)
@@ -167,7 +168,10 @@ export function DemoKitProvider({
         onMutationBlocked: (ctx) => {
           onMutationBlocked?.(ctx)
           if (showBlockedToast) {
-            setBlockedNotice(`${ctx.method} ${ctx.pathname}`)
+            setBlockedNotice((prev) => ({
+              text: `${ctx.method} ${ctx.pathname}`,
+              seq: (prev?.seq ?? 0) + 1,
+            }))
           }
         },
         pathAliases,
@@ -387,7 +391,8 @@ export function DemoKitProvider({
       {children}
       {showBlockedToast && (
         <MutationBlockedToast
-          notice={blockedNotice}
+          key={blockedNotice?.seq ?? 0}
+          notice={blockedNotice?.text ?? null}
           onDismiss={() => setBlockedNotice(null)}
         />
       )}

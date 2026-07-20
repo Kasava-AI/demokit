@@ -71,4 +71,6 @@ export type {
   RemoteConfig,
   DetectionConfig,
   MutationInterceptedContext,
+  UnmatchedMutationContext,
+  UnmatchedMutationPolicy,
 } from '@demokit-ai/core'

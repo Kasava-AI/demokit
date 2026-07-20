@@ -11,7 +11,7 @@ import { generateFixturesFile, getFixturesPath } from './generate/fixtures'
 import { generateProviderFile, getProviderPath } from './generate/provider'
 import { generateCloudConfig, generateEnvEntries } from './generate/config'
 import { wireProvider } from './wire/index'
-import { confirmFramework, confirmEndpoints, confirmOverwrite } from './ui/prompts'
+import { confirmEndpoints, confirmOverwrite } from './ui/prompts'
 import { printSummary } from './ui/summary'
 import { detectPackageManager } from './utils/package-manager'
 import { fileExists, writeFile, readFile } from './utils/fs'
@@ -60,10 +60,6 @@ export async function run(options: CliOptions): Promise<void> {
     }
 
     framework = detection.framework
-
-    if (!options.yes) {
-      framework = await confirmFramework(framework)
-    }
   }
   result.framework = framework
 

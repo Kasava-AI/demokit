@@ -165,6 +165,12 @@ export interface DemoKitConfig {
    * The React provider uses this to show a "not part of the demo" toast.
    */
   onMutationBlocked?: (context: UnmatchedMutationContext) => void
+
+  /**
+   * Callback fired when the session is reset via resetSession().
+   * The store runtime uses this to clear the op-log and re-seed (spec §3.3).
+   */
+  onSessionReset?: () => void
 }
 
 /**

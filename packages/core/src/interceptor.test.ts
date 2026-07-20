@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { createDemoInterceptor } from './interceptor'
+import { createDemoInterceptor, demoResponse } from './interceptor'
 import type { DemoInterceptor, UnmatchedMutationContext, RequestContext } from './types'
 
 const realFetch = globalThis.fetch
@@ -134,5 +134,81 @@ describe('unmatched mutation policy', () => {
 
     expect(res.status).toBe(409)
     expect(spy).not.toHaveBeenCalled()
+  })
+})
+
+describe('status-carrying handler results', () => {
+  it('honors demoResponse(body, status) including bodyless 204', async () => {
+    stubNetwork()
+    interceptor = createDemoInterceptor({
+      fixtures: {
+        'POST /api/things': () => demoResponse({ id: 'new' }, 201),
+        'DELETE /api/things/:id': () => demoResponse(null, 204),
+      },
+      initialEnabled: true,
+    })
+
+    const created = await fetch('/api/things', { method: 'POST' })
+    expect(created.status).toBe(201)
+    expect(await created.json()).toEqual({ id: 'new' })
+
+    const deleted = await fetch('/api/things/1', { method: 'DELETE' })
+    expect(deleted.status).toBe(204)
+    expect(await deleted.text()).toBe('')
+  })
+
+  it('maps thrown errors with a numeric status onto the mock response', async () => {
+    stubNetwork()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    interceptor = createDemoInterceptor({
+      fixtures: {
+        'POST /api/things': () => {
+          const error = new Error('nope') as Error & { status: number }
+          error.status = 422
+          throw error
+        },
+      },
+      initialEnabled: true,
+    })
+
+    const res = await fetch('/api/things', { method: 'POST' })
+
+    expect(res.status).toBe(422)
+    const body = (await res.json()) as { message: string }
+    expect(body.message).toContain('nope')
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('still logs console.error and returns 500 for a generic throw (regression)', async () => {
+    stubNetwork()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    interceptor = createDemoInterceptor({
+      fixtures: {
+        'POST /api/things': () => {
+          throw new Error('boom')
+        },
+      },
+      initialEnabled: true,
+    })
+
+    const res = await fetch('/api/things', { method: 'POST' })
+
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { error: string; message: string }
+    expect(body.error).toBe('Fixture handler error')
+    expect(consoleErrorSpy).toHaveBeenCalledOnce()
+    consoleErrorSpy.mockRestore()
+  })
+})
+
+describe('onSessionReset', () => {
+  it('fires when resetSession() is called', () => {
+    const onSessionReset = vi.fn()
+    interceptor = createDemoInterceptor({ fixtures: {}, onSessionReset })
+
+    interceptor.resetSession()
+
+    expect(onSessionReset).toHaveBeenCalledTimes(1)
   })
 })

@@ -72,14 +72,38 @@ async function parseRequestBody(
   return body
 }
 
+/** Marker for handler results that carry an explicit status (create -> 201, delete -> 204). */
+const DEMO_RESPONSE = Symbol.for('demokit.response')
+
+export interface DemoResponseValue {
+  [DEMO_RESPONSE]: true
+  status: number
+  body: unknown
+}
+
+/** Wrap a handler result with an explicit HTTP status. */
+export function demoResponse(body: unknown, status = 200): DemoResponseValue {
+  return { [DEMO_RESPONSE]: true, status, body }
+}
+
+export function isDemoResponse(value: unknown): value is DemoResponseValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as Record<PropertyKey, unknown>)[DEMO_RESPONSE] === true
+  )
+}
+
+const BODYLESS_STATUSES = new Set([204, 205, 304])
+
 /**
  * Create a mock Response from fixture data
  */
 function createMockResponse(data: unknown, status = 200): Response {
-  const body = JSON.stringify(data)
+  const body = BODYLESS_STATUSES.has(status) ? null : JSON.stringify(data)
   return new Response(body, {
     status,
-    statusText: status === 200 ? 'OK' : 'Error',
+    statusText: status < 400 ? 'OK' : 'Error',
     headers: {
       'Content-Type': 'application/json',
       'X-DemoKit-Mock': 'true',
@@ -196,6 +220,7 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     warnOnCatchAll = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production',
     unmatchedMutations = 'block',
     onMutationBlocked,
+    onSessionReset,
   } = config
 
   // Auto-detect demo mode from URL
@@ -335,12 +360,26 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
           result = handler
         }
       } catch (error) {
-        // Return error response if handler throws
-        console.error('[DemoKit] Fixture handler error:', error)
+        // Store/handler validation errors that carry a numeric status become
+        // that mock status — same behavior a real API would produce (spec §3.2).
+        const status =
+          typeof (error as { status?: unknown } | null)?.status === 'number'
+            ? ((error as { status: number }).status)
+            : 500
+        if (status >= 500) {
+          console.error('[DemoKit] Fixture handler error:', error)
+        }
         return createMockResponse(
-          { error: 'Fixture handler error', message: String(error) },
-          500
+          {
+            error: status >= 500 ? 'Fixture handler error' : 'Rejected',
+            message: error instanceof Error ? error.message : String(error),
+          },
+          status
         )
+      }
+
+      if (isDemoResponse(result)) {
+        return createMockResponse(result.body, result.status)
       }
 
       return createMockResponse(result)
@@ -422,6 +461,7 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
 
     resetSession(): void {
       sessionState.clear()
+      onSessionReset?.()
     },
 
     getSession(): SessionState {

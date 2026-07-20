@@ -1,4 +1,4 @@
-import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig, DetectionConfig, MutationInterceptedContext, UnmatchedMutationContext, UnmatchedMutationPolicy } from '@demokit-ai/core'
+import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig, DetectionConfig, MutationInterceptedContext, UnmatchedMutationContext, UnmatchedMutationPolicy, TransformRegistry } from '@demokit-ai/core'
 import type { ReactNode } from 'react'
 
 /**
@@ -60,6 +60,13 @@ export interface DemoKitProviderProps {
    * Create using createRemoteSource()
    */
   source?: RemoteConfig
+
+  /**
+   * Named transforms for cloud mappings with responseType 'transform' —
+   * the only place engineering writes demo logic post-install (spec §4.2).
+   * @example transforms={{ 'billing-summary': ({ store }) => ({ ... }) }}
+   */
+  transforms?: TransformRegistry
 
   /**
    * Callback when remote fixtures are successfully loaded

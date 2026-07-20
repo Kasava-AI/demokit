@@ -5,9 +5,12 @@ import {
   createDemoInterceptor,
   fetchCloudFixtures,
   createRemoteFixtures,
+  createDemoRuntime,
+  mergeFixtures,
   type DemoInterceptor,
   type SessionState,
   type FixtureMap,
+  type DemoRuntime,
 } from '@demokit-ai/core'
 import { DemoModeContext } from './context'
 import type { DemoKitProviderProps, DemoModeContextValue } from './types'
@@ -65,6 +68,7 @@ export function DemoKitProvider({
   fixtures,
   // Remote config
   source,
+  transforms,
   onRemoteLoad,
   onRemoteError,
   loadingFallback = null,
@@ -110,6 +114,9 @@ export function DemoKitProvider({
 
   // Store loaded remote fixtures for refetch merging
   const remoteFixturesRef = useRef<FixtureMap | null>(null)
+
+  // Store-backed runtime (spec §3), when the payload ships models + relationships
+  const runtimeRef = useRef<DemoRuntime | null>(null)
 
   // Store the refetch function for context
   const refetchFnRef = useRef<(() => Promise<void>) | null>(null)
@@ -176,6 +183,9 @@ export function DemoKitProvider({
         },
         pathAliases,
         warnOnCatchAll,
+        onSessionReset: () => {
+          runtimeRef.current?.reset()
+        },
         onEnable: () => {
           setIsDemoMode(true)
           onDemoModeChange?.(true)
@@ -223,8 +233,14 @@ export function DemoKitProvider({
         onError: onRemoteError,
       })
 
-      // Build fixtures from remote response with local overrides
-      const remoteFixtures = createRemoteFixtures(response, fixtures)
+      // Store-backed path when the payload ships models + relationships
+      // (spec §3); legacy fixture-map path otherwise.
+      runtimeRef.current?.destroy()
+      const runtime = createDemoRuntime({ response, transforms, storageKey })
+      runtimeRef.current = runtime
+      const remoteFixtures = runtime
+        ? mergeFixtures(runtime.fixtures, fixtures)
+        : createRemoteFixtures(response, fixtures)
       remoteFixturesRef.current = remoteFixtures
 
       setRemoteVersion(response.version)
@@ -246,6 +262,8 @@ export function DemoKitProvider({
   }, [
     source,
     fixtures,
+    transforms,
+    storageKey,
     onRemoteLoad,
     onRemoteError,
     setupInterceptor,
@@ -274,6 +292,8 @@ export function DemoKitProvider({
     }
 
     return () => {
+      runtimeRef.current?.destroy()
+      runtimeRef.current = null
       interceptorRef.current?.destroy()
       interceptorRef.current = null
       initializedRef.current = false

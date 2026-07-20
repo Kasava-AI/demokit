@@ -73,4 +73,8 @@ export type {
   MutationInterceptedContext,
   UnmatchedMutationContext,
   UnmatchedMutationPolicy,
+  TransformRegistry,
+  TransformContext,
+  DemoStore,
+  ModelHandle,
 } from '@demokit-ai/core'

@@ -1,16 +1,16 @@
 /**
- * @demokit-ai/schema
+ * @demokit-ai/core
  *
  * Schema parsing with automatic relationship detection.
  * Supports multiple formats: OpenAPI, TypeScript, Zod, Drizzle, and Prisma.
  *
  * @example
  * // Parse OpenAPI from file or URL
- * import { parseOpenAPIFromPath, parseOpenAPIFromString } from '@demokit-ai/schema'
+ * import { parseOpenAPIFromPath, parseOpenAPIFromString } from '@demokit-ai/core'
  * const schema = await parseOpenAPIFromPath('./openapi.yaml')
  *
  * // Parse codebase schemas (TypeScript, Zod, Drizzle, Prisma)
- * import { parseSchema } from '@demokit-ai/schema'
+ * import { parseSchema } from '@demokit-ai/core'
  * const result = parseSchema([
  *   { path: 'schema.ts', content: fileContent }
  * ])

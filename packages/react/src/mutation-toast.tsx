@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export interface MutationBlockedToastProps {
   /** Text describing the blocked action, e.g. "POST /api/users" */
@@ -20,11 +20,14 @@ export function MutationBlockedToast({
   onDismiss,
   duration = 4000,
 }: MutationBlockedToastProps) {
+  const onDismissRef = useRef(onDismiss)
+  onDismissRef.current = onDismiss
+
   useEffect(() => {
     if (!notice) return
-    const timer = setTimeout(onDismiss, duration)
+    const timer = setTimeout(() => onDismissRef.current(), duration)
     return () => clearTimeout(timer)
-  }, [notice, onDismiss, duration])
+  }, [notice, duration])
 
   if (!notice) return null
 

@@ -112,26 +112,30 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    const [publish] = await db
-      .insert(publishes)
-      .values({
-        fixtureId,
-        generationId: targetId,
-        previousGenerationId: fixture.publishedGenerationId,
-        publishedById: user.id,
-        note: validatedData.note ?? null,
-      })
-      .returning()
+    const { publish, updatedFixture } = await db.transaction(async (tx) => {
+      const [publish] = await tx
+        .insert(publishes)
+        .values({
+          fixtureId,
+          generationId: targetId,
+          previousGenerationId: fixture.publishedGenerationId,
+          publishedById: user.id,
+          note: validatedData.note ?? null,
+        })
+        .returning()
 
-    const [updatedFixture] = await db
-      .update(fixtures)
-      .set({
-        publishedGenerationId: targetId,
-        draftGenerationId: fixture.draftGenerationId === targetId ? null : fixture.draftGenerationId,
-        updatedAt: new Date(),
-      })
-      .where(eq(fixtures.id, fixtureId))
-      .returning()
+      const [updatedFixture] = await tx
+        .update(fixtures)
+        .set({
+          publishedGenerationId: targetId,
+          draftGenerationId: fixture.draftGenerationId === targetId ? null : fixture.draftGenerationId,
+          updatedAt: new Date(),
+        })
+        .where(eq(fixtures.id, fixtureId))
+        .returning()
+
+      return { publish, updatedFixture }
+    })
 
     return NextResponse.json({ publish, fixture: updatedFixture, warnings })
   } catch (error) {

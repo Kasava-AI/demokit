@@ -227,17 +227,19 @@ export async function POST(
     // first valid generation so the hosted API works before the publish UI
     // exists; invalid generations stay drafts behind the gate.
     if (validation?.valid !== false) {
-      await db.insert(publishes).values({
-        fixtureId: fixture.id,
-        generationId: generation.id,
-        previousGenerationId: null,
-        publishedById: user.id,
-        note: 'initial publish',
+      await db.transaction(async (tx) => {
+        await tx.insert(publishes).values({
+          fixtureId: fixture.id,
+          generationId: generation.id,
+          previousGenerationId: null,
+          publishedById: user.id,
+          note: 'initial publish',
+        })
+        await tx
+          .update(fixtures)
+          .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
+          .where(eq(fixtures.id, fixture.id))
       })
-      await db
-        .update(fixtures)
-        .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
-        .where(eq(fixtures.id, fixture.id))
     } else {
       await db
         .update(fixtures)

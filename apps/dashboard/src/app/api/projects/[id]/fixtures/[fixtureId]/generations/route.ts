@@ -114,17 +114,19 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Draft/publish split (spec §6): land as draft; bootstrap-publish only
     // when nothing is published yet and validation passed.
     if (!fixture.publishedGenerationId && validatedData.validationValid !== false) {
-      await db.insert(publishes).values({
-        fixtureId,
-        generationId: generation.id,
-        previousGenerationId: null,
-        publishedById: null,
-        note: 'initial publish',
+      await db.transaction(async (tx) => {
+        await tx.insert(publishes).values({
+          fixtureId,
+          generationId: generation.id,
+          previousGenerationId: null,
+          publishedById: null,
+          note: 'initial publish',
+        })
+        await tx
+          .update(fixtures)
+          .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
+          .where(eq(fixtures.id, fixtureId))
       })
-      await db
-        .update(fixtures)
-        .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
-        .where(eq(fixtures.id, fixtureId))
     } else {
       await db
         .update(fixtures)

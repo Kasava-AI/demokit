@@ -131,6 +131,11 @@ export function DemoKitProvider({
     previewTokenRef.current = readPreviewToken() ?? ''
   }
   const previewToken = previewTokenRef.current || null
+  // Single source of truth for "is this a preview session": a caller-supplied
+  // source.previewToken counts exactly like the URL-derived one, so ephemeral
+  // storage and forced demo detection can't be bypassed by setting one but not
+  // the other.
+  const effectivePreviewToken = source?.previewToken ?? previewToken
 
   // Store the refetch function for context
   const refetchFnRef = useRef<(() => Promise<void>) | null>(null)
@@ -182,7 +187,7 @@ export function DemoKitProvider({
         storageKey,
         initialEnabled,
         baseUrl,
-        detection: previewToken
+        detection: effectivePreviewToken
           ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
           : detection,
         canDisable,
@@ -226,7 +231,7 @@ export function DemoKitProvider({
       setIsPublicDemo(interceptorRef.current.isPublicDemo())
       setIsHydrated(true)
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, previewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
   )
 
   /**
@@ -245,7 +250,7 @@ export function DemoKitProvider({
         timeout: source.timeout,
         retry: source.retry,
         maxRetries: source.maxRetries,
-        previewToken: source.previewToken ?? previewToken ?? undefined,
+        previewToken: effectivePreviewToken ?? undefined,
         onLoad: onRemoteLoad,
         onError: onRemoteError,
       })
@@ -259,7 +264,7 @@ export function DemoKitProvider({
         storageKey,
         // Preview op-log stays in memory: it must not clobber the user's real
         // demo-session op-log (same storage key, different version).
-        storage: previewToken ? createMemoryStorage() : undefined,
+        storage: effectivePreviewToken ? createMemoryStorage() : undefined,
       })
       runtimeRef.current = runtime
       const remoteFixtures = runtime
@@ -288,7 +293,7 @@ export function DemoKitProvider({
     fixtures,
     transforms,
     storageKey,
-    previewToken,
+    effectivePreviewToken,
     onRemoteLoad,
     onRemoteError,
     setupInterceptor,

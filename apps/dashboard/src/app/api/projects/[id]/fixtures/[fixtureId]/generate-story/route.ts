@@ -8,7 +8,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, badRequest, handleError } from '@/lib/api/utils'
 import { generateStoryRequestSchema } from '@/lib/api/schemas'
-import { projects, projectSources, fixtures, fixtureGenerations, demoVariants, publishes, eq, and } from '@db'
+import { projects, projectSources, fixtures, fixtureGenerations, demoVariants, demos, publishes, eq, and } from '@db'
 import { generateFromStorySpec, parseStorySpec } from '@demokit-ai/core'
 import type { DemokitSchema } from '@demokit-ai/core'
 
@@ -49,6 +49,10 @@ export async function POST(request: Request, { params }: RouteParams) {
         where: eq(demoVariants.id, body.variantId),
       })
       if (!variant?.storySpec) return notFound('Variant story spec')
+      const variantDemo = await db.query.demos.findFirst({
+        where: and(eq(demos.id, variant.demoId), eq(demos.projectId, id)),
+      })
+      if (!variantDemo) return notFound('Variant story spec')
       spec = parseStorySpec(variant.storySpec)
     }
     if (!spec) return badRequest('No story spec resolved')
@@ -115,17 +119,19 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // Draft/publish split (spec §6) — same semantics as the generations POST.
     if (!hasPublished && result.validation.valid) {
-      await db.insert(publishes).values({
-        fixtureId,
-        generationId: generation.id,
-        previousGenerationId: null,
-        publishedById: user.id,
-        note: 'initial publish',
+      await db.transaction(async (tx) => {
+        await tx.insert(publishes).values({
+          fixtureId,
+          generationId: generation.id,
+          previousGenerationId: null,
+          publishedById: user.id,
+          note: 'initial publish',
+        })
+        await tx
+          .update(fixtures)
+          .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
+          .where(eq(fixtures.id, fixtureId))
       })
-      await db
-        .update(fixtures)
-        .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
-        .where(eq(fixtures.id, fixtureId))
     } else {
       await db
         .update(fixtures)

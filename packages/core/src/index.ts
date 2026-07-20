@@ -69,6 +69,8 @@ export type {
   ParsedPattern,
   DetectionConfig,
   MutationInterceptedContext,
+  UnmatchedMutationContext,
+  UnmatchedMutationPolicy,
   // Remote config types (for cloud-managed fixtures)
   RemoteConfig,
   CloudFixtureResponse,

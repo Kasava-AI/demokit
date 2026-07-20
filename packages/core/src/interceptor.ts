@@ -5,10 +5,13 @@ import type {
   FixtureHandler,
   RequestContext,
   DetectionConfig,
+  UnmatchedMutationContext,
 } from './types'
 import { findMatchingPattern } from './matcher'
 import { loadDemoState, saveDemoState, DEFAULT_STORAGE_KEY } from './storage'
 import { createSessionState, type SessionState } from './session'
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /**
  * Parse request body based on content type
@@ -191,6 +194,8 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     onMutationIntercepted,
     pathAliases,
     warnOnCatchAll = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production',
+    unmatchedMutations = 'block',
+    onMutationBlocked,
   } = config
 
   // Auto-detect demo mode from URL
@@ -244,8 +249,35 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
       }
 
       if (!match) {
-        // No matching fixture - pass through to real API
-        return originalFetch!(input, init)
+        // No matching fixture — safe methods pass through to the real API
+        if (SAFE_METHODS.has(method)) {
+          return originalFetch!(input, init)
+        }
+
+        // Unmatched mutation: apply policy (default 'block')
+        const blockedContext: UnmatchedMutationContext = {
+          url: extractUrl(input, baseUrl),
+          method,
+          pathname,
+        }
+        const decision =
+          typeof unmatchedMutations === 'function'
+            ? unmatchedMutations(blockedContext)
+            : unmatchedMutations
+        if (decision === 'passthrough') {
+          return originalFetch!(input, init)
+        }
+
+        onMutationBlocked?.(blockedContext)
+        return createMockResponse(
+          {
+            demokit: 'blocked',
+            reason: 'unmatched-mutation',
+            method,
+            path: pathname,
+          },
+          409
+        )
       }
 
       const [pattern, matchResult] = match

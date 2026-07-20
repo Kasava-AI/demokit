@@ -44,6 +44,29 @@ export interface MutationInterceptedContext {
 }
 
 /**
+ * Context passed to the unmatched-mutation policy and onMutationBlocked callback
+ */
+export interface UnmatchedMutationContext {
+  /** The full URL of the request */
+  url: string
+  /** HTTP method (POST, PUT, PATCH, DELETE) */
+  method: string
+  /** Pathname of the request */
+  pathname: string
+}
+
+/**
+ * Policy for non-GET requests that match no fixture while demo mode is on.
+ * - 'block' (default): return a mock 409 instead of hitting the real API
+ * - 'passthrough': forward to the real API (pre-0.5 behavior)
+ * - function: decide per request
+ */
+export type UnmatchedMutationPolicy =
+  | 'block'
+  | 'passthrough'
+  | ((context: UnmatchedMutationContext) => 'block' | 'passthrough')
+
+/**
  * Configuration for creating a demo interceptor
  */
 export interface DemoKitConfig {
@@ -130,6 +153,18 @@ export interface DemoKitConfig {
    * Useful for showing "simulated in demo mode" toast notifications.
    */
   onMutationIntercepted?: (context: MutationInterceptedContext) => void
+
+  /**
+   * Policy for non-GET requests that match no fixture while demo mode is on.
+   * @default 'block'
+   */
+  unmatchedMutations?: UnmatchedMutationPolicy
+
+  /**
+   * Callback fired when an unmatched mutation is blocked.
+   * The React provider uses this to show a "not part of the demo" toast.
+   */
+  onMutationBlocked?: (context: UnmatchedMutationContext) => void
 }
 
 /**

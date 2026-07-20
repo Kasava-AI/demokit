@@ -111,6 +111,13 @@ export const demoVariants = pgTable(
       constraints?: Record<string, unknown>;
     }>(),
 
+    /**
+     * Executable StorySpec (spec §5.3) — supersedes generationParams as the
+     * generation input of record. Shape: StorySpec from @demokit-ai/core
+     * (this package stays dependency-free of core, hence the loose type).
+     */
+    storySpec: jsonb('story_spec').$type<Record<string, unknown>>(),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

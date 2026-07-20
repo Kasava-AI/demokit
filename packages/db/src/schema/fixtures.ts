@@ -46,9 +46,17 @@ export const fixtures = pgTable(
     slug: text('slug'), // For SDK access: demo.load('fixture-slug')
     description: text('description'),
 
-    // Points to the currently active generation (the "current version")
-    // Note: Can't use .references() due to circular dependency - enforced at app level
-    activeGenerationId: uuid('active_generation_id'),
+    /**
+     * What the SDK serves (spec §6). Renamed from active_generation_id in
+     * Phase 2: only a publish action moves it. App-level FK (circular dep).
+     */
+    publishedGenerationId: uuid('published_generation_id'),
+
+    /**
+     * Where edits, CI auto-fill, and regenerations land (spec §6). Never
+     * served to the SDK except through a preview session.
+     */
+    draftGenerationId: uuid('draft_generation_id'),
 
     // Export metadata
     lastExportedAt: timestamp('last_exported_at', { withTimezone: true }),
@@ -67,7 +75,9 @@ export const fixtures = pgTable(
   (table) => ({
     projectIdIdx: index('idx_fixtures_project_id').on(table.projectId),
     templateIdIdx: index('idx_fixtures_template_id').on(table.templateId),
-    activeGenerationIdIdx: index('idx_fixtures_active_generation_id').on(table.activeGenerationId),
+    publishedGenerationIdIdx: index('idx_fixtures_published_generation_id').on(
+      table.publishedGenerationId
+    ),
     apiKeyIdx: index('idx_fixtures_api_key').on(table.apiKey),
     demoIdIdx: index('idx_fixtures_demo_id').on(table.demoId),
     variantIdIdx: index('idx_fixtures_variant_id').on(table.variantId),
@@ -116,6 +126,13 @@ export const fixtureGenerations = pgTable(
 
     // Input parameters used for this generation
     inputParameters: jsonb('input_parameters').$type<Record<string, unknown>>(),
+
+    /**
+     * Provenance (spec §6): per-model row-ID lists for rows created by CI
+     * auto-fill or regeneration that no human has reviewed. Cleared
+     * conceptually by publishing (publish = deliberate human action).
+     */
+    unreviewedRows: jsonb('unreviewed_rows').$type<Record<string, string[]>>(),
 
     // Generation status
     status: fixtureStatus('status').default('completed'),
@@ -237,5 +254,39 @@ export const endpointMappings = pgTable(
     fixtureIdIdx: index('idx_endpoint_mappings_fixture_id').on(table.fixtureId),
     patternIdx: index('idx_endpoint_mappings_pattern').on(table.method, table.pattern),
     enabledIdx: index('idx_endpoint_mappings_enabled').on(table.fixtureId, table.isEnabled),
+  })
+);
+
+/**
+ * Immutable publish audit log (spec §6). One row per publish action; rollback
+ * is a new row re-pointing at previousGenerationId, never an update. This is
+ * the audit trail the enterprise-security story requires — no updatedAt, no
+ * update path.
+ */
+export const publishes = pgTable(
+  'publishes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    fixtureId: uuid('fixture_id')
+      .notNull()
+      .references(() => fixtures.id, { onDelete: 'cascade' }),
+
+    /** The generation that became published. App-level FK. */
+    generationId: uuid('generation_id').notNull(),
+
+    /** What was published before this action (rollback target). */
+    previousGenerationId: uuid('previous_generation_id'),
+
+    /** Dashboard user who published. App-level FK (users table is cloud-only). */
+    publishedById: uuid('published_by_id'),
+
+    note: text('note'),
+
+    publishedAt: timestamp('published_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    fixtureIdIdx: index('idx_publishes_fixture_id').on(table.fixtureId),
+    publishedAtIdx: index('idx_publishes_published_at').on(table.publishedAt),
   })
 );

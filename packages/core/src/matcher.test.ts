@@ -4,7 +4,6 @@ import {
   matchUrl,
   findMatchingPattern,
   clearPatternCache,
-  matchQueryKey,
 } from './matcher'
 
 describe('parseUrlPattern', () => {
@@ -100,30 +99,6 @@ describe('findMatchingPattern', () => {
       'POST /api/users': () => ({}),
     }
     const result = findMatchingPattern(fixtures, 'DELETE', '/api/users')
-    expect(result).toBeNull()
-  })
-})
-
-describe('matchQueryKey', () => {
-  it('matches exact string key', () => {
-    const result = matchQueryKey(['users'], ['users'])
-    expect(result).not.toBeNull()
-    expect(result?.matched).toBe(true)
-  })
-
-  it('matches key with wildcard', () => {
-    const result = matchQueryKey(['users', '123'], ['users', '*'])
-    expect(result).not.toBeNull()
-    expect(result?.matched).toBe(true)
-  })
-
-  it('returns null on mismatch', () => {
-    const result = matchQueryKey(['users'], ['posts'])
-    expect(result).toBeNull()
-  })
-
-  it('returns null on length mismatch', () => {
-    const result = matchQueryKey(['users', '123'], ['users'])
     expect(result).toBeNull()
   })
 })

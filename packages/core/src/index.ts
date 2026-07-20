@@ -32,9 +32,6 @@ export {
   parseUrlPattern,
   findMatchingPattern,
   clearPatternCache,
-  // Query key matching (for TanStack Query, SWR, etc.)
-  matchQueryKey,
-  findMatchingQueryKeyPattern,
 } from './matcher'
 
 // Shared demo state management
@@ -80,9 +77,6 @@ export type {
 } from './types'
 
 export type { SessionState } from './session'
-
-// Query key matching types
-export type { QueryKey, QueryKeyElement, QueryKeyMatchResult } from './matcher'
 
 // Demo state types
 export type { DemoState, DemoStateStore, DemoStateStoreOptions } from './state'

@@ -18,6 +18,7 @@ import type {
   TrendSpec,
 } from '../types'
 import { validateData } from '../validation/validator'
+import { validateStoryConsistency } from '../validation/story'
 import { generateIdForModel } from './id-generator'
 import {
   generateValue,
@@ -156,6 +157,14 @@ export function generateDemoData(
           durationMs: 0,
         },
       }
+
+  if (validate && story) {
+    const storyErrors = validateStoryConsistency(data, story, { baseTimestamp })
+    if (storyErrors.length > 0) {
+      validation.errors.push(...storyErrors)
+      validation.valid = false
+    }
+  }
 
   // Generate fixtures if requested
   const fixtures = options.format === 'typescript'

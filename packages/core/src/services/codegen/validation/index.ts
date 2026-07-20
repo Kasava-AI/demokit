@@ -3,6 +3,7 @@
  */
 
 export { validateData, validateTimestampOrder } from './validator'
+export { validateStoryConsistency } from './story'
 export {
   generateRulesFromSchema,
   describeRule,

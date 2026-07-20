@@ -84,6 +84,8 @@ export {
   getRequiredFieldRules,
   checks,
 } from './validation'
+export { validateStoryConsistency } from './validation/story'
+export type { StoryValidationOptions } from './validation/story'
 
 // Types
 export type {

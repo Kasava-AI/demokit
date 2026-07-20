@@ -61,6 +61,8 @@ export type ValidationErrorType =
   | 'timestamp_order'        // Timestamps are in wrong order (e.g., createdAt > updatedAt)
   | 'array_empty'            // Array is empty when it shouldn't be
   | 'duplicate_id'           // Same ID used multiple times
+  | 'aggregate_mismatch'     // Story pin (count/sum/avg/field) doesn't match generated data
+  | 'story_date_out_of_range' // Trend or timeline event date falls outside the story window/order
 
 /**
  * A validation warning - issues that may be intentional

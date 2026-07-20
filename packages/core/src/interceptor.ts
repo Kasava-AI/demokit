@@ -231,7 +231,11 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
         return originalFetch!(input, init)
       }
 
-      const method = init?.method?.toUpperCase() || 'GET'
+      const method = (
+        init?.method ??
+        (input instanceof Request ? input.method : undefined) ??
+        'GET'
+      ).toUpperCase()
       const pathname = extractPathname(input, baseUrl)
 
       // Try to find a matching fixture, also checking aliased paths

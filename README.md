@@ -114,7 +114,7 @@ For deeper integration with your AI tool, grab a config template from [`template
 ### Add to an existing project
 
 ```bash
-npm install @demokit-ai/core
+npm install @demokit-ai/core @demokit-ai/react
 ```
 
 ```tsx
@@ -122,7 +122,7 @@ import {
   DemoKitProvider,
   DemoModeBanner,
   useDemoMode,
-} from "@demokit-ai/core/react";
+} from "@demokit-ai/react";
 
 const fixtures = {
   "GET /api/users": () => [{ id: "1", name: "Demo User" }],
@@ -172,9 +172,9 @@ Access at <http://localhost:3000?demo=true>
 
 TanStack Query and SWR apps work through standard network interception — no adapter needed. Next.js apps that fetch client-side can use `@demokit-ai/react` directly.
 
-| Framework | Import                   |
-| --------- | ------------------------ |
-| React     | `@demokit-ai/core/react` |
+| Framework | Import               |
+| --------- | --------------------- |
+| React     | `@demokit-ai/react` |
 
 ### LLM Data Generation (BYOK)
 

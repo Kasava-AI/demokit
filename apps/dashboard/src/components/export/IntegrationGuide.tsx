@@ -277,7 +277,7 @@ export function IntegrationGuide({
                     data instead of hitting your real API.
                   </p>
                   <p>
-                    Your existing data fetching code (React Query, SWR, tRPC,
+                    Your existing data fetching code (React Query, SWR,
                     etc.) works unchanged. Just wrap your app with the provider
                     and toggle demo mode when needed.
                   </p>

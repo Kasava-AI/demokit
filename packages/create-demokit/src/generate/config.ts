@@ -9,8 +9,8 @@ export function generateCloudConfig(): string {
  * Set your API URL and key in .env.local
  */
 export const demokitSource = createRemoteSource({
-  apiUrl: process.env.NEXT_PUBLIC_DEMOKIT_API_URL!,
-  apiKey: process.env.NEXT_PUBLIC_DEMOKIT_API_KEY!,
+  apiUrl: import.meta.env.VITE_DEMOKIT_API_URL!,
+  apiKey: import.meta.env.VITE_DEMOKIT_API_KEY!,
 })
 `
 }
@@ -21,7 +21,7 @@ export const demokitSource = createRemoteSource({
 export function generateEnvEntries(): string {
   return `
 # DemoKit Cloud
-NEXT_PUBLIC_DEMOKIT_API_URL=https://api.demokit.dev
-NEXT_PUBLIC_DEMOKIT_API_KEY=your-api-key-here
+VITE_DEMOKIT_API_URL=https://api.demokit.dev
+VITE_DEMOKIT_API_KEY=your-api-key-here
 `
 }

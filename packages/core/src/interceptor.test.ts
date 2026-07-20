@@ -125,4 +125,14 @@ describe('unmatched mutation policy', () => {
 
     expect(spy).toHaveBeenCalledOnce()
   })
+
+  it('blocks an unmatched POST made via a Request object', async () => {
+    const spy = stubNetwork()
+    interceptor = createDemoInterceptor({ fixtures: {}, initialEnabled: true })
+
+    const res = await fetch(new Request('http://localhost/api/users', { method: 'POST' }))
+
+    expect(res.status).toBe(409)
+    expect(spy).not.toHaveBeenCalled()
+  })
 })

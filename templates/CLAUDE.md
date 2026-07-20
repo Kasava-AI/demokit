@@ -60,7 +60,7 @@ export const fixtures: FixtureMap = {
 
 ### React
 ```tsx
-import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/core/react'
+import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/react'
 import { fixtures } from '@/lib/fixtures'
 
 <DemoKitProvider fixtures={fixtures}>

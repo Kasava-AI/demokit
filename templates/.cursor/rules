@@ -2,21 +2,9 @@
 
 This project uses DemoKit (https://github.com/Kasava-AI/demokit) to create interactive product demos by intercepting API calls and returning mock data.
 
-## Framework Detection
+## Package Selection
 
-Detect the framework from package.json and use the correct DemoKit adapter:
-
-| Framework       | Package                            |
-|-----------------|------------------------------------|
-| React           | `@demokit-ai/core` (built-in)      |
-| Next.js         | `@demokit-ai/next`                 |
-| Remix           | `@demokit-ai/remix`                |
-| React Router v7 | `@demokit-ai/react-router`         |
-| TanStack Query  | `@demokit-ai/tanstack-query`       |
-| SWR             | `@demokit-ai/swr`                  |
-| tRPC            | `@demokit-ai/trpc`                 |
-
-Always install `@demokit-ai/core` as a peer alongside any adapter.
+Install `@demokit-ai/core` and `@demokit-ai/react`. This works for any React app, including TanStack Query and SWR apps (standard network interception, no adapter needed) and Next.js apps that fetch client-side.
 
 ## Fixture Patterns
 
@@ -40,23 +28,14 @@ Fixtures define the mock data returned when demo mode is active.
 
 ## Provider Setup
 
-### React (default)
+### React
 ```tsx
-import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/core/react'
+import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/react'
 <DemoKitProvider fixtures={fixtures}>
   <DemoModeBanner />
   <App />
 </DemoKitProvider>
 ```
-
-### Next.js
-Requires three things:
-1. A `DemoKitNextProvider` wrapping the app in a client component
-2. A `createDemoConfig()` call for configuration
-3. Middleware to handle the `?demo=true` URL parameter
-
-### Remix / React Router
-Use the framework-specific adapter which handles loader/action mocking.
 
 ## Data Generation Guidelines
 

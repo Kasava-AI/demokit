@@ -41,7 +41,7 @@ export const fixtures: FixtureMap = {
 ### Provider Wrapping
 
 ```tsx
-import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/core/react'
+import { DemoKitProvider, DemoModeBanner } from '@demokit-ai/react'
 <DemoKitProvider fixtures={fixtures}><DemoModeBanner /><App /></DemoKitProvider>
 ```
 

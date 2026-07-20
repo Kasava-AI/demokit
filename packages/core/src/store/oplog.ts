@@ -171,3 +171,17 @@ export function attachOpLogPersistence(options: OpLogOptions): OpLogPersistence 
     },
   }
 }
+
+/** In-memory StorageLike — preview sessions keep their op-log out of localStorage. */
+export function createMemoryStorage(): StorageLike {
+  const map = new Map<string, string>()
+  return {
+    getItem: (key) => map.get(key) ?? null,
+    setItem: (key, value) => {
+      map.set(key, value)
+    },
+    removeItem: (key) => {
+      map.delete(key)
+    },
+  }
+}

@@ -404,6 +404,13 @@ export interface RemoteConfig {
    * @default 3
    */
   maxRetries?: number
+
+  /**
+   * Draft preview session (spec §6): a short-lived token minted by the
+   * dashboard. Sent as ?demo-preview=<token>; the cloud serves the token's
+   * draft generation instead of the published one.
+   */
+  previewToken?: string
 }
 
 /**
@@ -435,6 +442,9 @@ export interface CloudFixtureResponse {
 
   /** Relationship graph for FK enforcement (spec §3.1). Optional, as above. */
   relationships?: Relationship[]
+
+  /** True when this payload is a draft preview, not the published version. */
+  preview?: boolean
 }
 
 /** Aggregate projection config: the dashboard number is derived from the rows (spec §4.1). */

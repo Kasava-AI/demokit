@@ -6,6 +6,7 @@ import {
   fetchCloudFixtures,
   createRemoteFixtures,
   createDemoRuntime,
+  createMemoryStorage,
   mergeFixtures,
   type DemoInterceptor,
   type SessionState,
@@ -15,6 +16,12 @@ import {
 import { DemoModeContext } from './context'
 import type { DemoKitProviderProps, DemoModeContextValue } from './types'
 import { MutationBlockedToast } from './mutation-toast'
+
+/** Preview sessions (spec §6): ?demo-preview=<token> on the page URL. */
+function readPreviewToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get('demo-preview')
+}
 
 /**
  * Provider component that enables demo mode functionality
@@ -118,6 +125,13 @@ export function DemoKitProvider({
   // Store-backed runtime (spec §3), when the payload ships models + relationships
   const runtimeRef = useRef<DemoRuntime | null>(null)
 
+  // Read once — the token lives for the page load, like detection.
+  const previewTokenRef = useRef<string | null>(null)
+  if (previewTokenRef.current === null) {
+    previewTokenRef.current = readPreviewToken() ?? ''
+  }
+  const previewToken = previewTokenRef.current || null
+
   // Store the refetch function for context
   const refetchFnRef = useRef<(() => Promise<void>) | null>(null)
 
@@ -168,7 +182,9 @@ export function DemoKitProvider({
         storageKey,
         initialEnabled,
         baseUrl,
-        detection,
+        detection: previewToken
+          ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
+          : detection,
         canDisable,
         onMutationIntercepted,
         unmatchedMutations,
@@ -210,7 +226,7 @@ export function DemoKitProvider({
       setIsPublicDemo(interceptorRef.current.isPublicDemo())
       setIsHydrated(true)
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, previewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
   )
 
   /**
@@ -229,6 +245,7 @@ export function DemoKitProvider({
         timeout: source.timeout,
         retry: source.retry,
         maxRetries: source.maxRetries,
+        previewToken: source.previewToken ?? previewToken ?? undefined,
         onLoad: onRemoteLoad,
         onError: onRemoteError,
       })
@@ -236,7 +253,14 @@ export function DemoKitProvider({
       // Store-backed path when the payload ships models + relationships
       // (spec §3); legacy fixture-map path otherwise.
       runtimeRef.current?.destroy()
-      const runtime = createDemoRuntime({ response, transforms, storageKey })
+      const runtime = createDemoRuntime({
+        response,
+        transforms,
+        storageKey,
+        // Preview op-log stays in memory: it must not clobber the user's real
+        // demo-session op-log (same storage key, different version).
+        storage: previewToken ? createMemoryStorage() : undefined,
+      })
       runtimeRef.current = runtime
       const remoteFixtures = runtime
         ? mergeFixtures(runtime.fixtures, fixtures)
@@ -264,6 +288,7 @@ export function DemoKitProvider({
     fixtures,
     transforms,
     storageKey,
+    previewToken,
     onRemoteLoad,
     onRemoteError,
     setupInterceptor,

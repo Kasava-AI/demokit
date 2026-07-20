@@ -86,7 +86,7 @@ export type { DemoState, DemoStateStore, DemoStateStoreOptions } from './state'
 
 // Canonical dataset store (spec §3-§4)
 export { createDemoStore } from './store/store'
-export { attachOpLogPersistence } from './store/oplog'
+export { attachOpLogPersistence, createMemoryStorage } from './store/oplog'
 export type { StorageLike, OpLogOptions, OpLogPersistence } from './store/oplog'
 export { buildProjectionMap } from './store/projections'
 export { pruneModelsForRuntime } from './store/prune'

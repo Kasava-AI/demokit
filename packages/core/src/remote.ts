@@ -108,6 +108,7 @@ export async function fetchCloudFixtures(
     timeout = DEFAULT_TIMEOUT,
     retry = true,
     maxRetries = DEFAULT_MAX_RETRIES,
+    previewToken,
   } = config
 
   // Use apiUrl if provided, fall back to cloudUrl for backwards compatibility
@@ -127,7 +128,8 @@ export async function fetchCloudFixtures(
   // Build the fixtures endpoint URL
   // apiUrl is expected to be the versioned base (e.g., https://api.demokit.cloud/api/v1)
   // We just append /fixtures
-  const url = `${baseUrl.replace(/\/$/, '')}/fixtures`
+  const query = previewToken ? `?demo-preview=${encodeURIComponent(previewToken)}` : ''
+  const url = `${baseUrl.replace(/\/$/, '')}/fixtures${query}`
 
   let lastError: Error | null = null
   const maxAttempts = retry ? maxRetries : 1

@@ -11,6 +11,7 @@ import {
 } from '@demokit-ai/core'
 import { DemoModeContext } from './context'
 import type { DemoKitProviderProps, DemoModeContextValue } from './types'
+import { MutationBlockedToast } from './mutation-toast'
 
 /**
  * Provider component that enables demo mode functionality
@@ -77,6 +78,9 @@ export function DemoKitProvider({
   detection,
   canDisable,
   onMutationIntercepted,
+  unmatchedMutations,
+  onMutationBlocked,
+  showBlockedToast = true,
   pathAliases,
   warnOnCatchAll,
   // Query cache
@@ -93,6 +97,9 @@ export function DemoKitProvider({
   const [isLoading, setIsLoading] = useState(!!source?.apiKey)
   const [remoteError, setRemoteError] = useState<Error | null>(null)
   const [remoteVersion, setRemoteVersion] = useState<string | null>(null)
+
+  // Blocked mutation toast state
+  const [blockedNotice, setBlockedNotice] = useState<string | null>(null)
 
   // Keep a ref to the interceptor instance
   const interceptorRef = useRef<DemoInterceptor | null>(null)
@@ -156,6 +163,13 @@ export function DemoKitProvider({
         detection,
         canDisable,
         onMutationIntercepted,
+        unmatchedMutations,
+        onMutationBlocked: (ctx) => {
+          onMutationBlocked?.(ctx)
+          if (showBlockedToast) {
+            setBlockedNotice(`${ctx.method} ${ctx.pathname}`)
+          }
+        },
         pathAliases,
         warnOnCatchAll,
         onEnable: () => {
@@ -182,7 +196,7 @@ export function DemoKitProvider({
       setIsPublicDemo(interceptorRef.current.isPublicDemo())
       setIsHydrated(true)
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, canDisable, onMutationIntercepted, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
   )
 
   /**
@@ -369,6 +383,14 @@ export function DemoKitProvider({
   }
 
   return (
-    <DemoModeContext.Provider value={value}>{children}</DemoModeContext.Provider>
+    <DemoModeContext.Provider value={value}>
+      {children}
+      {showBlockedToast && (
+        <MutationBlockedToast
+          notice={blockedNotice}
+          onDismiss={() => setBlockedNotice(null)}
+        />
+      )}
+    </DemoModeContext.Provider>
   )
 }

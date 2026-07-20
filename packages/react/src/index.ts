@@ -42,6 +42,7 @@ export { useDemoGuard } from './guard'
 export { DemoModeBanner } from './banner'
 export { DemoModeToggle } from './toggle'
 export { PoweredByBadge } from './powered-by'
+export { MutationBlockedToast } from './mutation-toast'
 
 // Context (for advanced use cases)
 export { DemoModeContext } from './context'
@@ -59,6 +60,7 @@ export type { UseDemoGuardOptions, DemoGuardReturn } from './guard'
 // Component types (from component files)
 export type { DemoModeToggleProps } from './toggle'
 export type { PoweredByBadgeProps } from './powered-by'
+export type { MutationBlockedToastProps } from './mutation-toast'
 
 // Re-export core types for convenience
 export type {

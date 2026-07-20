@@ -1,4 +1,4 @@
-import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig, DetectionConfig, MutationInterceptedContext } from '@demokit-ai/core'
+import type { FixtureMap, SessionState, CloudFixtureResponse, RemoteConfig, DetectionConfig, MutationInterceptedContext, UnmatchedMutationContext, UnmatchedMutationPolicy } from '@demokit-ai/core'
 import type { ReactNode } from 'react'
 
 /**
@@ -137,6 +137,25 @@ export interface DemoKitProviderProps {
    * Useful for showing "simulated in demo mode" toast notifications.
    */
   onMutationIntercepted?: (context: MutationInterceptedContext) => void
+
+  /**
+   * Policy for non-GET requests that match no fixture while demo mode is on.
+   * Forwarded to the core interceptor.
+   * @default 'block'
+   */
+  unmatchedMutations?: UnmatchedMutationPolicy
+
+  /**
+   * Callback fired when an unmatched mutation is blocked.
+   */
+  onMutationBlocked?: (context: UnmatchedMutationContext) => void
+
+  /**
+   * Render the built-in "This action isn't part of the demo" toast when a
+   * mutation is blocked. Set false if you handle onMutationBlocked yourself.
+   * @default true
+   */
+  showBlockedToast?: boolean
 
   /**
    * Path aliases for matching fixtures across equivalent URL prefixes.

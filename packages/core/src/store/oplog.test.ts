@@ -99,4 +99,33 @@ describe('attachOpLogPersistence', () => {
       vi.unstubAllGlobals()
     }
   })
+
+  it('does not throw when payload has matching version but malformed ops (null)', () => {
+    const storage = memoryStorage()
+    storage.setItem('k', JSON.stringify({ version: 'v1', seq: 1, ops: null }))
+    const store = createDemoStore({ data: seed() })
+    expect(() => attachOpLogPersistence({ store, key: 'k', version: 'v1', storage })).not.toThrow()
+    expect(store.model('users').all()).toHaveLength(1)
+  })
+
+  it('does not throw when payload has matching version but missing ops', () => {
+    const storage = memoryStorage()
+    storage.setItem('k', JSON.stringify({ version: 'v1', seq: 1 }))
+    const store = createDemoStore({ data: seed() })
+    expect(() => attachOpLogPersistence({ store, key: 'k', version: 'v1', storage })).not.toThrow()
+    expect(store.model('users').all()).toHaveLength(1)
+  })
+
+  it('does not throw when removeItem throws on version mismatch', () => {
+    const storage = {
+      ...memoryStorage(),
+      removeItem: () => {
+        throw new Error('Storage error')
+      },
+    }
+    storage.setItem('k', JSON.stringify({ version: 'v1', seq: 1, ops: [] }))
+    const store = createDemoStore({ data: seed() })
+    expect(() => attachOpLogPersistence({ store, key: 'k', version: 'v2', storage })).not.toThrow()
+    expect(store.model('users').all()).toHaveLength(1)
+  })
 })

@@ -104,12 +104,22 @@ export function attachOpLogPersistence(options: OpLogOptions): OpLogPersistence 
   }
 
   // --- Load phase ---
-  const existing = read()
-  if (existing) {
-    if (existing.version === version) {
-      restore(existing)
-    } else {
+  try {
+    const existing = read()
+    if (existing) {
+      if (existing.version === version) {
+        restore(existing)
+      } else {
+        storage?.removeItem(key)
+      }
+    }
+  } catch {
+    // Malformed payload (missing ops, etc.) or removeItem threw: discard and continue.
+    // Best-effort cleanup of corrupted data.
+    try {
       storage?.removeItem(key)
+    } catch {
+      // Storage error — give up and proceed with fresh session.
     }
   }
 

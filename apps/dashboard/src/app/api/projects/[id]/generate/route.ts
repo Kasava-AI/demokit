@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, handleError } from '@/lib/api/utils'
-import { projects, appIdentity, features, userJourneys, entityMaps, fixtures, fixtureGenerations, eq } from '@db'
+import { projects, appIdentity, features, userJourneys, entityMaps, fixtures, fixtureGenerations, publishes, eq } from '@db'
 import { generateNarrativeData, createNarrative, type SourceIntelligence } from '@demokit-ai/ai'
 import { inferAppContext } from '@demokit-ai/core'
 import type { DemokitSchema } from '@demokit-ai/core'
@@ -223,14 +223,27 @@ export async function POST(
       })
       .returning()
 
-    // Update fixture with active generation
-    await db
-      .update(fixtures)
-      .set({
-        activeGenerationId: generation.id,
-        updatedAt: new Date(),
+    // Draft/publish split (spec §6): a fresh fixture bootstrap-publishes its
+    // first valid generation so the hosted API works before the publish UI
+    // exists; invalid generations stay drafts behind the gate.
+    if (validation?.valid !== false) {
+      await db.insert(publishes).values({
+        fixtureId: fixture.id,
+        generationId: generation.id,
+        previousGenerationId: null,
+        publishedById: user.id,
+        note: 'initial publish',
       })
-      .where(eq(fixtures.id, fixture.id))
+      await db
+        .update(fixtures)
+        .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
+        .where(eq(fixtures.id, fixture.id))
+    } else {
+      await db
+        .update(fixtures)
+        .set({ draftGenerationId: generation.id, updatedAt: new Date() })
+        .where(eq(fixtures.id, fixture.id))
+    }
 
     console.log('[Generate API] Fixture saved:', {
       fixtureId: fixture.id,

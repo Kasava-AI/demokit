@@ -25,7 +25,7 @@ export function SelectedFixturePreview({
   onClearSelection,
   onDelete,
 }: SelectedFixturePreviewProps) {
-  if (!fixture.activeGeneration) {
+  if (!fixture.publishedGeneration) {
     return (
       <div className="text-center py-12">
         <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -40,7 +40,7 @@ export function SelectedFixturePreview({
     )
   }
 
-  const gen = fixture.activeGeneration
+  const gen = fixture.publishedGeneration
   return (
     <FixtureDetail
       projectId={projectId}

@@ -11,7 +11,7 @@ import {
   useFixtureGenerations,
   useCreateGeneration,
   useDeleteGeneration,
-  useSetActiveGeneration,
+  usePublishGeneration,
   type FixtureGeneration,
 } from '@/hooks/use-fixtures'
 
@@ -100,7 +100,7 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
   // Mutations for persisting generations
   const createGenerationMutation = useCreateGeneration()
   const deleteGenerationMutation = useDeleteGeneration()
-  const setActiveGenerationMutation = useSetActiveGeneration()
+  const publishGenerationMutation = usePublishGeneration()
 
   // Convert DB generations to history entries for display
   const history = useMemo(() => {
@@ -351,15 +351,15 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
     }))
   }, [generation.data, schema])
 
-  const handleSetActiveGeneration = useCallback((generationId: string) => {
+  const handlePublishGeneration = useCallback((generationId: string) => {
     if (!projectId || !fixtureId) return
 
-    setActiveGenerationMutation.mutate({
+    publishGenerationMutation.mutate({
       projectId,
       fixtureId,
       generationId,
     })
-  }, [projectId, fixtureId, setActiveGenerationMutation])
+  }, [projectId, fixtureId, publishGenerationMutation])
 
   return {
     generation,
@@ -373,6 +373,6 @@ export function useGeneration({ projectId, fixtureId, selectedTemplate, schema, 
     handleClearHistory,
     handleCancelGeneration,
     handleRevalidate,
-    handleSetActiveGeneration,
+    handlePublishGeneration,
   }
 }

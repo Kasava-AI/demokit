@@ -66,7 +66,7 @@ export function FixturesSidebar({
 
   const handleDuplicate = useCallback(
     async (fixture: FixtureWithRelations) => {
-      const sourceGeneration = fixture.activeGeneration;
+      const sourceGeneration = fixture.publishedGeneration;
       if (!sourceGeneration?.data) return;
 
       try {
@@ -109,7 +109,7 @@ export function FixturesSidebar({
 
   const handleExport = useCallback(
     (fixture: FixtureWithRelations, format: "json" | "typescript") => {
-      const generation = fixture.activeGeneration;
+      const generation = fixture.publishedGeneration;
       if (!generation?.data) return;
 
       let content: string;

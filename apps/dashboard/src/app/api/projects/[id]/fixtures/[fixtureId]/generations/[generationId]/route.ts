@@ -60,7 +60,8 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 /**
  * DELETE /api/projects/[id]/fixtures/[fixtureId]/generations/[generationId]
- * Deletes a generation. If it's the active generation, clears the fixture's activeGenerationId.
+ * Deletes a generation. Refuses to delete the published generation (publish
+ * another first); clears the fixture's draftGenerationId if it's the draft.
  */
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
@@ -98,14 +99,18 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       return notFound('Generation')
     }
 
-    // If this is the active generation, clear the activeGenerationId
-    if (fixture.activeGenerationId === generationId) {
+    // The published generation is what the SDK serves — deleting it would
+    // break live demos and orphan the audit trail. Publish another first.
+    if (fixture.publishedGenerationId === generationId) {
+      return NextResponse.json(
+        { error: 'Cannot delete the published generation. Publish another generation first.', code: 'PUBLISHED_GENERATION' },
+        { status: 409 }
+      )
+    }
+    if (fixture.draftGenerationId === generationId) {
       await db
         .update(fixtures)
-        .set({
-          activeGenerationId: null,
-          updatedAt: new Date(),
-        })
+        .set({ draftGenerationId: null, updatedAt: new Date() })
         .where(eq(fixtures.id, fixtureId))
     }
 

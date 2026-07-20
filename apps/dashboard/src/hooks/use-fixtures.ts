@@ -61,7 +61,8 @@ interface Fixture {
   createdById: string | null
   name: string
   description: string | null
-  activeGenerationId: string | null
+  publishedGenerationId: string | null
+  draftGenerationId: string | null
   lastExportedAt: string | null
   exportFormat: string | null
   createdAt: string
@@ -71,7 +72,7 @@ interface Fixture {
 export interface FixtureWithRelations extends Fixture {
   template: FixtureTemplate | null
   createdBy: FixtureUser | null
-  activeGeneration: FixtureGeneration | null
+  publishedGeneration: FixtureGeneration | null
   generations?: FixtureGeneration[]
 }
 
@@ -378,25 +379,28 @@ async function deleteGeneration({
   }
 }
 
-async function setActiveGeneration({
+async function publishGeneration({
   projectId,
   fixtureId,
   generationId,
+  note,
 }: {
   projectId: string
   fixtureId: string
-  generationId: string | null
+  generationId?: string
+  note?: string
 }): Promise<Fixture> {
-  const res = await fetch(`/api/projects/${projectId}/fixtures/${fixtureId}`, {
-    method: 'PUT',
+  const res = await fetch(`/api/projects/${projectId}/fixtures/${fixtureId}/publish`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ activeGenerationId: generationId }),
+    body: JSON.stringify({ generationId, note }),
   })
   if (!res.ok) {
     const error = await res.json()
-    throw new Error(error.error || 'Failed to set active generation')
+    throw new Error(error.error || 'Failed to publish generation')
   }
-  return res.json()
+  const { fixture } = await res.json()
+  return fixture
 }
 
 /**
@@ -463,7 +467,7 @@ export function useCreateGeneration() {
           'generations',
         ],
       })
-      // Invalidate the fixture itself (activeGenerationId may have changed)
+      // Invalidate the fixture itself (publishedGenerationId/draftGenerationId may have changed)
       queryClient.invalidateQueries({
         queryKey: [
           'projects',
@@ -499,7 +503,7 @@ export function useDeleteGeneration() {
           'generations',
         ],
       })
-      // Invalidate the fixture itself (activeGenerationId may have been cleared)
+      // Invalidate the fixture itself (draftGenerationId may have been cleared)
       queryClient.invalidateQueries({
         queryKey: [
           'projects',
@@ -517,14 +521,15 @@ export function useDeleteGeneration() {
 }
 
 /**
- * Hook to set the active generation for a fixture.
- * This allows switching between different generation versions.
+ * Hook to publish a generation for a fixture (spec §6).
+ * Re-points publishedGenerationId and records an immutable publishes row;
+ * rollback is just publishing an older generationId.
  */
-export function useSetActiveGeneration() {
+export function usePublishGeneration() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: setActiveGeneration,
+    mutationFn: publishGeneration,
     onSuccess: (_, variables) => {
       // Invalidate the fixture
       queryClient.invalidateQueries({

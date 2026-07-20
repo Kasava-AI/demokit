@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       where: and(eq(fixtures.id, fixtureId), eq(fixtures.projectId, id)),
       with: {
         template: true,
-        activeGeneration: true,
+        publishedGeneration: true,
         generations: {
           orderBy: (g: any, { desc }: { desc: Function }) => [desc(g.createdAt)],
           limit: 10,

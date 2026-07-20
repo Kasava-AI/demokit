@@ -49,7 +49,7 @@ export async function GET(request: Request, { params }: RouteParams) {
             avatarUrl: true,
           },
         },
-        activeGeneration: true,
+        publishedGeneration: true,
       },
     })
 

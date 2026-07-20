@@ -38,7 +38,7 @@ export function IntegrationsTab({ project }: IntegrationsTabProps) {
   // Sub-tab state
   const [activeSubTab, setActiveSubTab] = useState<IntegrationSubTab>('local')
 
-  // Fetch fixtures with full relations (includes activeGeneration)
+  // Fetch fixtures with full relations (includes publishedGeneration)
   const { data: fixtures = [] } = useFixtures(project.id)
 
   // Selected fixture state - default to project's active fixture or first available
@@ -53,8 +53,8 @@ export function IntegrationsTab({ project }: IntegrationsTabProps) {
 
   // Get data from selected fixture for local integration guide
   const selectedFixtureData = useMemo(() => {
-    if (selectedFixture?.activeGeneration?.data) {
-      return selectedFixture.activeGeneration.data as Record<
+    if (selectedFixture?.publishedGeneration?.data) {
+      return selectedFixture.publishedGeneration.data as Record<
         string,
         Record<string, unknown>[]
       >

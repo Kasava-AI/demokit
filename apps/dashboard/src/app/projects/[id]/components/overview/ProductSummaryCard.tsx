@@ -59,7 +59,7 @@ interface ActiveFixture {
   name: string
   description: string | null
   recordCount: number | null
-  activeGeneration: {
+  publishedGeneration: {
     id: string
     data: Record<string, unknown[]> | null
     recordCount: number | null
@@ -347,7 +347,7 @@ function ActiveFixtureSection({
   setFixtureDropdownOpen: (open: boolean) => void
 }) {
   const hasFixtures = fixtures.length > 0
-  const recordsByModel = activeFixture?.activeGeneration?.recordsByModel || {}
+  const recordsByModel = activeFixture?.publishedGeneration?.recordsByModel || {}
   const modelNames = Object.keys(recordsByModel)
 
   return (
@@ -448,9 +448,9 @@ function ActiveFixtureSection({
           )}
 
           {/* Total records */}
-          {activeFixture.activeGeneration?.recordCount && (
+          {activeFixture.publishedGeneration?.recordCount && (
             <p className="text-xs text-muted-foreground">
-              {activeFixture.activeGeneration.recordCount} total records
+              {activeFixture.publishedGeneration.recordCount} total records
             </p>
           )}
         </div>

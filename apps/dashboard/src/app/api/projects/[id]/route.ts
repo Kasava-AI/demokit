@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: RouteParams) {
         },
         activeFixture: {
           with: {
-            activeGeneration: true,
+            publishedGeneration: true,
           },
         },
         sources: true,

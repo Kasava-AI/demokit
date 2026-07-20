@@ -168,12 +168,12 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
 
   // Auto-revalidate saved fixture data when schema is available
   const savedFixtureValidation = useMemo(() => {
-    const gen = selectedSavedFixture?.activeGeneration;
+    const gen = selectedSavedFixture?.publishedGeneration;
     if (!gen?.data || !schema) return undefined;
 
     const data = gen.data as Record<string, Record<string, unknown>[]>;
     return validateData(data, { schema, collectWarnings: true });
-  }, [selectedSavedFixture?.activeGeneration, schema]);
+  }, [selectedSavedFixture?.publishedGeneration, schema]);
 
   // Helper to update fixture in URL
   const updateFixtureUrl = useCallback(

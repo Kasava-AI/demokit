@@ -51,7 +51,7 @@ interface DemoVariantWithFixtures extends DemoVariant {
   fixtures: Array<{
     id: string
     name: string
-    activeGeneration: {
+    publishedGeneration: {
       id: string
       data: Record<string, unknown[]> | null
     } | null

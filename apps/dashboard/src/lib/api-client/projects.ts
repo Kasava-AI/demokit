@@ -95,7 +95,7 @@ export interface ProjectWithRelations extends Project {
     name: string
     description: string | null
     recordCount: number | null
-    activeGeneration: {
+    publishedGeneration: {
       id: string
       data: Record<string, unknown[]> | null
       recordCount: number | null

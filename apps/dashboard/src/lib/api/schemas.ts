@@ -112,7 +112,6 @@ export const createFixtureSchema = z.object({
 export const updateFixtureSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
-  activeGenerationId: z.string().uuid().nullable().optional(),
 })
 
 // Generation schemas
@@ -138,6 +137,14 @@ export const createGenerationSchema = z.object({
   durationMs: z.number().int().min(0).optional(),
   tokensUsed: z.number().int().min(0).optional(),
 })
+
+// Publish pipeline (spec §6)
+export const publishRequestSchema = z.object({
+  /** Defaults to the fixture's draft generation. */
+  generationId: z.string().uuid().optional(),
+  note: z.string().max(500).optional(),
+})
+export type PublishRequestInput = z.infer<typeof publishRequestSchema>
 
 // Project source schemas
 export const sourceTypeEnum = z.enum(['website', 'readme', 'documentation'])

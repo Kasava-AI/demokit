@@ -9,7 +9,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { notFound, handleError } from '@/lib/api/utils'
 import { createGenerationSchema } from '@/lib/api/schemas'
-import { projects, fixtures, fixtureGenerations, eq, and, desc } from '@db'
+import { projects, fixtures, fixtureGenerations, publishes, eq, and, desc } from '@db'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string }> }
 
@@ -111,14 +111,24 @@ export async function POST(request: Request, { params }: RouteParams) {
       })
       .returning()
 
-    // Auto-set as active generation if fixture doesn't have one
-    if (!fixture.activeGenerationId) {
+    // Draft/publish split (spec §6): land as draft; bootstrap-publish only
+    // when nothing is published yet and validation passed.
+    if (!fixture.publishedGenerationId && validatedData.validationValid !== false) {
+      await db.insert(publishes).values({
+        fixtureId,
+        generationId: generation.id,
+        previousGenerationId: null,
+        publishedById: null,
+        note: 'initial publish',
+      })
       await db
         .update(fixtures)
-        .set({
-          activeGenerationId: generation.id,
-          updatedAt: new Date(),
-        })
+        .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
+        .where(eq(fixtures.id, fixtureId))
+    } else {
+      await db
+        .update(fixtures)
+        .set({ draftGenerationId: generation.id, updatedAt: new Date() })
         .where(eq(fixtures.id, fixtureId))
     }
 

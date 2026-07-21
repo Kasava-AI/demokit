@@ -26,6 +26,7 @@ import { PreviewSection } from "./components/PreviewSection";
 import { ValidationSection } from "./components/ValidationSection";
 import { IntegrationSection } from "./components/IntegrationSection";
 import { MappingsSection } from "./components/MappingsSection";
+import { PublishSection } from "./components/PublishSection";
 import { SaveDialog } from "./components/SaveDialog";
 import { LoadingState, EmptyState } from "./components/LoadingState";
 import { toast } from "sonner";
@@ -55,6 +56,7 @@ export function FixtureDetail({
   onDelete,
   narrative,
   projectName,
+  fixtureRecord,
   editable = false,
   isDirty = false,
   onFieldChange,
@@ -312,6 +314,16 @@ export function FixtureDetail({
               onOpenChange={setIntegrationOpen}
               data={data}
               projectName={projectName}
+            />
+          )}
+
+          {/* Publish Section */}
+          {projectId && fixtureRecord && (
+            <PublishSection
+              projectId={projectId}
+              fixtureId={fixtureRecord.id}
+              publishedGenerationId={fixtureRecord.publishedGenerationId}
+              draftGenerationId={fixtureRecord.draftGenerationId}
             />
           )}
         </div>

@@ -379,6 +379,45 @@ async function deleteGeneration({
   }
 }
 
+/**
+ * Publish audit log row (spec §6) — one immutable record per publish action.
+ * Rollback is just publishing an older generationId, recorded as a new row.
+ */
+export interface PublishRecord {
+  id: string
+  generationId: string
+  previousGenerationId: string | null
+  publishedById: string | null
+  note: string | null
+  publishedAt: string
+}
+
+export interface PublishLinterFinding {
+  severity: 'notice' | 'warning'
+  message: string
+  path: string
+}
+
+/** Full response from POST .../publish (Task 6). */
+export interface PublishResponse {
+  publish: PublishRecord
+  fixture: Fixture
+  warnings: string[]
+  linterFindings: PublishLinterFinding[]
+}
+
+async function fetchPublishHistory(
+  projectId: string,
+  fixtureId: string
+): Promise<PublishRecord[]> {
+  const res = await fetch(`/api/projects/${projectId}/fixtures/${fixtureId}/publish`)
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || 'Failed to fetch publish history')
+  }
+  return res.json()
+}
+
 async function publishGeneration({
   projectId,
   fixtureId,
@@ -389,7 +428,7 @@ async function publishGeneration({
   fixtureId: string
   generationId?: string
   note?: string
-}): Promise<Fixture> {
+}): Promise<PublishResponse> {
   const res = await fetch(`/api/projects/${projectId}/fixtures/${fixtureId}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -399,8 +438,7 @@ async function publishGeneration({
     const error = await res.json()
     throw new Error(error.error || 'Failed to publish generation')
   }
-  const { fixture } = await res.json()
-  return fixture
+  return res.json()
 }
 
 /**
@@ -540,11 +578,38 @@ export function usePublishGeneration() {
           variables.fixtureId,
         ],
       })
+      // Invalidate the publish history (audit log)
+      queryClient.invalidateQueries({
+        queryKey: [
+          'projects',
+          variables.projectId,
+          'fixtures',
+          variables.fixtureId,
+          'publishes',
+        ],
+      })
       // Invalidate fixtures list
       queryClient.invalidateQueries({
         queryKey: ['projects', variables.projectId, 'fixtures'],
       })
     },
+  })
+}
+
+/**
+ * Hook to fetch the publish audit history for a fixture (spec §6), newest first.
+ */
+export function usePublishHistory(
+  projectId: string,
+  fixtureId: string,
+  options?: Omit<UseQueryOptions<PublishRecord[], Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'fixtures', fixtureId, 'publishes'],
+    queryFn: () => fetchPublishHistory(projectId, fixtureId),
+    enabled: !!projectId && !!fixtureId,
+    staleTime: 60 * 1000,
+    ...options,
   })
 }
 

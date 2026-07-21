@@ -61,6 +61,11 @@ export function SelectedFixturePreview({
         email: fixture.createdBy.email,
       } : undefined}
       templateName={fixture.template?.name}
+      fixtureRecord={{
+        id: fixture.id,
+        publishedGenerationId: fixture.publishedGenerationId,
+        draftGenerationId: fixture.draftGenerationId,
+      }}
       onDuplicate={() => {}}
       onDelete={onDelete}
     />

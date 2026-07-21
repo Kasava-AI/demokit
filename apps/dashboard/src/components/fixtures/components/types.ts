@@ -69,6 +69,12 @@ export interface FixtureDetailProps {
   narrative?: DemoNarrative
   /** Project name for integration guide */
   projectName?: string
+  /** Fixture publish/draft pointers — renders PublishSection when present alongside projectId */
+  fixtureRecord?: {
+    id: string
+    publishedGenerationId: string | null
+    draftGenerationId: string | null
+  }
 
   // Editing capabilities
   /** Whether editing is enabled */

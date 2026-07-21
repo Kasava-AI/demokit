@@ -8,7 +8,8 @@ import { FixtureDetail } from '@/components/fixtures'
 import { useFixtureEditor } from '@/hooks/use-fixture-editor'
 import { useCreateGeneration, type FixtureWithRelations } from '@/hooks/use-fixtures'
 import { useDemoVariant, useUpdateDemoVariant } from '@/hooks/use-demos'
-import { pinsFromEdits, type RowEdit } from '@/lib/story/pins-from-edits'
+import type { RowEdit } from '@/lib/story/pins-from-edits'
+import { saveWithPinRestore } from '@/lib/story/save-with-pin-restore'
 import type { DemoData, StorySpec, ValidationResult } from '@demokit-ai/core'
 import type { DemokitSchema } from './types'
 
@@ -106,55 +107,66 @@ export function SelectedFixturePreview({
 
     setIsSavingEdits(true)
     try {
-      // Persist the (idempotent) variant pin update FIRST. pinsFromEdits is
-      // deterministic given (edits, editor.data, spec), so retrying this call
-      // — whether because it failed, or because createGeneration below
-      // failed and the whole save is retried — always converges on the same
-      // pins. Only call createGeneration once that's settled, so a failure
-      // between the two steps can never leave a retry creating a second
-      // "Manual edit" draft for the same edits.
-      if (pinsWillApply && linkedVariant && fixture.demoId && fixture.variantId) {
-        const spec = linkedVariant.storySpec as unknown as StorySpec
-        const rowEdits: RowEdit[] = editor.editHistory.map((e) => ({
-          model: e.model,
-          rowIndex: e.index,
-          field: e.field,
-          value: e.newValue,
-        }))
-        // Values come from editor.data (the final saved state), not the
-        // edit log, so a field edited and then orphaned by a later
-        // delete/duplicate still pins whatever ended up in row 0.
-        const pins = pinsFromEdits(rowEdits, editor.data, spec)
-        await updateVariantMutation.mutateAsync({
-          projectId,
-          demoId: fixture.demoId,
-          variantId: fixture.variantId,
-          data: { storySpec: { ...spec, pins } },
-        })
-      }
+      const spec =
+        pinsWillApply && linkedVariant && fixture.demoId && fixture.variantId
+          ? (linkedVariant.storySpec as unknown as StorySpec)
+          : null
+      const demoId = fixture.demoId
+      const variantId = fixture.variantId
 
-      const result = editor.validate()
+      const rowEdits: RowEdit[] = editor.editHistory.map((e) => ({
+        model: e.model,
+        rowIndex: e.index,
+        field: e.field,
+        value: e.newValue,
+      }))
 
-      await createGenerationMutation.mutateAsync({
-        projectId,
-        fixtureId: fixture.id,
-        data: {
-          label: 'Manual edit',
-          level: gen.level,
-          data: editor.data as Record<string, unknown[]>,
-          validationValid: result.valid,
-          validationErrorCount: result.errors.length,
-          validationWarningCount: result.warnings.length,
-          validationErrors: result.errors.map((e) => ({
-            type: e.type,
-            model: e.model,
-            field: e.field,
-            message: e.message,
-          })),
-          recordsByModel: Object.fromEntries(
-            Object.entries(editor.data).map(([model, rows]) => [model, rows.length])
-          ),
-          inputParameters: { editedFrom: gen.id },
+      // saveWithPinRestore persists the (idempotent) variant pin update
+      // BEFORE creating the draft generation, and best-effort restores the
+      // variant's pre-session pins if generation creation then fails — see
+      // save-with-pin-restore.ts for the full retry-safety rationale.
+      await saveWithPinRestore({
+        edits: rowEdits,
+        finalData: editor.data,
+        spec,
+        updateVariantPins: async (pins) => {
+          if (!spec || !demoId || !variantId) return
+          await updateVariantMutation.mutateAsync({
+            projectId,
+            demoId,
+            variantId,
+            data: { storySpec: { ...spec, pins } },
+          })
+        },
+        createGeneration: async () => {
+          const result = editor.validate()
+          return createGenerationMutation.mutateAsync({
+            projectId,
+            fixtureId: fixture.id,
+            data: {
+              label: 'Manual edit',
+              level: gen.level,
+              data: editor.data as Record<string, unknown[]>,
+              validationValid: result.valid,
+              validationErrorCount: result.errors.length,
+              validationWarningCount: result.warnings.length,
+              validationErrors: result.errors.map((e) => ({
+                type: e.type,
+                model: e.model,
+                field: e.field,
+                message: e.message,
+              })),
+              recordsByModel: Object.fromEntries(
+                Object.entries(editor.data).map(([model, rows]) => [model, rows.length])
+              ),
+              inputParameters: { editedFrom: gen.id },
+            },
+          })
+        },
+        onPinsRestoreFailed: () => {
+          toast.error(
+            "Draft creation failed and the story pins couldn't be restored automatically — review them in the variant's story settings."
+          )
         },
       })
 

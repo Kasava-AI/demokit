@@ -69,6 +69,9 @@ interface Fixture {
   draftGenerationId: string | null
   lastExportedAt: string | null
   exportFormat: string | null
+  /** Hosted API fields (spec §6) — set when the fixture's hosted API has been enabled at least once. */
+  apiKey: string | null
+  hostedEnabled: boolean | null
   createdAt: string
   updatedAt: string
 }

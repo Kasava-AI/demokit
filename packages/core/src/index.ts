@@ -21,8 +21,12 @@
  */
 
 // Main API
-export { createDemoInterceptor, demoResponse, isDemoResponse } from './interceptor'
+export { createDemoInterceptor, demoResponse, isDemoResponse, detectDemoMode } from './interceptor'
 export type { DemoResponseValue } from './interceptor'
+
+// Transport-agnostic request resolution core (fetch interceptor + MSW share this)
+export { resolveRequest, createMockResponse } from './resolve'
+export type { ResolveDeps, ResolveOutcome } from './resolve'
 
 // Coverage-health reporter (spec §8)
 export { createCoverageReporter } from './coverage'

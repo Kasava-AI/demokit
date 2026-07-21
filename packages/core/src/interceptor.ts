@@ -3,165 +3,19 @@ import type {
   DemoInterceptor,
   FixtureMap,
   FixtureHandler,
-  RequestContext,
   DetectionConfig,
-  UnmatchedMutationContext,
 } from './types'
-import { findMatchingPattern } from './matcher'
 import { loadDemoState, saveDemoState, DEFAULT_STORAGE_KEY } from './storage'
 import { createSessionState, type SessionState } from './session'
+import { resolveRequest } from './resolve'
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
-
-/**
- * Parse request body based on content type
- */
-async function parseRequestBody(
-  body: BodyInit | null | undefined,
-  headers: Headers
-): Promise<unknown> {
-  if (!body) {
-    return undefined
-  }
-
-  const contentType = headers.get('content-type') || ''
-
-  try {
-    if (typeof body === 'string') {
-      if (contentType.includes('application/json')) {
-        return JSON.parse(body)
-      }
-      return body
-    }
-
-    if (body instanceof FormData) {
-      const obj: Record<string, unknown> = {}
-      body.forEach((value, key) => {
-        obj[key] = value
-      })
-      return obj
-    }
-
-    if (body instanceof URLSearchParams) {
-      const obj: Record<string, string> = {}
-      body.forEach((value, key) => {
-        obj[key] = value
-      })
-      return obj
-    }
-
-    if (body instanceof Blob) {
-      const text = await body.text()
-      if (contentType.includes('application/json')) {
-        return JSON.parse(text)
-      }
-      return text
-    }
-
-    if (body instanceof ArrayBuffer) {
-      const text = new TextDecoder().decode(body)
-      if (contentType.includes('application/json')) {
-        return JSON.parse(text)
-      }
-      return text
-    }
-  } catch {
-    // Return raw body if parsing fails
-  }
-
-  return body
-}
-
-/** Marker for handler results that carry an explicit status (create -> 201, delete -> 204). */
-const DEMO_RESPONSE = Symbol.for('demokit.response')
-
-export interface DemoResponseValue {
-  [DEMO_RESPONSE]: true
-  status: number
-  body: unknown
-}
-
-/** Wrap a handler result with an explicit HTTP status. */
-export function demoResponse(body: unknown, status = 200): DemoResponseValue {
-  return { [DEMO_RESPONSE]: true, status, body }
-}
-
-export function isDemoResponse(value: unknown): value is DemoResponseValue {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as Record<PropertyKey, unknown>)[DEMO_RESPONSE] === true
-  )
-}
-
-const BODYLESS_STATUSES = new Set([204, 205, 304])
-
-/**
- * Create a mock Response from fixture data
- */
-function createMockResponse(data: unknown, status = 200): Response {
-  const body = BODYLESS_STATUSES.has(status) ? null : JSON.stringify(data)
-  return new Response(body, {
-    status,
-    statusText: status < 400 ? 'OK' : 'Error',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-DemoKit-Mock': 'true',
-    },
-  })
-}
-
-/**
- * Extract pathname from URL, handling various input types
- */
-function extractPathname(input: RequestInfo | URL, baseUrl: string): string {
-  try {
-    if (typeof input === 'string') {
-      // Handle relative URLs
-      if (input.startsWith('/')) {
-        return input.split('?')[0] || '/'
-      }
-      return new URL(input, baseUrl).pathname
-    }
-    if (input instanceof URL) {
-      return input.pathname
-    }
-    if (input instanceof Request) {
-      return new URL(input.url, baseUrl).pathname
-    }
-  } catch {
-    // Fallback for malformed URLs
-  }
-  return '/'
-}
-
-/**
- * Extract full URL from input
- */
-function extractUrl(input: RequestInfo | URL, baseUrl: string): string {
-  try {
-    if (typeof input === 'string') {
-      if (input.startsWith('/')) {
-        return new URL(input, baseUrl).toString()
-      }
-      return input
-    }
-    if (input instanceof URL) {
-      return input.toString()
-    }
-    if (input instanceof Request) {
-      return input.url
-    }
-  } catch {
-    // Fallback
-  }
-  return baseUrl
-}
+export { demoResponse, isDemoResponse, createMockResponse } from './resolve'
+export type { DemoResponseValue } from './resolve'
 
 /**
  * Check if demo mode should be auto-enabled based on detection config
  */
-function detectDemoMode(detection?: DetectionConfig): { detected: boolean; isPublicDemo: boolean } {
+export function detectDemoMode(detection?: DetectionConfig): { detected: boolean; isPublicDemo: boolean } {
   if (!detection || typeof window === 'undefined') {
     return { detected: false, isPublicDemo: false }
   }
@@ -232,8 +86,8 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
   let enabled = detectionResult.detected || (initialEnabled ?? loadDemoState(storageKey))
   let currentFixtures: FixtureMap = { ...initialFixtures }
 
-  // Create session state (in-memory, resets on page refresh)
-  let sessionState: SessionState = createSessionState()
+  // Create session state (in-memory, resets on page refresh) — or use the caller's
+  let sessionState: SessionState = config.session ?? createSessionState()
 
   // Store original fetch
   let originalFetch: typeof fetch | null = null
@@ -258,142 +112,24 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
         return originalFetch!(input, init)
       }
 
-      const method = (
-        init?.method ??
-        (input instanceof Request ? input.method : undefined) ??
-        'GET'
-      ).toUpperCase()
-      const pathname = extractPathname(input, baseUrl)
+      const outcome = await resolveRequest(
+        {
+          fixtures: currentFixtures,
+          baseUrl,
+          pathAliases,
+          warnOnCatchAll,
+          unmatchedMutations,
+          session: sessionState,
+          onMutationIntercepted,
+          onMutationBlocked,
+          onUnmatchedRequest,
+          onProjectionError,
+        },
+        input,
+        init
+      )
 
-      // Try to find a matching fixture, also checking aliased paths
-      let match = findMatchingPattern(currentFixtures, method, pathname)
-
-      // If no match and pathAliases configured, try aliased paths
-      if (!match && pathAliases) {
-        for (const [from, to] of Object.entries(pathAliases)) {
-          if (pathname.startsWith(from)) {
-            const aliasedPath = to + pathname.slice(from.length)
-            match = findMatchingPattern(currentFixtures, method, aliasedPath)
-            if (match) break
-          }
-        }
-      }
-
-      if (!match) {
-        // No matching fixture — safe methods pass through to the real API
-        if (SAFE_METHODS.has(method)) {
-          onUnmatchedRequest?.({ method, pathname })
-          return originalFetch!(input, init)
-        }
-
-        // Unmatched mutation: apply policy (default 'block')
-        const blockedContext: UnmatchedMutationContext = {
-          url: extractUrl(input, baseUrl),
-          method,
-          pathname,
-        }
-        const decision =
-          typeof unmatchedMutations === 'function'
-            ? unmatchedMutations(blockedContext)
-            : unmatchedMutations
-        if (decision === 'passthrough') {
-          return originalFetch!(input, init)
-        }
-
-        onMutationBlocked?.(blockedContext)
-        return createMockResponse(
-          {
-            demokit: 'blocked',
-            reason: 'unmatched-mutation',
-            method,
-            path: pathname,
-          },
-          409
-        )
-      }
-
-      const [pattern, matchResult] = match
-
-      // Warn on catch-all matches in development
-      if (warnOnCatchAll && pattern.includes('*')) {
-        console.warn(
-          `[DemoKit] Catch-all fixture matched: ${method} ${pathname} → "${pattern}". Consider adding a specific fixture.`
-        )
-      }
-      const handler = currentFixtures[pattern] as FixtureHandler
-
-      // Build request context for the handler
-      const url = extractUrl(input, baseUrl)
-      const headers = new Headers(init?.headers)
-      const body = await parseRequestBody(init?.body, headers)
-
-      let searchParams: URLSearchParams
-      try {
-        searchParams = new URL(url, baseUrl).searchParams
-      } catch {
-        searchParams = new URLSearchParams()
-      }
-
-      const context: RequestContext = {
-        url,
-        method,
-        params: matchResult.params,
-        searchParams,
-        body,
-        headers,
-        session: sessionState,
-      }
-
-      // Fire mutation callback for non-GET requests
-      if (method !== 'GET' && onMutationIntercepted) {
-        onMutationIntercepted({
-          url,
-          method,
-          params: matchResult.params,
-          pattern,
-        })
-      }
-
-      // Execute handler and get result
-      let result: unknown
-      try {
-        if (typeof handler === 'function') {
-          result = await handler(context)
-        } else {
-          result = handler
-        }
-      } catch (error) {
-        // Store/handler validation errors that carry a numeric status become
-        // that mock status — same behavior a real API would produce (spec §3.2).
-        // Only trust the candidate if it's a valid HTTP status; NaN or
-        // out-of-range values (e.g. 999) would make `new Response()` throw
-        // inside this catch, escaping the patched fetch entirely.
-        const candidateStatus = (error as { status?: unknown } | null)?.status
-        const status =
-          typeof candidateStatus === 'number' &&
-          Number.isInteger(candidateStatus) &&
-          candidateStatus >= 200 &&
-          candidateStatus <= 599
-            ? candidateStatus
-            : 500
-        if (status >= 500) {
-          console.error('[DemoKit] Fixture handler error:', error)
-          onProjectionError?.({ method, pathname, status })
-        }
-        return createMockResponse(
-          {
-            error: status >= 500 ? 'Fixture handler error' : 'Rejected',
-            message: error instanceof Error ? error.message : String(error),
-          },
-          status
-        )
-      }
-
-      if (isDemoResponse(result)) {
-        return createMockResponse(result.body, result.status)
-      }
-
-      return createMockResponse(result)
+      return outcome.kind === 'passthrough' ? originalFetch!(input, init) : outcome.response
     }
 
     isPatched = true

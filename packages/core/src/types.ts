@@ -190,6 +190,13 @@ export interface DemoKitConfig {
   onUnmatchedRequest?: (context: UnmatchedRequestContext) => void
   /** Fired when a fixture handler throws with status >= 500. */
   onProjectionError?: (context: ProjectionErrorContext) => void
+
+  /**
+   * Inject a session state instance instead of letting the interceptor create
+   * its own. Lets multiple transports (fetch interceptor, MSW worker) share
+   * one session across a single demo run.
+   */
+  session?: SessionState
 }
 
 /**

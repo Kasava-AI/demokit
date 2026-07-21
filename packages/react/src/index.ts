@@ -36,6 +36,7 @@ export { createRemoteSource } from './config'
 
 // Hooks
 export { useDemoMode, useIsDemoMode, useIsHydrated, useDemoSession } from './hooks'
+export { useDemoMode as useDemoKit } from './hooks'
 export { useDemoGuard } from './guard'
 
 // Components
@@ -52,6 +53,7 @@ export type {
   DemoKitProviderProps,
   DemoModeContextValue,
   DemoModeBannerProps,
+  DemoKitStatus,
 } from './types'
 
 // Guard types

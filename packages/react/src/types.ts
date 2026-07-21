@@ -222,6 +222,20 @@ export interface DemoKitProviderProps {
 }
 
 /**
+ * Lazy transport bootstrap status (spec §10 — demo-gated dynamic import).
+ *
+ * - `'idle'`: demo mode was not wanted on mount; nothing has been constructed
+ *   and no cloud config has been fetched.
+ * - `'loading'`: `ensureTransport()` is in flight (cloud fetch and/or
+ *   interceptor construction).
+ * - `'ready'`: the transport is constructed (or bootstrap completed with
+ *   nothing to construct).
+ * - `'unavailable'`: bootstrap failed and no usable fixtures were available
+ *   to fall back to.
+ */
+export type DemoKitStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
+
+/**
  * Value provided by the DemoMode context
  */
 export interface DemoModeContextValue {
@@ -235,6 +249,11 @@ export interface DemoModeContextValue {
    * Always check this before rendering demo-dependent UI
    */
   isHydrated: boolean
+
+  /**
+   * Lazy transport bootstrap status. See {@link DemoKitStatus}.
+   */
+  status: DemoKitStatus
 
   /**
    * Whether this is a public demo instance (auto-detected via subdomain).

@@ -9,6 +9,9 @@ import {
   createMemoryStorage,
   mergeFixtures,
   createCoverageReporter,
+  detectDemoMode,
+  loadDemoState,
+  createSessionState,
   type DemoInterceptor,
   type SessionState,
   type FixtureMap,
@@ -16,7 +19,7 @@ import {
   type CoverageReporter,
 } from '@demokit-ai/core'
 import { DemoModeContext } from './context'
-import type { DemoKitProviderProps, DemoModeContextValue } from './types'
+import type { DemoKitProviderProps, DemoModeContextValue, DemoKitStatus } from './types'
 import { MutationBlockedToast } from './mutation-toast'
 
 /** Preview sessions (spec §6): ?demo-preview=<token> on the page URL. */
@@ -84,7 +87,10 @@ export function DemoKitProvider({
   errorFallback,
   // Standard props
   storageKey = 'demokit-mode',
-  initialEnabled = false,
+  // Left un-defaulted deliberately: `initialEnabled ?? loadDemoState(storageKey)`
+  // (mirrored below and inside createDemoInterceptor) must be able to tell
+  // "not provided" (fall back to persisted state) from an explicit `false`.
+  initialEnabled,
   onDemoModeChange,
   baseUrl,
   // Detection & guards
@@ -103,12 +109,17 @@ export function DemoKitProvider({
   urlRedirects,
 }: DemoKitProviderProps) {
   // Start with initialEnabled for SSR to avoid hydration mismatch
-  const [isDemoMode, setIsDemoMode] = useState(initialEnabled)
+  const [isDemoMode, setIsDemoMode] = useState(initialEnabled ?? false)
   const [isHydrated, setIsHydrated] = useState(false)
   const [isPublicDemo, setIsPublicDemo] = useState(false)
 
-  // Remote loading state
-  const [isLoading, setIsLoading] = useState(!!source?.apiKey)
+  // Lazy transport bootstrap status (spec §10). Starts 'idle' — nothing is
+  // constructed, no cloud config fetched, until demo mode is actually wanted.
+  const [status, setStatus] = useState<DemoKitStatus>('idle')
+
+  // Remote loading state. Never assume a fetch is happening just because a
+  // source was configured — the fetch itself is gated behind demoWanted.
+  const [isLoading, setIsLoading] = useState(false)
   const [remoteError, setRemoteError] = useState<Error | null>(null)
   const [remoteVersion, setRemoteVersion] = useState<string | null>(null)
 
@@ -130,6 +141,19 @@ export function DemoKitProvider({
 
   // Coverage-health reporter (spec §8); remote mode only, never for preview sessions
   const reporterRef = useRef<CoverageReporter | null>(null)
+
+  // Provider-owned session (product call #8): created once per provider
+  // instance and injected into the interceptor so a single session survives
+  // interceptor rebuilds (refetch, fixture updates). The provider — not the
+  // interceptor — clears it on unmount, since an injected session is the
+  // injector's to manage (Task 1's ownership rule).
+  const sessionRef = useRef<SessionState | null>(null)
+  if (sessionRef.current === null) {
+    sessionRef.current = createSessionState()
+  }
+
+  // In-flight bootstrap promise, for single-flight ensureTransport() calls.
+  const bootstrapRef = useRef<Promise<void> | null>(null)
 
   // Read once — the token lives for the page load, like detection.
   const previewTokenRef = useRef<string | null>(null)
@@ -193,6 +217,7 @@ export function DemoKitProvider({
         storageKey,
         initialEnabled,
         baseUrl,
+        session: sessionRef.current ?? undefined,
         detection: effectivePreviewToken
           ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
           : detection,
@@ -243,6 +268,7 @@ export function DemoKitProvider({
       setIsDemoMode(storedState)
       setIsPublicDemo(interceptorRef.current.isPublicDemo())
       setIsHydrated(true)
+      setStatus('ready')
     },
     [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
   )
@@ -310,7 +336,10 @@ export function DemoKitProvider({
       if (fixtures && Object.keys(fixtures).length > 0) {
         setupInterceptor(fixtures)
       } else {
+        // No cached config to fall back to (spec §10 / §7): never half-mock —
+        // report failure instead of silently constructing nothing.
         setIsHydrated(true)
+        setStatus('unavailable')
       }
     } finally {
       setIsLoading(false)
@@ -330,21 +359,60 @@ export function DemoKitProvider({
   // Store refetch function in ref for context access
   refetchFnRef.current = fetchAndSetup
 
-  // Initialize on mount
+  /**
+   * Lazily construct the transport (spec §10): fetch cloud config, build
+   * runtime/fixtures, and construct the interceptor with the provider-owned
+   * session — or fall back to local fixtures, or report 'unavailable'.
+   *
+   * Idempotent and single-flight via `bootstrapRef`: concurrent callers
+   * (mount + an early `enable()`) share one in-flight promise, and once an
+   * interceptor exists this resolves immediately without redoing work.
+   */
+  const ensureTransport = useCallback((): Promise<void> => {
+    if (interceptorRef.current) return Promise.resolve()
+    if (bootstrapRef.current) return bootstrapRef.current
+
+    setStatus('loading')
+
+    const run = (async () => {
+      if (source?.apiKey) {
+        // Remote mode: fetch from cloud
+        await fetchAndSetup()
+      } else if (fixtures) {
+        // Local mode: use provided fixtures
+        setupInterceptor(fixtures)
+      } else {
+        // Nothing configured to construct — bootstrap is trivially done.
+        setIsHydrated(true)
+        setIsLoading(false)
+        setStatus('ready')
+      }
+    })()
+
+    bootstrapRef.current = run.finally(() => {
+      bootstrapRef.current = null
+    })
+    return bootstrapRef.current
+  }, [source, fixtures, fetchAndSetup, setupInterceptor])
+
+  // Initialize on mount — demo-gated (spec §10): compute demoWanted
+  // synchronously and cheaply (no interceptor construction, no fetch patch,
+  // no cloud config fetch when it's false) and only bootstrap the transport
+  // when demo mode is actually wanted. Non-demo users load nothing.
   useEffect(() => {
     if (initializedRef.current) {
       return
     }
     initializedRef.current = true
 
-    if (source?.apiKey) {
-      // Remote mode: fetch from cloud
-      fetchAndSetup()
-    } else if (fixtures) {
-      // Local mode: use provided fixtures
-      setupInterceptor(fixtures)
+    const demoWanted =
+      detectDemoMode(detection).detected || (initialEnabled ?? loadDemoState(storageKey))
+
+    if (demoWanted) {
+      void ensureTransport()
     } else {
-      // No fixtures at all - just mark as hydrated
+      // Nothing to construct: render children only. enable()/toggle() still
+      // work — they bootstrap the transport lazily on demand.
       setIsHydrated(true)
       setIsLoading(false)
     }
@@ -356,6 +424,11 @@ export function DemoKitProvider({
       runtimeRef.current = null
       interceptorRef.current?.destroy()
       interceptorRef.current = null
+      // The provider owns the session it injected into the interceptor —
+      // an injected session is never cleared by the interceptor's own
+      // destroy() (Task 1's ownership rule), so the provider clears it here.
+      sessionRef.current?.clear()
+      bootstrapRef.current = null
       initializedRef.current = false
     }
   }, []) // Empty deps - only run once on mount
@@ -374,25 +447,38 @@ export function DemoKitProvider({
     }
   }, [fixtures, isHydrated, isLoading, source])
 
-  const enable = useCallback(() => {
+  // Async-aware (spec §10): if the transport hasn't been constructed yet,
+  // bootstrap it lazily before enabling. Callers that don't await this still
+  // work fine — `enable(): void` on the context type accepts a Promise-returning
+  // implementation.
+  const enable = useCallback(async () => {
+    if (!interceptorRef.current) {
+      await ensureTransport()
+    }
     interceptorRef.current?.enable()
-  }, [])
+  }, [ensureTransport])
 
   const disable = useCallback((): boolean | string => {
     return interceptorRef.current?.disable() ?? true
   }, [])
 
-  const toggle = useCallback(() => {
-    interceptorRef.current?.toggle()
-  }, [])
-
-  const setDemoMode = useCallback((enabled: boolean) => {
-    if (enabled) {
-      interceptorRef.current?.enable()
-    } else {
-      interceptorRef.current?.disable()
+  const toggle = useCallback(async () => {
+    if (!interceptorRef.current) {
+      await ensureTransport()
     }
-  }, [])
+    interceptorRef.current?.toggle()
+  }, [ensureTransport])
+
+  const setDemoMode = useCallback(
+    (enabled: boolean) => {
+      if (enabled) {
+        void enable()
+      } else {
+        disable()
+      }
+    },
+    [enable, disable]
+  )
 
   const resetSession = useCallback(() => {
     interceptorRef.current?.resetSession()
@@ -418,6 +504,7 @@ export function DemoKitProvider({
       isLoading,
       remoteError,
       remoteVersion,
+      status,
       enable,
       disable,
       toggle,
@@ -433,6 +520,7 @@ export function DemoKitProvider({
       isLoading,
       remoteError,
       remoteVersion,
+      status,
       enable,
       disable,
       toggle,
@@ -469,6 +557,11 @@ export function DemoKitProvider({
   return (
     <DemoModeContext.Provider value={value}>
       {children}
+      {status === 'unavailable' && (
+        <div data-testid="demokit-unavailable" role="status">
+          Demo mode is unavailable — the demo config could not be loaded.
+        </div>
+      )}
       {showBlockedToast && (
         <MutationBlockedToast
           key={blockedNotice?.seq ?? 0}

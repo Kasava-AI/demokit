@@ -613,6 +613,44 @@ export function usePublishHistory(
   })
 }
 
+/**
+ * Mint a short-lived preview-session token (spec §6) for a generation. The
+ * dashboard opens the customer app with `?demo-preview=<token>`; the SDK
+ * (packages/react provider.tsx) reads it off the URL and the cloud serves
+ * that generation instead of the published one. Only wired up against
+ * DemoKit Cloud — 404s on the OSS standalone since the mint route lives in
+ * the private cloud repo.
+ */
+async function mintPreviewToken({
+  projectId,
+  fixtureId,
+  generationId,
+}: {
+  projectId: string
+  fixtureId: string
+  generationId: string
+}): Promise<{ token: string; expiresAt: string }> {
+  const res = await fetch(`/api/projects/${projectId}/fixtures/${fixtureId}/preview-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ generationId }),
+  })
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    if (res.status === 404) throw new Error('Preview sessions need DemoKit Cloud (hosted API)')
+    if (res.status === 503) throw new Error('Preview sessions are not configured on this server')
+    throw new Error(error.error || 'Failed to mint preview token')
+  }
+  return res.json()
+}
+
+/**
+ * Hook to mint a preview-session token for a generation (Task 8).
+ */
+export function useMintPreviewToken() {
+  return useMutation({ mutationFn: mintPreviewToken })
+}
+
 export type {
   Fixture,
   FixtureGeneration,

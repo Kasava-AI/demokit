@@ -57,6 +57,8 @@ export function FixtureDetail({
   narrative,
   projectName,
   fixtureRecord,
+  previewUrl = null,
+  onSavePreviewUrl,
   editable = false,
   isDirty = false,
   onFieldChange,
@@ -324,6 +326,13 @@ export function FixtureDetail({
               fixtureId={fixtureRecord.id}
               publishedGenerationId={fixtureRecord.publishedGenerationId}
               draftGenerationId={fixtureRecord.draftGenerationId}
+              previewUrl={previewUrl}
+              onSavePreviewUrl={
+                onSavePreviewUrl ??
+                (async () => {
+                  throw new Error("Preview URL can't be saved from this context");
+                })
+              }
             />
           )}
         </div>

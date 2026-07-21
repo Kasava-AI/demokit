@@ -43,11 +43,13 @@ vi.mock("sonner", () => ({
 const mockUseFixtureGenerations = vi.fn();
 const mockUsePublishHistory = vi.fn();
 const mockUsePublishGeneration = vi.fn();
+const mockUseMintPreviewToken = vi.fn();
 
 vi.mock("@/hooks/use-fixtures", () => ({
   useFixtureGenerations: (...args: unknown[]) => mockUseFixtureGenerations(...args),
   usePublishHistory: (...args: unknown[]) => mockUsePublishHistory(...args),
   usePublishGeneration: (...args: unknown[]) => mockUsePublishGeneration(...args),
+  useMintPreviewToken: (...args: unknown[]) => mockUseMintPreviewToken(...args),
 }));
 
 import { PublishSection } from "../components/PublishSection";
@@ -82,6 +84,7 @@ function makeGeneration(overrides: Partial<FixtureGeneration> & { id: string }):
 describe("PublishSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseMintPreviewToken.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
   });
 
   it("renders generation rows with Published/Draft status text", () => {
@@ -102,6 +105,8 @@ describe("PublishSection", () => {
         fixtureId="fixture-1"
         publishedGenerationId="gen-1"
         draftGenerationId="gen-2"
+        previewUrl={null}
+        onSavePreviewUrl={vi.fn()}
       />
     );
 
@@ -132,6 +137,8 @@ describe("PublishSection", () => {
         fixtureId="fixture-1"
         publishedGenerationId={null}
         draftGenerationId={null}
+        previewUrl={null}
+        onSavePreviewUrl={vi.fn()}
       />
     );
 
@@ -172,6 +179,8 @@ describe("PublishSection", () => {
         fixtureId="fixture-1"
         publishedGenerationId={null}
         draftGenerationId="gen-4"
+        previewUrl={null}
+        onSavePreviewUrl={vi.fn()}
       />
     );
 
@@ -223,6 +232,8 @@ describe("PublishSection", () => {
         fixtureId="fixture-1"
         publishedGenerationId={null}
         draftGenerationId="gen-5"
+        previewUrl={null}
+        onSavePreviewUrl={vi.fn()}
       />
     );
 
@@ -274,5 +285,189 @@ describe("PublishSection", () => {
     expect(within(dialog).getByText("Publish this generation?")).toBeTruthy();
     expect(within(dialog).queryByText("stale warning")).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Note/i)).toBeInTheDocument();
+  });
+
+  describe("Preview (Task 8)", () => {
+    let openSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    });
+
+    it("mints a token and opens the app URL directly when previewUrl is already set", async () => {
+      const gen = makeGeneration({ id: "gen-6", label: "v6" });
+      const mintMutateAsync = vi.fn().mockResolvedValue({
+        token: "tok-123",
+        expiresAt: "2026-07-20T01:00:00.000Z",
+      });
+
+      mockUseFixtureGenerations.mockReturnValue({ data: [gen], isLoading: false, error: null });
+      mockUsePublishHistory.mockReturnValue({ data: [], error: null });
+      mockUsePublishGeneration.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+      mockUseMintPreviewToken.mockReturnValue({ mutateAsync: mintMutateAsync, isPending: false });
+
+      render(
+        <PublishSection
+          projectId="project-1"
+          fixtureId="fixture-1"
+          publishedGenerationId={null}
+          draftGenerationId="gen-6"
+          previewUrl="https://app.example.com"
+          onSavePreviewUrl={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+      await waitFor(() => {
+        expect(mintMutateAsync).toHaveBeenCalledWith({
+          projectId: "project-1",
+          fixtureId: "fixture-1",
+          generationId: "gen-6",
+        });
+      });
+
+      await waitFor(() => {
+        expect(openSpy).toHaveBeenCalledWith(
+          "https://app.example.com?demo-preview=tok-123",
+          "_blank",
+          "noopener"
+        );
+      });
+
+      // No URL-capture dialog — previewUrl was already known.
+      expect(screen.queryByText("Where does your app run?")).not.toBeInTheDocument();
+    });
+
+    it("opens the URL-capture dialog when no previewUrl is set, saves it, then mints and opens", async () => {
+      const gen = makeGeneration({ id: "gen-7", label: "v7" });
+      const mintMutateAsync = vi.fn().mockResolvedValue({
+        token: "tok-456",
+        expiresAt: "2026-07-20T01:00:00.000Z",
+      });
+      const onSavePreviewUrl = vi.fn().mockResolvedValue(undefined);
+
+      mockUseFixtureGenerations.mockReturnValue({ data: [gen], isLoading: false, error: null });
+      mockUsePublishHistory.mockReturnValue({ data: [], error: null });
+      mockUsePublishGeneration.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+      mockUseMintPreviewToken.mockReturnValue({ mutateAsync: mintMutateAsync, isPending: false });
+
+      render(
+        <PublishSection
+          projectId="project-1"
+          fixtureId="fixture-1"
+          publishedGenerationId={null}
+          draftGenerationId="gen-7"
+          previewUrl={null}
+          onSavePreviewUrl={onSavePreviewUrl}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+      expect(screen.getByText("Where does your app run?")).toBeTruthy();
+
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/App URL/i), {
+        target: { value: "https://staging.example.com" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: /save and preview/i }));
+
+      await waitFor(() => {
+        expect(onSavePreviewUrl).toHaveBeenCalledWith("https://staging.example.com");
+      });
+
+      await waitFor(() => {
+        expect(mintMutateAsync).toHaveBeenCalledWith({
+          projectId: "project-1",
+          fixtureId: "fixture-1",
+          generationId: "gen-7",
+        });
+      });
+
+      await waitFor(() => {
+        expect(openSpy).toHaveBeenCalledWith(
+          "https://staging.example.com?demo-preview=tok-456",
+          "_blank",
+          "noopener"
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    });
+
+    it("shows an inline error and does not save when the entered URL is invalid", async () => {
+      const gen = makeGeneration({ id: "gen-8", label: "v8" });
+      const onSavePreviewUrl = vi.fn();
+
+      mockUseFixtureGenerations.mockReturnValue({ data: [gen], isLoading: false, error: null });
+      mockUsePublishHistory.mockReturnValue({ data: [], error: null });
+      mockUsePublishGeneration.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+      mockUseMintPreviewToken.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+
+      render(
+        <PublishSection
+          projectId="project-1"
+          fixtureId="fixture-1"
+          publishedGenerationId={null}
+          draftGenerationId="gen-8"
+          previewUrl={null}
+          onSavePreviewUrl={onSavePreviewUrl}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/App URL/i), {
+        target: { value: "not-a-url" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: /save and preview/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Enter a full URL/i)).toBeTruthy();
+      });
+      expect(onSavePreviewUrl).not.toHaveBeenCalled();
+    });
+
+    it("mints per generation on the published row too (Preview isn't hidden when published)", async () => {
+      const published = makeGeneration({ id: "gen-9", label: "v9" });
+      const mintMutateAsync = vi.fn().mockResolvedValue({
+        token: "tok-789",
+        expiresAt: "2026-07-20T01:00:00.000Z",
+      });
+
+      mockUseFixtureGenerations.mockReturnValue({
+        data: [published],
+        isLoading: false,
+        error: null,
+      });
+      mockUsePublishHistory.mockReturnValue({ data: [], error: null });
+      mockUsePublishGeneration.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+      mockUseMintPreviewToken.mockReturnValue({ mutateAsync: mintMutateAsync, isPending: false });
+
+      render(
+        <PublishSection
+          projectId="project-1"
+          fixtureId="fixture-1"
+          publishedGenerationId="gen-9"
+          draftGenerationId={null}
+          previewUrl="https://app.example.com"
+          onSavePreviewUrl={vi.fn()}
+        />
+      );
+
+      // The published row has no Publish button, only Preview.
+      expect(screen.queryByRole("button", { name: /^publish$/i })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+      await waitFor(() => {
+        expect(mintMutateAsync).toHaveBeenCalledWith({
+          projectId: "project-1",
+          fixtureId: "fixture-1",
+          generationId: "gen-9",
+        });
+      });
+    });
   });
 });

@@ -31,6 +31,7 @@ import {
   useFixtureGenerations,
   usePublishGeneration,
   usePublishHistory,
+  useMintPreviewToken,
   type FixtureGeneration,
 } from '@/hooks/use-fixtures'
 
@@ -39,6 +40,10 @@ export interface PublishSectionProps {
   fixtureId: string
   publishedGenerationId: string | null
   draftGenerationId: string | null
+  /** Where the customer app runs, from project.settings — null until captured once. */
+  previewUrl: string | null
+  /** Persists the captured app URL to project.settings for next time. */
+  onSavePreviewUrl: (url: string) => Promise<void>
 }
 
 interface DialogResult {
@@ -51,6 +56,8 @@ export function PublishSection({
   fixtureId,
   publishedGenerationId,
   draftGenerationId,
+  previewUrl,
+  onSavePreviewUrl,
 }: PublishSectionProps) {
   const {
     data: generations = [],
@@ -59,10 +66,20 @@ export function PublishSection({
   } = useFixtureGenerations(projectId, fixtureId)
   const { data: history = [], error: historyError } = usePublishHistory(projectId, fixtureId)
   const publishMutation = usePublishGeneration()
+  const mintMutation = useMintPreviewToken()
 
   const [confirmTarget, setConfirmTarget] = useState<FixtureGeneration | null>(null)
   const [note, setNote] = useState('')
   const [result, setResult] = useState<DialogResult | null>(null)
+
+  // Preview-session URL capture (Task 8). The first Preview click with no
+  // previewUrl set opens this small dialog asking where the customer app
+  // runs; the answer is persisted to project.settings so later clicks skip
+  // straight to minting + opening.
+  const [urlDialogFor, setUrlDialogFor] = useState<FixtureGeneration | null>(null)
+  const [urlInput, setUrlInput] = useState('')
+  const [urlError, setUrlError] = useState<string | null>(null)
+  const [savingUrl, setSavingUrl] = useState(false)
 
   // Guards against the confirm dialog's result view leaking across separate
   // publish "attempts" — not just across different generations. Cancelling
@@ -121,6 +138,59 @@ export function PublishSection({
     setNote('rollback')
   }
 
+  const openPreview = async (generation: FixtureGeneration, appUrl: string) => {
+    try {
+      const { token } = await mintMutation.mutateAsync({
+        projectId,
+        fixtureId,
+        generationId: generation.id,
+      })
+      const separator = appUrl.includes('?') ? '&' : '?'
+      window.open(`${appUrl}${separator}demo-preview=${encodeURIComponent(token)}`, '_blank', 'noopener')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Preview failed')
+    }
+  }
+
+  const handlePreview = (generation: FixtureGeneration) => {
+    if (previewUrl) {
+      void openPreview(generation, previewUrl)
+    } else {
+      setUrlInput('')
+      setUrlError(null)
+      setUrlDialogFor(generation)
+    }
+  }
+
+  const closeUrlDialog = () => {
+    setUrlDialogFor(null)
+    setUrlInput('')
+    setUrlError(null)
+  }
+
+  const handleSaveAndPreview = async () => {
+    if (!urlDialogFor) return
+    try {
+      new URL(urlInput)
+    } catch {
+      setUrlError('Enter a full URL, including https://')
+      return
+    }
+
+    const generation = urlDialogFor
+    setSavingUrl(true)
+    try {
+      await onSavePreviewUrl(urlInput)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save preview URL')
+      setSavingUrl(false)
+      return
+    }
+    setSavingUrl(false)
+    closeUrlDialog()
+    await openPreview(generation, urlInput)
+  }
+
   return (
     <section className="space-y-3">
       <h3 className="text-sm font-medium">Publish</h3>
@@ -170,18 +240,23 @@ export function PublishSection({
                     {invalid ? ' · failed validation' : ''}
                   </span>
                 </div>
-                {!isPublished && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={invalid}
-                    title={invalid ? 'Fix validation errors before publishing' : undefined}
-                    onClick={() => openPublishDialog(generation)}
-                  >
-                    <Upload className="mr-1 h-3 w-3" />
-                    Publish
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => handlePreview(generation)}>
+                    Preview
                   </Button>
-                )}
+                  {!isPublished && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={invalid}
+                      title={invalid ? 'Fix validation errors before publishing' : undefined}
+                      onClick={() => openPublishDialog(generation)}
+                    >
+                      <Upload className="mr-1 h-3 w-3" />
+                      Publish
+                    </Button>
+                  )}
+                </div>
               </li>
             )
           })}
@@ -298,6 +373,44 @@ export function PublishSection({
                 </Button>
               </>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={urlDialogFor !== null} onOpenChange={(open) => !open && closeUrlDialog()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Where does your app run?</DialogTitle>
+            <DialogDescription>
+              DemoKit opens this URL with a preview token so you can see this generation live in
+              your app.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label htmlFor="preview-app-url">App URL</Label>
+            <Input
+              id="preview-app-url"
+              className="h-8"
+              type="url"
+              variant={urlError ? 'error' : 'default'}
+              value={urlInput}
+              placeholder="https://app.example.com"
+              onChange={(e) => {
+                setUrlInput(e.target.value)
+                setUrlError(null)
+              }}
+            />
+            {urlError && <p className="text-sm text-destructive">{urlError}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeUrlDialog}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAndPreview} loading={savingUrl || mintMutation.isPending}>
+              Save and preview
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

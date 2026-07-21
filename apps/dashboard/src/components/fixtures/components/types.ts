@@ -75,6 +75,10 @@ export interface FixtureDetailProps {
     publishedGenerationId: string | null
     draftGenerationId: string | null
   }
+  /** Where the customer app runs, from project.settings — passed through to PublishSection's Preview button */
+  previewUrl?: string | null
+  /** Persists a newly-captured app URL to project.settings */
+  onSavePreviewUrl?: (url: string) => Promise<void>
 
   // Editing capabilities
   /** Whether editing is enabled */

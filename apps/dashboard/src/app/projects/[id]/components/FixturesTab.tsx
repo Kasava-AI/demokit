@@ -13,6 +13,7 @@ import {
   useCreateGeneration,
   useUpdateFixture,
 } from "@/hooks/use-fixtures";
+import { useUpdateProject } from "@/hooks/use-projects";
 import type { ProjectWithRelations } from "@/lib/api-client/projects";
 import {
   FixturesSidebar,
@@ -108,6 +109,24 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
   const createFixture = useCreateFixture();
   const createGeneration = useCreateGeneration();
   const updateFixture = useUpdateFixture();
+  const updateProjectMutation = useUpdateProject();
+
+  // Preview sessions (Task 8): where the customer app runs, captured once
+  // into project.settings and reused for every subsequent Preview click.
+  const previewUrl = useMemo(() => {
+    const settings = project.settings as { previewUrl?: string } | null;
+    return settings?.previewUrl ?? null;
+  }, [project.settings]);
+
+  const handleSavePreviewUrl = useCallback(
+    async (url: string) => {
+      await updateProjectMutation.mutateAsync({
+        id: projectId,
+        data: { settings: { ...(project.settings ?? {}), previewUrl: url } },
+      });
+    },
+    [projectId, project.settings, updateProjectMutation]
+  );
 
   // Extract generation rules from project settings
   const generationRules = useMemo(() => {
@@ -372,6 +391,8 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
                 onRegenerate={handleGeneration}
                 onClearSelection={handleClearFixtureSelection}
                 onDelete={handleDeleteFixture}
+                previewUrl={previewUrl}
+                onSavePreviewUrl={handleSavePreviewUrl}
               />
             ) : (
               <>

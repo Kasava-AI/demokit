@@ -13,6 +13,8 @@ interface SelectedFixturePreviewProps {
   onRegenerate: () => void
   onClearSelection: () => void
   onDelete: () => void
+  previewUrl: string | null
+  onSavePreviewUrl: (url: string) => Promise<void>
 }
 
 export function SelectedFixturePreview({
@@ -24,6 +26,8 @@ export function SelectedFixturePreview({
   onRegenerate,
   onClearSelection,
   onDelete,
+  previewUrl,
+  onSavePreviewUrl,
 }: SelectedFixturePreviewProps) {
   if (!fixture.publishedGeneration) {
     return (
@@ -66,6 +70,8 @@ export function SelectedFixturePreview({
         publishedGenerationId: fixture.publishedGenerationId,
         draftGenerationId: fixture.draftGenerationId,
       }}
+      previewUrl={previewUrl}
+      onSavePreviewUrl={onSavePreviewUrl}
       onDuplicate={() => {}}
       onDelete={onDelete}
     />

@@ -14,6 +14,22 @@ import type { DemokitSchema, StorySpec } from '@demokit-ai/core'
 
 type RouteParams = { params: Promise<{ id: string; demoId: string; variantId: string }> }
 
+/**
+ * Task 9's entity-form edits persist as `storySpec.pins` on the variant (see
+ * `save-with-pin-restore.ts`). A prose revision (this route) must not
+ * silently discard them: carry forward any existing pin whose path the new
+ * LLM-authored spec doesn't itself define. On a path collision the new
+ * spec's pin wins — the user just asked for a new story at that path.
+ */
+function mergePins(
+  existingPins: StorySpec['pins'] | null | undefined,
+  newPins: StorySpec['pins']
+): StorySpec['pins'] {
+  const newPaths = new Set(newPins.map((pin) => pin.path))
+  const carriedForward = (existingPins ?? []).filter((pin) => !newPaths.has(pin.path))
+  return [...carriedForward, ...newPins]
+}
+
 async function resolveProjectSchema(
   db: ReturnType<typeof getDb>,
   projectId: string
@@ -82,12 +98,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       seed: existing?.seed,
     })
 
+    // Carry forward any Task-9-persisted pins the new spec doesn't itself
+    // touch (see mergePins doc comment) — a prose revision augments the
+    // spec, it doesn't reset row-level edits the user already made.
+    const mergedSpec: StorySpec = { ...spec, pins: mergePins(existing?.pins, spec.pins) }
+
     await db
       .update(demoVariants)
-      .set({ storySpec: spec as unknown as Record<string, unknown>, updatedAt: new Date() })
+      .set({ storySpec: mergedSpec as unknown as Record<string, unknown>, updatedAt: new Date() })
       .where(eq(demoVariants.id, variantId))
 
-    return NextResponse.json({ spec, warnings })
+    return NextResponse.json({ spec: mergedSpec, warnings })
   } catch (error) {
     return handleError(error, 'POST .../variants/[variantId]/story-spec')
   }

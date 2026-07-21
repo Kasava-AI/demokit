@@ -169,6 +169,7 @@ export function StorySection({ projectId, fixtureId, demoId, variantId }: StoryS
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
+      if (writeMutation.isPending) return
       void handleWriteSpec()
     }
   }

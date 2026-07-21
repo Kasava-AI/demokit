@@ -10,6 +10,8 @@ import { getDb } from '@/lib/api/db'
 import { notFound, handleError } from '@/lib/api/utils'
 import { createGenerationSchema } from '@/lib/api/schemas'
 import { projects, fixtures, fixtureGenerations, publishes, eq, and, desc } from '@db'
+import { buildNarrativeSample, runNarrativeLinter, type LinterFinding } from '@demokit-ai/ai'
+import type { DemoData } from '@demokit-ai/core'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string }> }
 
@@ -111,6 +113,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       })
       .returning()
 
+    let linterFindings: LinterFinding[] = []
+    const scenario =
+      typeof validatedData.inputParameters?.scenario === 'string' ? validatedData.inputParameters.scenario : null
+    if (scenario && process.env.ANTHROPIC_API_KEY) {
+      const sample = buildNarrativeSample(validatedData.data as DemoData)
+      linterFindings = await runNarrativeLinter({ scenario, sample })
+      if (linterFindings.length > 0) {
+        await db.update(fixtureGenerations).set({ linterFindings }).where(eq(fixtureGenerations.id, generation.id))
+      }
+    }
+
     // Draft/publish split (spec §6): land as draft; bootstrap-publish only
     // when nothing is published yet and validation passed.
     if (!fixture.publishedGenerationId && validatedData.validationValid !== false) {
@@ -134,7 +147,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         .where(eq(fixtures.id, fixtureId))
     }
 
-    return NextResponse.json(generation, { status: 201 })
+    return NextResponse.json({ ...generation, linterFindings }, { status: 201 })
   } catch (error) {
     return handleError(error, 'POST /api/projects/[id]/fixtures/[fixtureId]/generations')
   }

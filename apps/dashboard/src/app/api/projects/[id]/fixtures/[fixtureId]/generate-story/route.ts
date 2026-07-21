@@ -10,7 +10,8 @@ import { unauthorized, notFound, badRequest, handleError } from '@/lib/api/utils
 import { generateStoryRequestSchema } from '@/lib/api/schemas'
 import { projects, projectSources, fixtures, fixtureGenerations, demoVariants, demos, publishes, eq, and } from '@db'
 import { generateFromStorySpec, parseStorySpec } from '@demokit-ai/core'
-import type { DemokitSchema } from '@demokit-ai/core'
+import type { DemokitSchema, DemoData } from '@demokit-ai/core'
+import { buildNarrativeSample, runNarrativeLinter, type LinterFinding } from '@demokit-ai/ai'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string }> }
 
@@ -117,6 +118,20 @@ export async function POST(request: Request, { params }: RouteParams) {
       })
       .returning()
 
+    // Advisory narrative linter (spec §5.2.4): inline (serverless-safe),
+    // silent no-op without a key, and never blocks or fails the request.
+    let linterFindings: LinterFinding[] = []
+    if (process.env.ANTHROPIC_API_KEY) {
+      const sample = buildNarrativeSample(result.data as DemoData, { spec })
+      linterFindings = await runNarrativeLinter({ scenario: spec.scenario, sample })
+      if (linterFindings.length > 0) {
+        await db
+          .update(fixtureGenerations)
+          .set({ linterFindings })
+          .where(eq(fixtureGenerations.id, generation.id))
+      }
+    }
+
     // Draft/publish split (spec §6) — same semantics as the generations POST.
     if (!hasPublished && result.validation.valid) {
       await db.transaction(async (tx) => {
@@ -139,7 +154,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         .where(eq(fixtures.id, fixtureId))
     }
 
-    return NextResponse.json({ generation, validation: result.validation }, { status: 201 })
+    return NextResponse.json({ generation: { ...generation, linterFindings }, validation: result.validation }, { status: 201 })
   } catch (error) {
     return handleError(error, 'POST /api/projects/[id]/fixtures/[fixtureId]/generate-story')
   }

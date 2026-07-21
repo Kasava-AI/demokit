@@ -112,6 +112,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
+    const linterFindings = generation.linterFindings ?? []
+
     const { publish, updatedFixture } = await db.transaction(async (tx) => {
       const [publish] = await tx
         .insert(publishes)
@@ -134,10 +136,17 @@ export async function POST(request: Request, { params }: RouteParams) {
         .where(eq(fixtures.id, fixtureId))
         .returning()
 
+      // Publishing is the deliberate human review act (spec §6) — clear the
+      // unreviewed provenance marker on the generation being published.
+      await tx
+        .update(fixtureGenerations)
+        .set({ unreviewedRows: null })
+        .where(eq(fixtureGenerations.id, targetId))
+
       return { publish, updatedFixture }
     })
 
-    return NextResponse.json({ publish, fixture: updatedFixture, warnings })
+    return NextResponse.json({ publish, fixture: updatedFixture, warnings, linterFindings })
   } catch (error) {
     return handleError(error, 'POST /api/projects/[id]/fixtures/[fixtureId]/publish')
   }

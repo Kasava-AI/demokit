@@ -14,9 +14,16 @@ import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, handleError } from '@/lib/api/utils'
 import { projects, appIdentity, features, userJourneys, entityMaps, fixtures, fixtureGenerations, publishes, eq } from '@db'
-import { generateNarrativeData, createNarrative, type SourceIntelligence } from '@demokit-ai/ai'
+import {
+  generateNarrativeData,
+  createNarrative,
+  buildNarrativeSample,
+  runNarrativeLinter,
+  type SourceIntelligence,
+  type LinterFinding,
+} from '@demokit-ai/ai'
 import { inferAppContext } from '@demokit-ai/core'
-import type { DemokitSchema } from '@demokit-ai/core'
+import type { DemokitSchema, DemoData } from '@demokit-ai/core'
 
 interface GenerateRequestBody {
   schema: DemokitSchema
@@ -223,6 +230,21 @@ export async function POST(
       })
       .returning()
 
+    // Advisory narrative linter (spec §5.2.4): inline (serverless-safe),
+    // silent no-op without a key, and never blocks or fails the request.
+    let linterFindings: LinterFinding[] = []
+    const scenario = narrative.scenario
+    if (process.env.ANTHROPIC_API_KEY) {
+      const sample = buildNarrativeSample(result.data as DemoData)
+      linterFindings = await runNarrativeLinter({ scenario, sample })
+      if (linterFindings.length > 0) {
+        await db
+          .update(fixtureGenerations)
+          .set({ linterFindings })
+          .where(eq(fixtureGenerations.id, generation.id))
+      }
+    }
+
     // Draft/publish split (spec §6): a fresh fixture bootstrap-publishes its
     // first valid generation so the hosted API works before the publish UI
     // exists; invalid generations stay drafts behind the gate.
@@ -260,6 +282,7 @@ export async function POST(
       fixtureId: fixture.id,
       generationId: generation.id,
       fixtureName: name,
+      linterFindings,
       validation: validation
         ? {
             valid: validation.valid,

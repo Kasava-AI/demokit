@@ -106,6 +106,33 @@ export function SelectedFixturePreview({
 
     setIsSavingEdits(true)
     try {
+      // Persist the (idempotent) variant pin update FIRST. pinsFromEdits is
+      // deterministic given (edits, editor.data, spec), so retrying this call
+      // — whether because it failed, or because createGeneration below
+      // failed and the whole save is retried — always converges on the same
+      // pins. Only call createGeneration once that's settled, so a failure
+      // between the two steps can never leave a retry creating a second
+      // "Manual edit" draft for the same edits.
+      if (pinsWillApply && linkedVariant && fixture.demoId && fixture.variantId) {
+        const spec = linkedVariant.storySpec as unknown as StorySpec
+        const rowEdits: RowEdit[] = editor.editHistory.map((e) => ({
+          model: e.model,
+          rowIndex: e.index,
+          field: e.field,
+          value: e.newValue,
+        }))
+        // Values come from editor.data (the final saved state), not the
+        // edit log, so a field edited and then orphaned by a later
+        // delete/duplicate still pins whatever ended up in row 0.
+        const pins = pinsFromEdits(rowEdits, editor.data, spec)
+        await updateVariantMutation.mutateAsync({
+          projectId,
+          demoId: fixture.demoId,
+          variantId: fixture.variantId,
+          data: { storySpec: { ...spec, pins } },
+        })
+      }
+
       const result = editor.validate()
 
       await createGenerationMutation.mutateAsync({
@@ -130,23 +157,6 @@ export function SelectedFixturePreview({
           inputParameters: { editedFrom: gen.id },
         },
       })
-
-      if (pinsWillApply && linkedVariant && fixture.demoId && fixture.variantId) {
-        const spec = linkedVariant.storySpec as unknown as StorySpec
-        const rowEdits: RowEdit[] = editor.editHistory.map((e) => ({
-          model: e.model,
-          rowIndex: e.index,
-          field: e.field,
-          value: e.newValue,
-        }))
-        const pins = pinsFromEdits(rowEdits, spec)
-        await updateVariantMutation.mutateAsync({
-          projectId,
-          demoId: fixture.demoId,
-          variantId: fixture.variantId,
-          data: { storySpec: { ...spec, pins } },
-        })
-      }
 
       toast.success('Saved as draft', {
         description: 'Publish it from the Publish section when ready.',
@@ -225,6 +235,11 @@ export function SelectedFixturePreview({
       onAddRecord={handleAddRecord}
       onUndo={editor.undo}
       canUndo={editor.canUndo}
+      undoDisabledReason={
+        editor.hasStructuralEdit
+          ? "Undo isn't available after adding, deleting, or duplicating a row — use Reset to discard all changes instead."
+          : undefined
+      }
       onReset={editor.reset}
       editCount={editor.editHistory.length}
       onSaveEdits={handleSaveEdits}

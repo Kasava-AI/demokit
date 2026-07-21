@@ -13,12 +13,16 @@ export type GenerationLevel = 'l1' | 'l2'
 
 export type PackageManager = 'pnpm' | 'yarn' | 'bun' | 'npm'
 
+/** Which transport resolves demo requests against the fixture map — see `@demokit-ai/react`'s `transport` prop. */
+export type Transport = 'msw' | 'fetch'
+
 export interface CliOptions {
   directory: string
   yes: boolean
   cloud: boolean
   framework?: Framework
   level: GenerationLevel
+  transport: Transport
   dryRun: boolean
   noInstall: boolean
   noWire: boolean

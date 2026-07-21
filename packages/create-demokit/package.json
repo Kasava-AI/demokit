@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch --no-dts",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -23,7 +24,8 @@
     "@demokit-ai/core": "workspace:*",
     "@types/node": "^22.15.3",
     "tsup": "^8.5.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=20"

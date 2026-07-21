@@ -1,4 +1,4 @@
-import { resolve, join } from 'node:path'
+import { resolve, join, relative } from 'node:path'
 import * as p from '@clack/prompts'
 import pc from 'picocolors'
 import type { CliOptions, CliResult, FileChange, Framework } from './types'
@@ -6,6 +6,7 @@ import { detectFramework, FRAMEWORK_LABELS } from './detect/framework'
 import { checkExistingInstallation } from './detect/existing'
 import { getRequiredPackages, getMissingPackages } from './install/packages'
 import { installPackages } from './install/runner'
+import { copyWorkerScript } from './install/worker'
 import { scanProject } from './scan/scanner'
 import { generateFixturesFile, getFixturesPath } from './generate/fixtures'
 import { generateProviderFile, getProviderPath } from './generate/provider'
@@ -71,7 +72,7 @@ export async function run(options: CliOptions): Promise<void> {
 
   // Step 3: Install packages
   if (!options.noInstall && !existing.isComplete) {
-    const required = getRequiredPackages(framework, options.cloud)
+    const required = getRequiredPackages(framework, options.cloud, options.transport)
     const missing = getMissingPackages(required, existing.packages)
 
     if (missing.length > 0) {
@@ -85,6 +86,38 @@ export async function run(options: CliOptions): Promise<void> {
         result.packagesInstalled = missing
       } else {
         s3.stop('Installation failed — continuing without packages')
+      }
+    }
+  }
+
+  // Copy the msw worker script (transport=msw only). Runs after package
+  // install so `msw` has a chance to be present in the target project.
+  if (options.transport === 'msw') {
+    const workerDestPath = join(dir, 'public', 'mockServiceWorker.js')
+    const workerExisted = fileExists(workerDestPath)
+    const workerRelPath = 'public/mockServiceWorker.js'
+
+    if (options.dryRun) {
+      result.filesChanged.push({
+        path: workerRelPath,
+        action: 'skipped',
+        description: 'msw worker script (dry run) — keep this in sync when upgrading msw',
+      })
+    } else {
+      const sWorker = p.spinner()
+      sWorker.start('Copying msw worker script')
+      try {
+        const { dest } = await copyWorkerScript(dir)
+        const relDest = relative(dir, dest)
+        sWorker.stop(`Copied ${relDest} — keep this in sync when upgrading msw`)
+        result.filesChanged.push({
+          path: relDest,
+          action: workerExisted ? 'modified' : 'created',
+          description: 'msw worker script — keep this in sync when upgrading msw',
+        })
+      } catch (err) {
+        sWorker.stop('Could not copy msw worker script')
+        error(err instanceof Error ? err.message : String(err))
       }
     }
   }
@@ -137,7 +170,7 @@ export async function run(options: CliOptions): Promise<void> {
   // Generate provider file
   const providerPath = join(dir, getProviderPath(framework))
   if (!fileExists(providerPath)) {
-    const providerContent = generateProviderFile(framework)
+    const providerContent = generateProviderFile(framework, options.transport)
     if (!options.dryRun) {
       writeFile(providerPath, providerContent)
     }

@@ -1,4 +1,4 @@
-import type { CliOptions, Framework } from './types'
+import type { CliOptions, Framework, Transport } from './types'
 import { run } from './cli'
 
 const HELP = `
@@ -15,6 +15,7 @@ const HELP = `
     --cloud            Set up DemoKit Cloud integration
     --framework <f>    Override detection: react
     --level <l>        Generation level: l1|l2 (default: l2)
+    --transport <t>    Network mocking transport: msw|fetch (default: msw)
     --dry-run          Show what would be done without changes
     --no-install       Skip package installation
     --no-wire          Skip provider wiring (fixtures only)
@@ -30,6 +31,7 @@ const HELP = `
 `
 
 const VALID_FRAMEWORKS = ['react']
+const VALID_TRANSPORTS = ['msw', 'fetch']
 
 function parseArgs(argv: string[]): CliOptions {
   const args = argv.slice(2)
@@ -39,6 +41,11 @@ function parseArgs(argv: string[]): CliOptions {
     yes: false,
     cloud: false,
     level: 'l2',
+    // Scaffold default for NEW installs is msw (product call #5) — the
+    // library default (`@demokit-ai/react`'s own `transport` prop) stays
+    // 'fetch' for existing users; this CLI default only affects fresh
+    // scaffolds, and is always passed through explicitly, never implied.
+    transport: 'msw',
     dryRun: false,
     noInstall: false,
     noWire: false,
@@ -83,6 +90,15 @@ function parseArgs(argv: string[]): CliOptions {
           process.exit(1)
         }
         options.level = val
+        break
+      }
+      case '--transport': {
+        const val = args[++i]
+        if (!val || !VALID_TRANSPORTS.includes(val)) {
+          console.error(`Invalid transport: ${val}. Valid: ${VALID_TRANSPORTS.join(', ')}`)
+          process.exit(1)
+        }
+        options.transport = val as Transport
         break
       }
       case '--dry-run':

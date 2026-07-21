@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest'
 import { setupServer } from 'msw/node'
-import { http, HttpResponse } from 'msw'
+import { createServer, type Server } from 'node:http'
 import { createSessionState, type ResolveDeps } from '@demokit-ai/core'
 import { createMswRequestHandler } from '../handler'
 
@@ -12,17 +12,37 @@ function deps(overrides: Partial<ResolveDeps> = {}): ResolveDeps {
 }
 
 let currentDeps: ResolveDeps | null = null
-const server = setupServer(
-  // Registered before the catch-all: MSW resolves handlers in array order and
-  // the first predicate match whose resolver returns any Response (including
-  // the passthrough() 302 marker) is terminal, so the specific fallback must
-  // come first for passthrough() to have somewhere real to land in node.
-  http.get('http://localhost/api/real', () => HttpResponse.json({ from: 'network' })),
-  createMswRequestHandler(() => currentDeps)
-)
-beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
+const server = setupServer(createMswRequestHandler(() => currentDeps))
+
+// MSW's passthrough() performs a genuine outbound request — a second mock
+// handler can never "catch" it, because MSW resolves handlers in array order
+// and the first predicate match whose resolver returns any Response
+// (including the passthrough() marker) is terminal. So the passthrough tests
+// below need a real listener to land on, not another mock handler.
+let realServer: Server
+let realServerUrl: string
+
+beforeAll(async () => {
+  server.listen({ onUnhandledRequest: 'bypass' })
+  realServer = createServer((req, res) => {
+    if (req.url === '/api/real') {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ from: 'network' }))
+      return
+    }
+    res.writeHead(404)
+    res.end()
+  })
+  await new Promise<void>((resolve) => realServer.listen(0, '127.0.0.1', () => resolve()))
+  const address = realServer.address()
+  const port = typeof address === 'object' && address !== null ? address.port : 0
+  realServerUrl = `http://127.0.0.1:${port}`
+})
 afterEach(() => { currentDeps = null })
-afterAll(() => server.close())
+afterAll(async () => {
+  server.close()
+  await new Promise<void>((resolve) => realServer.close(() => resolve()))
+})
 
 describe('createMswRequestHandler', () => {
   it('serves matched fixtures through the shared resolver', async () => {
@@ -33,8 +53,8 @@ describe('createMswRequestHandler', () => {
   })
 
   it('passes unmatched safe requests through to the network', async () => {
-    currentDeps = deps()
-    const res = await fetch('http://localhost/api/real')
+    currentDeps = deps({ baseUrl: realServerUrl })
+    const res = await fetch(`${realServerUrl}/api/real`)
     await expect(res.json()).resolves.toEqual({ from: 'network' })
   })
 
@@ -57,7 +77,7 @@ describe('createMswRequestHandler', () => {
 
   it('is inert (passthrough) when deps are null', async () => {
     currentDeps = null
-    const res = await fetch('http://localhost/api/real')
+    const res = await fetch(`${realServerUrl}/api/real`)
     await expect(res.json()).resolves.toEqual({ from: 'network' })
   })
 })

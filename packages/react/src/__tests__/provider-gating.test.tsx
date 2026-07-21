@@ -12,7 +12,7 @@ vi.mock('@demokit-ai/core', async (importOriginal) => ({
   fetchCloudFixtures: (...a: unknown[]) => fetchCloudFixtures(...a),
 }))
 
-import { DemoKitProvider, useDemoKit } from '../index'
+import { DemoKitProvider, useDemoMode } from '../index'
 import { DEFAULT_STORAGE_KEY } from '@demokit-ai/core'
 
 function interceptorStub() {
@@ -50,7 +50,7 @@ describe('demo-gated construction', () => {
 
   it('bootstraps lazily when enable() is called', async () => {
     function EnableButton() {
-      const { enable } = useDemoKit()
+      const { enable } = useDemoMode()
       return <button onClick={() => enable()}>go</button>
     }
     render(<DemoKitProvider fixtures={{}}><EnableButton /></DemoKitProvider>)

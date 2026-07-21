@@ -24,6 +24,15 @@
 export { createDemoInterceptor, demoResponse, isDemoResponse } from './interceptor'
 export type { DemoResponseValue } from './interceptor'
 
+// Coverage-health reporter (spec §8)
+export { createCoverageReporter } from './coverage'
+export type {
+  CoverageEvent,
+  CoverageEventType,
+  CoverageReporter,
+  CoverageReporterOptions,
+} from './coverage'
+
 // Session state management
 export { createSessionState } from './session'
 
@@ -69,6 +78,8 @@ export type {
   MutationInterceptedContext,
   UnmatchedMutationContext,
   UnmatchedMutationPolicy,
+  UnmatchedRequestContext,
+  ProjectionErrorContext,
   // Remote config types (for cloud-managed fixtures)
   RemoteConfig,
   CloudFixtureResponse,
@@ -102,6 +113,7 @@ export type {
   TransformContext,
   TransformFn,
   TransformRegistry,
+  UnservedMappingInfo,
 } from './store/types'
 
 // Services (schema, ai, auth, codegen)

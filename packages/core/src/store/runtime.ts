@@ -8,7 +8,7 @@ import type { DemoData } from '../services/codegen/types'
 import { createDemoStore } from './store'
 import { attachOpLogPersistence, type StorageLike } from './oplog'
 import { buildProjectionMap } from './projections'
-import type { DemoStore, TransformRegistry } from './types'
+import type { DemoStore, TransformRegistry, UnservedMappingInfo } from './types'
 
 export interface DemoRuntimeOptions {
   response: CloudFixtureResponse
@@ -17,6 +17,8 @@ export interface DemoRuntimeOptions {
   storageKey?: string
   /** Injectable for tests. */
   storage?: StorageLike
+  /** Fired for cloud mappings the runtime can't serve (spec §8 coverage health). */
+  onUnservedMapping?: (info: UnservedMappingInfo) => void
 }
 
 export interface DemoRuntime {
@@ -28,7 +30,7 @@ export interface DemoRuntime {
 }
 
 export function createDemoRuntime(options: DemoRuntimeOptions): DemoRuntime | null {
-  const { response, transforms, storageKey = 'demokit-mode', storage } = options
+  const { response, transforms, storageKey = 'demokit-mode', storage, onUnservedMapping } = options
   if (!response.models || !response.relationships) {
     return null
   }
@@ -46,7 +48,7 @@ export function createDemoRuntime(options: DemoRuntimeOptions): DemoRuntime | nu
     storage,
   })
 
-  const fixtures = buildProjectionMap(response.mappings, store, transforms)
+  const fixtures = buildProjectionMap(response.mappings, store, transforms, onUnservedMapping)
 
   return {
     store,

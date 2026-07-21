@@ -84,3 +84,11 @@ export type TransformFn = (ctx: TransformContext) => unknown | Promise<unknown>
 
 /** Named transforms registered at install time. Cloud mappings reference them by name only. */
 export type TransformRegistry = Record<string, TransformFn>
+
+/** A cloud mapping the runtime cannot serve (spec §8 coverage health). */
+export interface UnservedMappingInfo {
+  reason: 'unregistered_transform' | 'unknown_response_type'
+  method: string
+  pattern: string
+  transformName?: string
+}

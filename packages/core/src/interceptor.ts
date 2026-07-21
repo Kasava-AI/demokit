@@ -221,6 +221,8 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     unmatchedMutations = 'block',
     onMutationBlocked,
     onSessionReset,
+    onUnmatchedRequest,
+    onProjectionError,
   } = config
 
   // Auto-detect demo mode from URL
@@ -280,6 +282,7 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
       if (!match) {
         // No matching fixture — safe methods pass through to the real API
         if (SAFE_METHODS.has(method)) {
+          onUnmatchedRequest?.({ method, pathname })
           return originalFetch!(input, init)
         }
 
@@ -375,6 +378,7 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
             : 500
         if (status >= 500) {
           console.error('[DemoKit] Fixture handler error:', error)
+          onProjectionError?.({ method, pathname, status })
         }
         return createMockResponse(
           {

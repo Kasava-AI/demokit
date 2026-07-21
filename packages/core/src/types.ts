@@ -56,6 +56,19 @@ export interface UnmatchedMutationContext {
   pathname: string
 }
 
+/** An unmatched GET/HEAD that passed through to the real API (spec §8). */
+export interface UnmatchedRequestContext {
+  method: string
+  pathname: string
+}
+
+/** A fixture/projection handler that threw with a server-side status. */
+export interface ProjectionErrorContext {
+  method: string
+  pathname: string
+  status: number
+}
+
 /**
  * Policy for non-GET requests that match no fixture while demo mode is on.
  * - 'block' (default): return a mock 409 instead of hitting the real API
@@ -172,6 +185,11 @@ export interface DemoKitConfig {
    * The store runtime uses this to clear the op-log and re-seed (spec §3.3).
    */
   onSessionReset?: () => void
+
+  /** Fired when a demo-mode request matches no fixture and passes through. */
+  onUnmatchedRequest?: (context: UnmatchedRequestContext) => void
+  /** Fired when a fixture handler throws with status >= 500. */
+  onProjectionError?: (context: ProjectionErrorContext) => void
 }
 
 /**

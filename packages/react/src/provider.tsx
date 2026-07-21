@@ -8,10 +8,12 @@ import {
   createDemoRuntime,
   createMemoryStorage,
   mergeFixtures,
+  createCoverageReporter,
   type DemoInterceptor,
   type SessionState,
   type FixtureMap,
   type DemoRuntime,
+  type CoverageReporter,
 } from '@demokit-ai/core'
 import { DemoModeContext } from './context'
 import type { DemoKitProviderProps, DemoModeContextValue } from './types'
@@ -94,6 +96,7 @@ export function DemoKitProvider({
   showBlockedToast = true,
   pathAliases,
   warnOnCatchAll,
+  reportCoverage = true,
   // Query cache
   queryClient: externalQueryClient,
   // URL redirects
@@ -124,6 +127,9 @@ export function DemoKitProvider({
 
   // Store-backed runtime (spec §3), when the payload ships models + relationships
   const runtimeRef = useRef<DemoRuntime | null>(null)
+
+  // Coverage-health reporter (spec §8); remote mode only, never for preview sessions
+  const reporterRef = useRef<CoverageReporter | null>(null)
 
   // Read once — the token lives for the page load, like detection.
   const previewTokenRef = useRef<string | null>(null)
@@ -195,12 +201,19 @@ export function DemoKitProvider({
         unmatchedMutations,
         onMutationBlocked: (ctx) => {
           onMutationBlocked?.(ctx)
+          reporterRef.current?.record({ type: 'blocked_mutation', method: ctx.method, path: ctx.pathname })
           if (showBlockedToast) {
             setBlockedNotice((prev) => ({
               text: `${ctx.method} ${ctx.pathname}`,
               seq: (prev?.seq ?? 0) + 1,
             }))
           }
+        },
+        onUnmatchedRequest: (ctx) => {
+          reporterRef.current?.record({ type: 'unmatched_request', method: ctx.method, path: ctx.pathname })
+        },
+        onProjectionError: (ctx) => {
+          reporterRef.current?.record({ type: 'projection_error', method: ctx.method, path: ctx.pathname })
         },
         pathAliases,
         warnOnCatchAll,
@@ -255,6 +268,15 @@ export function DemoKitProvider({
         onError: onRemoteError,
       })
 
+      // Coverage-health reporter (spec §8): remote mode only, never for preview
+      // sessions (a preview generation's misses aren't the published app's
+      // coverage health).
+      reporterRef.current?.destroy()
+      reporterRef.current =
+        reportCoverage && !effectivePreviewToken
+          ? createCoverageReporter({ apiKey: source.apiKey, apiUrl: source.apiUrl })
+          : null
+
       // Store-backed path when the payload ships models + relationships
       // (spec §3); legacy fixture-map path otherwise.
       runtimeRef.current?.destroy()
@@ -265,6 +287,11 @@ export function DemoKitProvider({
         // Preview op-log stays in memory: it must not clobber the user's real
         // demo-session op-log (same storage key, different version).
         storage: effectivePreviewToken ? createMemoryStorage() : undefined,
+        onUnservedMapping: (info) => {
+          if (info.reason === 'unregistered_transform') {
+            reporterRef.current?.record({ type: 'unregistered_transform', method: info.method, path: info.pattern })
+          }
+        },
       })
       runtimeRef.current = runtime
       const remoteFixtures = runtime
@@ -297,6 +324,7 @@ export function DemoKitProvider({
     onRemoteLoad,
     onRemoteError,
     setupInterceptor,
+    reportCoverage,
   ])
 
   // Store refetch function in ref for context access
@@ -322,6 +350,8 @@ export function DemoKitProvider({
     }
 
     return () => {
+      reporterRef.current?.destroy()
+      reporterRef.current = null
       runtimeRef.current?.destroy()
       runtimeRef.current = null
       interceptorRef.current?.destroy()

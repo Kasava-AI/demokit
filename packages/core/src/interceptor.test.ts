@@ -258,3 +258,50 @@ describe('onSessionReset', () => {
     expect(onSessionReset).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('coverage-health callbacks', () => {
+  it('fires onUnmatchedRequest for an unmatched GET and still passes it through', async () => {
+    const spy = stubNetwork()
+    const onUnmatchedRequest = vi.fn()
+    interceptor = createDemoInterceptor({
+      fixtures: {},
+      initialEnabled: true,
+      onUnmatchedRequest,
+    })
+
+    await fetch('/api/nope')
+
+    expect(spy).toHaveBeenCalledOnce()
+    expect(onUnmatchedRequest).toHaveBeenCalledOnce()
+    expect(onUnmatchedRequest).toHaveBeenCalledWith({ method: 'GET', pathname: '/api/nope' })
+  })
+
+  it('fires onProjectionError for a >= 500 handler throw but not for a 422', async () => {
+    stubNetwork()
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onProjectionError = vi.fn()
+    interceptor = createDemoInterceptor({
+      fixtures: {
+        'POST /api/boom': () => {
+          throw Object.assign(new Error('boom'), { status: 500 })
+        },
+        'POST /api/rejected': () => {
+          throw Object.assign(new Error('nope'), { status: 422 })
+        },
+      },
+      initialEnabled: true,
+      onProjectionError,
+    })
+
+    const boomRes = await fetch('/api/boom', { method: 'POST' })
+    expect(boomRes.status).toBe(500)
+    expect(onProjectionError).toHaveBeenCalledOnce()
+    expect(onProjectionError).toHaveBeenCalledWith({ method: 'POST', pathname: '/api/boom', status: 500 })
+
+    const rejectedRes = await fetch('/api/rejected', { method: 'POST' })
+    expect(rejectedRes.status).toBe(422)
+    expect(onProjectionError).toHaveBeenCalledOnce()
+
+    consoleErrorSpy.mockRestore()
+  })
+})

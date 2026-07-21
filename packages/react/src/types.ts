@@ -177,6 +177,14 @@ export interface DemoKitProviderProps {
    */
   warnOnCatchAll?: boolean
 
+  /**
+   * Report coverage-health events (unmatched requests, blocked mutations,
+   * unregistered transforms, projection errors) to DemoKit Cloud — paths and
+   * methods only, never values. Preview sessions never report.
+   * @default true
+   */
+  reportCoverage?: boolean
+
   // ============================================================================
   // Query Cache Integration
   // ============================================================================

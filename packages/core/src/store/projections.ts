@@ -11,7 +11,13 @@ import type {
   RequestContext,
 } from '../types'
 import { demoResponse } from '../interceptor'
-import { StoreError, type DemoStore, type Row, type TransformRegistry } from './types'
+import {
+  StoreError,
+  type DemoStore,
+  type Row,
+  type TransformRegistry,
+  type UnservedMappingInfo,
+} from './types'
 
 function compareValues(a: unknown, b: unknown): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b
@@ -142,7 +148,8 @@ function lookupId(mapping: EndpointMapping, context: RequestContext): string {
 function createProjectionHandler(
   mapping: EndpointMapping,
   store: DemoStore,
-  transforms?: TransformRegistry
+  transforms?: TransformRegistry,
+  onUnservedMapping?: (info: UnservedMappingInfo) => void
 ): FixtureHandler | undefined {
   const model = () => store.model(mapping.sourceModel)
 
@@ -188,6 +195,7 @@ function createProjectionHandler(
         console.warn(
           `[DemoKit] Mapping ${mapping.method} ${mapping.pattern} names unregistered transform "${name ?? '(none)'}" — falling back to the unmatched policy.`
         )
+        onUnservedMapping?.({ reason: 'unregistered_transform', method: mapping.method, pattern: mapping.pattern, transformName: name ?? undefined })
         return undefined
       }
       return (context: RequestContext) =>
@@ -205,6 +213,7 @@ function createProjectionHandler(
       console.warn(
         `[DemoKit] Unknown response type "${mapping.responseType}" for pattern: ${mapping.pattern}`
       )
+      onUnservedMapping?.({ reason: 'unknown_response_type', method: mapping.method, pattern: mapping.pattern })
       return undefined
   }
 }
@@ -217,11 +226,12 @@ function createProjectionHandler(
 export function buildProjectionMap(
   mappings: EndpointMapping[],
   store: DemoStore,
-  transforms?: TransformRegistry
+  transforms?: TransformRegistry,
+  onUnservedMapping?: (info: UnservedMappingInfo) => void
 ): FixtureMap {
   const map: FixtureMap = {}
   for (const mapping of mappings) {
-    const handler = createProjectionHandler(mapping, store, transforms)
+    const handler = createProjectionHandler(mapping, store, transforms, onUnservedMapping)
     if (handler !== undefined) {
       map[`${mapping.method} ${mapping.pattern}`] = handler
     }

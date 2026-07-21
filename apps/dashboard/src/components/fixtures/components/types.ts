@@ -74,6 +74,10 @@ export interface FixtureDetailProps {
     id: string
     publishedGenerationId: string | null
     draftGenerationId: string | null
+    /** Demo-system link (Phase 2) — threaded into StorySection to gate its linked/unlinked view. */
+    demoId: string | null
+    /** Variant link (Phase 2) — threaded into StorySection to gate its linked/unlinked view. */
+    variantId: string | null
   }
   /** Where the customer app runs, from project.settings — passed through to PublishSection's Preview button */
   previewUrl?: string | null

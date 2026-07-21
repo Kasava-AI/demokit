@@ -110,10 +110,16 @@ export const createFixtureSchema = z.object({
   templateId: z.string().uuid().optional(),
 })
 
-export const updateFixtureSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  description: z.string().optional(),
-})
+export const updateFixtureSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    description: z.string().optional(),
+    demoId: z.string().uuid().nullable().optional(),
+    variantId: z.string().uuid().nullable().optional(),
+  })
+  .refine((body) => (body.demoId === undefined) === (body.variantId === undefined), {
+    message: 'demoId and variantId must be set together',
+  })
 
 // Generation schemas
 export const generationLevelSchema = z.enum(['schema-valid', 'relationship-valid', 'narrative-driven'])

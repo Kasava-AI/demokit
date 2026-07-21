@@ -233,6 +233,8 @@ export function SelectedFixturePreview({
         id: fixture.id,
         publishedGenerationId: fixture.publishedGenerationId,
         draftGenerationId: fixture.draftGenerationId,
+        demoId: fixture.demoId,
+        variantId: fixture.variantId,
       }}
       previewUrl={previewUrl}
       onSavePreviewUrl={onSavePreviewUrl}

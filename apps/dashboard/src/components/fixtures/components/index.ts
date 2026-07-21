@@ -11,6 +11,7 @@ export { ValidationSection, type ValidationSectionProps } from './ValidationSect
 export { IntegrationSection, type IntegrationSectionProps } from './IntegrationSection'
 export { MappingsSection, type MappingsSectionProps } from './MappingsSection'
 export { PublishSection, type PublishSectionProps } from './PublishSection'
+export { StorySection, type StorySectionProps } from './StorySection'
 export { MappingEditor, type MappingEditorProps } from './MappingEditor'
 export { SaveDialog, type SaveDialogProps } from './SaveDialog'
 export { LoadingState, EmptyState } from './LoadingState'

@@ -27,6 +27,7 @@ import { PreviewSection } from "./components/PreviewSection";
 import { ValidationSection } from "./components/ValidationSection";
 import { IntegrationSection } from "./components/IntegrationSection";
 import { MappingsSection } from "./components/MappingsSection";
+import { StorySection } from "./components/StorySection";
 import { PublishSection } from "./components/PublishSection";
 import { SaveDialog } from "./components/SaveDialog";
 import { LoadingState, EmptyState } from "./components/LoadingState";
@@ -335,6 +336,16 @@ export function FixtureDetail({
               onOpenChange={setIntegrationOpen}
               data={data}
               projectName={projectName}
+            />
+          )}
+
+          {/* Story Section (Task 10) */}
+          {projectId && fixtureRecord && (
+            <StorySection
+              projectId={projectId}
+              fixtureId={fixtureRecord.id}
+              demoId={fixtureRecord.demoId}
+              variantId={fixtureRecord.variantId}
             />
           )}
 

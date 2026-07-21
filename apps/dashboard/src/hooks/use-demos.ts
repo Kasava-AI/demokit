@@ -12,6 +12,7 @@ import type {
   CreateDemoSetInput,
   UpdateDemoSetInput,
 } from '@/lib/api/schemas'
+import type { ValidationResult } from '@demokit-ai/core'
 
 // ============================================================================
 // Types
@@ -552,6 +553,90 @@ export function useDeleteDemoVariant() {
       queryClient.invalidateQueries({
         queryKey: ['projects', variables.projectId, 'demos'],
       })
+    },
+  })
+}
+
+// ============================================================================
+// StorySpec Hooks (spec §5) — Task 10 story prompt box
+// ============================================================================
+
+/**
+ * Hook to write a StorySpec from prose (spec §5.2 step 1). The only LLM call
+ * in the story pipeline — the returned spec is already persisted onto the
+ * variant server-side; execution (useGenerateStory) is deterministic.
+ */
+export function useWriteStorySpec() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      demoId,
+      variantId,
+      prose,
+    }: {
+      projectId: string
+      demoId: string
+      variantId: string
+      prose: string
+    }) => {
+      const res = await fetch(
+        `/api/projects/${projectId}/demos/${demoId}/variants/${variantId}/story-spec`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prose }),
+        }
+      )
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        if (res.status === 503) throw new Error('Story writing needs ANTHROPIC_API_KEY on the server')
+        if (res.status === 409) throw new Error('Parse a schema for this project first')
+        throw new Error(error.error || 'Failed to write story spec')
+      }
+      return res.json() as Promise<{ spec: Record<string, unknown>; warnings: string[] }>
+    },
+    onSuccess: (_, v) => queryClient.invalidateQueries({ queryKey: ['projects', v.projectId, 'demos'] }),
+  })
+}
+
+export interface GenerateStoryResponse {
+  generation: Record<string, unknown>
+  validation: ValidationResult
+}
+
+/**
+ * Hook to run the deterministic StorySpec execution (spec §5.2 step 2) for a
+ * fixture's linked variant, landing a draft (or initial-publish) generation.
+ */
+export function useGenerateStory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      fixtureId,
+      variantId,
+    }: {
+      projectId: string
+      fixtureId: string
+      variantId: string
+    }) => {
+      const res = await fetch(`/api/projects/${projectId}/fixtures/${fixtureId}/generate-story`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantId }),
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || 'Failed to generate from story')
+      }
+      return res.json() as Promise<GenerateStoryResponse>
+    },
+    onSuccess: (_, v) => {
+      queryClient.invalidateQueries({
+        queryKey: ['projects', v.projectId, 'fixtures', v.fixtureId, 'generations'],
+      })
+      queryClient.invalidateQueries({ queryKey: ['projects', v.projectId, 'fixtures'] })
     },
   })
 }

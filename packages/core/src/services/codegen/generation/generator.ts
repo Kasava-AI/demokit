@@ -122,7 +122,7 @@ export function generateDemoData(
   }
 
   if (story) {
-    applyPins(data, story, heldFields)
+    applyPins(data, story, heldFields, schema)
   }
 
   // Calculate metadata

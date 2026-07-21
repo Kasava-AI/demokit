@@ -3,6 +3,7 @@
  * pin pass, and trend-shaped date generation (Task 4).
  */
 import type { DemoData, Pin, StorySpec, TrendSpec } from '../types'
+import type { DemokitSchema } from '../../schema'
 import { hashString, seededRandom } from './random'
 
 export type HeldFields = Record<string, Map<number, Set<string>>>
@@ -62,8 +63,10 @@ export function scaleColumnToSum(
   rows: Record<string, unknown>[],
   field: string,
   target: number,
-  heldIdx: Set<number>
+  heldIdx: Set<number>,
+  options: { integer?: boolean } = {}
 ): void {
+  const round = options.integer ? Math.round : round2
   const adjustable: number[] = []
   let heldSum = 0
   rows.forEach((row, i) => {
@@ -78,10 +81,10 @@ export function scaleColumnToSum(
   const currentSum = adjustable.reduce((total, i) => total + Number(rows[i]![field]), 0)
   if (currentSum > 0 && remaining > 0) {
     const factor = remaining / currentSum
-    for (const i of adjustable) rows[i]![field] = round2(Number(rows[i]![field]) * factor)
+    for (const i of adjustable) rows[i]![field] = round(Number(rows[i]![field]) * factor)
   } else {
     const even = remaining / adjustable.length
-    for (const i of adjustable) rows[i]![field] = round2(even)
+    for (const i of adjustable) rows[i]![field] = round(even)
   }
 
   const finalSum = rows.reduce((total, row) => {
@@ -89,7 +92,7 @@ export function scaleColumnToSum(
     return Number.isFinite(value) ? total + value : total
   }, 0)
   const last = adjustable[adjustable.length - 1]!
-  rows[last]![field] = round2(Number(rows[last]![field]) + round2(target - finalSum))
+  rows[last]![field] = round(Number(rows[last]![field]) + (options.integer ? Math.round(target - finalSum) : round2(target - finalSum)))
 }
 
 /** Trend window: rows are distributed over the year ending at baseTimestamp. */
@@ -133,7 +136,12 @@ export function generateTrendDate(
 }
 
 /** Post-generation pin pass. Field pins first — they become held values. */
-export function applyPins(data: DemoData, story: StorySpec, held: HeldFields): void {
+export function applyPins(
+  data: DemoData,
+  story: StorySpec,
+  held: HeldFields,
+  schema?: DemokitSchema
+): void {
   const parsed = story.pins.map(parsePinPath)
 
   for (const pin of parsed) {
@@ -148,7 +156,12 @@ export function applyPins(data: DemoData, story: StorySpec, held: HeldFields): v
     if (pin?.kind !== 'sum' && pin?.kind !== 'avg') continue
     const rows = data[pin.model]
     if (!rows?.length) continue
-    const target = pin.kind === 'avg' ? pin.value * rows.length : pin.value
-    scaleColumnToSum(rows, pin.field, target, heldIndices(held, pin.model, pin.field))
+    const finiteCount = rows.filter((row) => Number.isFinite(Number(row[pin.field]))).length
+    if (finiteCount === 0) continue
+    // avg targets the rows that HAVE the field — the validator averages the
+    // same set, so optional-field dropout no longer guarantees a mismatch.
+    const target = pin.kind === 'avg' ? pin.value * finiteCount : pin.value
+    const integer = schema?.models[pin.model]?.properties?.[pin.field]?.type === 'integer'
+    scaleColumnToSum(rows, pin.field, target, heldIndices(held, pin.model, pin.field), { integer })
   }
 }

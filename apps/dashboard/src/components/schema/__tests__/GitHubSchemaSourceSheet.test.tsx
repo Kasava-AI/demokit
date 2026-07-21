@@ -25,12 +25,33 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
-// Mock the Sheet components
+// Mock the Sheet components. The real SheetContent (see
+// components/ui/sheet.tsx) renders a top-right icon button (accessible name
+// "Close", from a Radix Dialog.Close under the Sheet's Root) that calls the
+// onOpenChange the Sheet Root was given — there is no separate footer
+// "Cancel" button in the current design (the footer only has Back/Next).
+// The mock below reproduces that one real closing affordance so the "closes
+// the sheet" behavior stays covered without pulling in the real Radix
+// primitives.
+let mockSheetOnOpenChange: ((open: boolean) => void) | undefined
 vi.mock('@/components/ui/sheet', () => ({
-  Sheet: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
-    open ? <div data-testid="sheet">{children}</div> : null,
+  Sheet: ({
+    children,
+    open,
+    onOpenChange,
+  }: {
+    children: React.ReactNode
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
+  }) => {
+    mockSheetOnOpenChange = onOpenChange
+    return open ? <div data-testid="sheet">{children}</div> : null
+  },
   SheetContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="sheet-content">{children}</div>
+    <div data-testid="sheet-content">
+      {children}
+      <button type="button" aria-label="Close" onClick={() => mockSheetOnOpenChange?.(false)} />
+    </div>
   ),
   SheetHeader: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="sheet-header">{children}</div>
@@ -56,6 +77,19 @@ vi.mock('@/hooks/use-github-connection', () => ({
   useConnectGitHub: vi.fn(() => ({
     mutate: vi.fn(),
     isPending: false,
+  })),
+  // MethodSelectionStep now calls the combined manager hook directly instead
+  // of useGitHubConnection/useConnectGitHub separately.
+  useGitHubConnectionManager: vi.fn(() => ({
+    connection: null,
+    isConnected: false,
+    isLoading: false,
+    isConnecting: false,
+    isDisconnecting: false,
+    error: null,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    refetch: vi.fn(),
   })),
 }))
 
@@ -149,8 +183,11 @@ describe('GitHubSchemaSourceSheet', () => {
       { wrapper: createWrapper() }
     )
 
-    expect(screen.getByText(/Connect to GitHub/i)).toBeInTheDocument()
-    expect(screen.getByText(/Upload Files/i)).toBeInTheDocument()
+    // MethodSelectionStep's card headings — "Connect to GitHub" also appears
+    // in this step's card body copy and in the sheet description, so assert
+    // on the (unique) card titles rather than that shared substring.
+    expect(screen.getByText('Import from GitHub')).toBeInTheDocument()
+    expect(screen.getByText('Upload Files')).toBeInTheDocument()
   })
 
   it('calls onOpenChange when close button is clicked', async () => {
@@ -164,9 +201,11 @@ describe('GitHubSchemaSourceSheet', () => {
       { wrapper: createWrapper() }
     )
 
-    // Find and click the Cancel button in the footer
-    const cancelButton = screen.getByRole('button', { name: /Cancel/i })
-    fireEvent.click(cancelButton)
+    // The footer only has Back/Next(/Import) — there is no "Cancel" button.
+    // The sheet's actual close affordance is the top-right icon button
+    // (accessible name "Close") rendered by SheetContent.
+    const closeButton = screen.getByRole('button', { name: /Close/i })
+    fireEvent.click(closeButton)
 
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
@@ -174,7 +213,12 @@ describe('GitHubSchemaSourceSheet', () => {
 
 describe('GitHubSchemaSourceSheet step navigation', () => {
   it('shows progress indicator with correct step count', () => {
-    render(
+    // The current progress indicator is a row of numbered circles (no
+    // "Step X of Y" text — that copy was replaced by the dot/circle
+    // stepper), one per visible step: method, repository, files, preview,
+    // confirm (5, since no method is chosen yet so the upload-only
+    // "skip repository" filtering doesn't apply).
+    const { container } = render(
       <GitHubSchemaSourceSheet
         projectId="test-project"
         open={true}
@@ -183,7 +227,7 @@ describe('GitHubSchemaSourceSheet step navigation', () => {
       { wrapper: createWrapper() }
     )
 
-    // Check for step indicator (Step X of Y)
-    expect(screen.getByText(/Step 1 of/i)).toBeInTheDocument()
+    const stepCircles = container.querySelectorAll('.w-6.h-6.rounded-full')
+    expect(stepCircles.length).toBe(5)
   })
 })

@@ -36,6 +36,19 @@ vi.mock('@/hooks/use-github-connection', () => ({
     mutate: vi.fn(),
     isPending: false,
   })),
+  // MethodSelectionStep now calls the combined manager hook directly instead
+  // of useGitHubConnection/useConnectGitHub separately.
+  useGitHubConnectionManager: vi.fn(() => ({
+    connection: null,
+    isConnected: false,
+    isLoading: false,
+    isConnecting: false,
+    isDisconnecting: false,
+    error: null,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    refetch: vi.fn(),
+  })),
 }))
 
 vi.mock('@/hooks/use-github-repositories', () => ({
@@ -68,6 +81,7 @@ vi.mock('@/hooks/use-schema-parser', () => ({
   })),
 }))
 
+import { useSchemaDiscovery } from '@/hooks/use-github-repositories'
 import { MethodSelectionStep } from '../steps/MethodSelectionStep'
 import { RepositoryPickerStep } from '../steps/RepositoryPickerStep'
 import { SchemaFileSelectorStep } from '../steps/SchemaFileSelectorStep'
@@ -118,17 +132,22 @@ describe('MethodSelectionStep', () => {
   it('renders GitHub and Upload options', () => {
     render(<MethodSelectionStep {...mockProps} />, { wrapper: createWrapper() })
 
-    expect(screen.getByText(/Connect to GitHub/i)).toBeInTheDocument()
-    expect(screen.getByText(/Upload Files/i)).toBeInTheDocument()
+    // "Connect to GitHub" appears both in the card heading area's body copy
+    // and could match loosely — assert on the (unique) card titles instead.
+    expect(screen.getByText('Import from GitHub')).toBeInTheDocument()
+    expect(screen.getByText('Upload Files')).toBeInTheDocument()
   })
 
   it('shows supported formats', () => {
     render(<MethodSelectionStep {...mockProps} />, { wrapper: createWrapper() })
 
-    expect(screen.getByText(/TypeScript/i)).toBeInTheDocument()
-    expect(screen.getByText(/Zod/i)).toBeInTheDocument()
-    expect(screen.getByText(/Drizzle/i)).toBeInTheDocument()
-    expect(screen.getByText(/Prisma/i)).toBeInTheDocument()
+    // The GitHub card's own body copy also mentions these same format names
+    // ("...detect schema files (TypeScript, Zod, Drizzle, Prisma)"), so a
+    // bare text match is ambiguous — scope to the format Badges themselves.
+    expect(screen.getByText('TypeScript', { selector: '[data-slot="badge"]' })).toBeInTheDocument()
+    expect(screen.getByText('Zod', { selector: '[data-slot="badge"]' })).toBeInTheDocument()
+    expect(screen.getByText('Drizzle', { selector: '[data-slot="badge"]' })).toBeInTheDocument()
+    expect(screen.getByText('Prisma', { selector: '[data-slot="badge"]' })).toBeInTheDocument()
   })
 })
 
@@ -164,8 +183,9 @@ describe('RepositoryPickerStep', () => {
       wrapper: createWrapper(),
     })
 
+    // Current copy is "No repositories available" (was "...found").
     expect(
-      screen.getByText(/No repositories found/i)
+      screen.getByText(/No repositories available/i)
     ).toBeInTheDocument()
   })
 })
@@ -202,17 +222,20 @@ describe('SchemaFileSelectorStep', () => {
   })
 
   it('shows loading state when discovering files', () => {
-    const { useSchemaDiscovery } = require('@/hooks/use-github-repositories')
-    useSchemaDiscovery.mockReturnValue({
+    // require() doesn't resolve the "@/..." alias under Vitest's ESM runner —
+    // reference the (mocked, via vi.mock above) import directly instead.
+    vi.mocked(useSchemaDiscovery).mockReturnValue({
       data: undefined,
       isLoading: true,
-    })
+    } as ReturnType<typeof useSchemaDiscovery>)
 
-    render(<SchemaFileSelectorStep {...mockProps} />, {
+    const { container } = render(<SchemaFileSelectorStep {...mockProps} />, {
       wrapper: createWrapper(),
     })
 
-    expect(screen.getByText(/Discovering schema files/i)).toBeInTheDocument()
+    // Current loading state renders Skeleton placeholder rows (4 of them),
+    // not a "Discovering schema files" text message.
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
   })
 })
 
@@ -267,7 +290,12 @@ describe('SchemaPreviewStep', () => {
   it('shows parsed model count', () => {
     render(<SchemaPreviewStep {...mockProps} />, { wrapper: createWrapper() })
 
-    expect(screen.getByText('1')).toBeInTheDocument() // Model count
+    // The summary strip has separate Models/Relationships/Files/Format
+    // tiles; this fixture's model count (1) and parsed-file count (1) are
+    // the same value, so a bare '1' text match is ambiguous — scope to the
+    // stat tile labeled "Models".
+    const modelsLabel = screen.getByText('Models')
+    expect(modelsLabel.previousElementSibling).toHaveTextContent('1')
   })
 
   it('shows schema format', () => {

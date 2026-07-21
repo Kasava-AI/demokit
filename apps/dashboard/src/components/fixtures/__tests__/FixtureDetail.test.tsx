@@ -12,21 +12,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Mock window.matchMedia for tests
-Object.defineProperty(window, "matchMedia", {
-  writable: true,
-  value: vi.fn().mockImplementation((query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-});
+// Mock window.matchMedia for tests. Re-applied in beforeEach (not just once
+// at module load) because afterEach's vi.restoreAllMocks() restores a bare
+// vi.fn() to a no-op returning undefined, not to this implementation — a
+// module-load-only definition works for the first test in the file and then
+// leaves window.matchMedia() returning undefined for every test after it.
+function setupMatchMediaMock() {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+setupMatchMediaMock();
 
 // Mock Collapsible components to always show content
 vi.mock("@/components/ui/collapsible", () => ({
@@ -144,10 +153,25 @@ const mockRevokeObjectURL = vi.fn();
 // Track created anchor elements
 let createdAnchors: { href: string; download: string; clicked: boolean }[] = [];
 
+// FixtureDetail renders IntegrationSection -> IntegrationGuide, which calls
+// useHostedApi() -> useQueryClient() unconditionally, so every render needs a
+// QueryClientProvider in scope even though the hook's own query stays
+// disabled here (no fixtureId is ever passed in this file).
+let queryClient: QueryClient;
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
 describe("FixtureDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createdAnchors = [];
+    setupMatchMediaMock();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
 
     // Setup clipboard mock
     Object.defineProperty(navigator, "clipboard", {
@@ -207,7 +231,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           narrative={mockNarrative}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -231,7 +256,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           narrative={mockNarrative}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -260,7 +286,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           validation={mockValidation}
           format="typescript"
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -292,7 +319,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           validation={mockValidation}
           format="typescript"
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -318,7 +346,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           validation={mockValidation}
           format="typescript"
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -345,7 +374,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           validation={mockValidation}
           format="typescript"
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -381,7 +411,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -416,7 +447,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -452,7 +484,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -488,7 +521,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -525,7 +559,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -562,7 +597,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           code={mockCode}
           validation={mockValidation}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -590,7 +626,8 @@ describe("FixtureDetail", () => {
           code={mockCode}
           validation={mockValidation}
           onSave={onSave}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Save button appears in header, use data-testid
@@ -608,7 +645,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           code={mockCode}
           validation={mockValidation}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Save button should not exist when onSave is not provided
@@ -618,7 +656,10 @@ describe("FixtureDetail", () => {
 
   describe("Edge cases", () => {
     it("handles empty data gracefully", () => {
-      render(<FixtureDetail validation={mockValidation} />);
+      render(
+        <FixtureDetail validation={mockValidation} />,
+        { wrapper: Wrapper }
+      );
 
       expect(screen.getByText("No fixtures generated yet")).toBeTruthy();
     });
@@ -629,7 +670,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           validation={mockValidation}
           loading={true}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       expect(screen.getByText("Generating fixtures...")).toBeTruthy();
@@ -642,7 +684,8 @@ describe("FixtureDetail", () => {
           code={mockCode}
           validation={mockValidation}
           format="typescript"
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -671,7 +714,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -697,7 +741,8 @@ describe("FixtureDetail", () => {
           validation={mockValidation}
           format="typescript"
           onExport={onExport}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view
@@ -724,7 +769,8 @@ describe("FixtureDetail", () => {
           data={mockData}
           code={mockCode}
           validation={mockValidation}
-        />
+        />,
+        { wrapper: Wrapper }
       );
 
       // Switch to code view

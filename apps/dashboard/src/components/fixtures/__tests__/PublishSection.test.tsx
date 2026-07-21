@@ -197,4 +197,82 @@ describe("PublishSection", () => {
       expect(screen.getByText(/Story lacks a resolution beat/)).toBeTruthy();
     });
   });
+
+  it("does not show a stale Published result when the dialog is cancelled and reopened for the same generation before the first publish resolves", async () => {
+    const draft = makeGeneration({ id: "gen-5", label: "v5" });
+
+    // A deferred mutateAsync so we control exactly when the first (later
+    // cancelled) publish resolves, relative to the cancel + reopen.
+    let resolvePublish: (value: unknown) => void = () => {};
+    const deferredPublish = new Promise((resolve) => {
+      resolvePublish = resolve;
+    });
+    const mutateAsync = vi.fn().mockReturnValue(deferredPublish);
+
+    mockUseFixtureGenerations.mockReturnValue({
+      data: [draft],
+      isLoading: false,
+      error: null,
+    });
+    mockUsePublishHistory.mockReturnValue({ data: [], error: null });
+    mockUsePublishGeneration.mockReturnValue({ mutateAsync, isPending: false });
+
+    render(
+      <PublishSection
+        projectId="project-1"
+        fixtureId="fixture-1"
+        publishedGenerationId={null}
+        draftGenerationId="gen-5"
+      />
+    );
+
+    // Open the dialog for gen-5 and confirm — this starts the (never
+    // resolved yet) publish request.
+    fireEvent.click(screen.getByRole("button", { name: /publish/i }));
+    let dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /^publish$/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledTimes(1);
+    });
+
+    // Cancel while that publish is still in flight.
+    fireEvent.click(within(dialog).getByRole("button", { name: /cancel/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // Reopen the confirm dialog for the SAME generation before the first
+    // request resolves — this is a distinct attempt even though the target
+    // id is identical to the cancelled one.
+    fireEvent.click(screen.getByRole("button", { name: /publish/i }));
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Publish this generation?")).toBeTruthy();
+
+    // Now let the first (cancelled) publish resolve.
+    resolvePublish({
+      publish: {
+        id: "publish-1",
+        generationId: "gen-5",
+        previousGenerationId: null,
+        publishedById: "user-1",
+        note: null,
+        publishedAt: "2026-07-20T00:00:00.000Z",
+      },
+      fixture: { id: "fixture-1" },
+      warnings: ["stale warning"],
+      linterFindings: [],
+    });
+
+    // The stale handlePublish continuation still fires its toast (the
+    // publish did commit server-side), but it must not flip the reopened,
+    // not-yet-confirmed dialog over to the result view.
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalled();
+    });
+
+    expect(within(dialog).getByText("Publish this generation?")).toBeTruthy();
+    expect(within(dialog).queryByText("stale warning")).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Note/i)).toBeInTheDocument();
+  });
 });

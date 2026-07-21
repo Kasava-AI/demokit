@@ -11,7 +11,7 @@
 
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -64,17 +64,20 @@ export function PublishSection({
   const [note, setNote] = useState('')
   const [result, setResult] = useState<DialogResult | null>(null)
 
-  // Kept in sync with confirmTarget so an in-flight publish can tell, after
-  // its await resolves, whether the dialog has since been cancelled or
-  // reassigned to a different generation — the publish still commits
-  // server-side either way, but the UI must not show its result against the
-  // wrong (or no longer open) dialog.
-  const confirmTargetRef = useRef<FixtureGeneration | null>(null)
-  useEffect(() => {
-    confirmTargetRef.current = confirmTarget
-  }, [confirmTarget])
+  // Guards against the confirm dialog's result view leaking across separate
+  // publish "attempts" — not just across different generations. Cancelling
+  // a pending publish and reopening the dialog for the SAME generation
+  // before the first request resolves is a distinct attempt from the first
+  // one, even though the target id is identical, so an id-based check alone
+  // isn't enough: every session-starting action (open, rollback-open, close)
+  // and every publish call bumps this counter; a resolved publish only
+  // applies its result if the counter hasn't moved since it started. The
+  // publish still commits server-side regardless — only the UI must not
+  // show its result against the wrong (or no longer open) dialog.
+  const publishAttemptRef = useRef(0)
 
   const openPublishDialog = (generation: FixtureGeneration) => {
+    publishAttemptRef.current += 1
     setResult(null)
     setConfirmTarget(generation)
   }
@@ -83,6 +86,7 @@ export function PublishSection({
     if (!confirmTarget) return
     const targetId = confirmTarget.id
     const targetLabel = confirmTarget.label ?? confirmTarget.id.slice(0, 8)
+    const attempt = ++publishAttemptRef.current
     try {
       const payload = await publishMutation.mutateAsync({
         projectId,
@@ -91,7 +95,7 @@ export function PublishSection({
         note: note.trim() || undefined,
       })
       toast.success('Published', { description: targetLabel })
-      if (confirmTargetRef.current?.id !== targetId) return
+      if (publishAttemptRef.current !== attempt) return
       setResult({ warnings: payload.warnings, linterFindings: payload.linterFindings })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Publish failed')
@@ -99,6 +103,7 @@ export function PublishSection({
   }
 
   const closeDialog = () => {
+    publishAttemptRef.current += 1
     setConfirmTarget(null)
     setNote('')
     setResult(null)
@@ -110,6 +115,7 @@ export function PublishSection({
       toast.error('That generation no longer exists')
       return
     }
+    publishAttemptRef.current += 1
     setResult(null)
     setConfirmTarget(generation)
     setNote('rollback')

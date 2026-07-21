@@ -43,6 +43,8 @@ interface DemoVariant {
     recordCounts?: Record<string, number>
     constraints?: Record<string, unknown>
   } | null
+  /** StorySpec (Phase 2 spec §5) — row-0 fixture edits are pinned in here on save. */
+  storySpec: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }

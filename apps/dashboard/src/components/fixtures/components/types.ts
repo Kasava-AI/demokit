@@ -81,8 +81,10 @@ export interface FixtureDetailProps {
   onSavePreviewUrl?: (url: string) => Promise<void>
 
   // Editing capabilities
-  /** Whether editing is enabled */
+  /** Whether row-editing mode is currently on */
   editable?: boolean
+  /** Called when the user toggles the "Edit rows" control in the data-view header */
+  onToggleEditable?: () => void
   /** Whether there are unsaved changes */
   isDirty?: boolean
   /** Called when a field value changes */
@@ -99,6 +101,16 @@ export interface FixtureDetailProps {
   canUndo?: boolean
   /** Called when user wants to reset changes */
   onReset?: () => void
+  /** Number of edits accumulated in the current editing session (row-0 field edits + add/delete/duplicate) */
+  editCount?: number
+  /** Saves the current edits as a new draft generation */
+  onSaveEdits?: () => void | Promise<void>
+  /** Whether a save-as-draft request is in flight */
+  isSavingEdits?: boolean
+  /** Discards edits made in the current session and exits editing mode */
+  onCancelEdits?: () => void
+  /** Whether row-0 edits will be pinned onto a linked demo variant's storySpec on save */
+  pinsWillApply?: boolean
 }
 
 export { type DemoData, type ValidationResult, type ValidationError, type ValidationWarning, type DemoNarrative }

@@ -1,14 +1,24 @@
+'use client'
+
+import { useCallback, useState } from 'react'
 import { AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { FixtureDetail } from '@/components/fixtures'
-import type { FixtureWithRelations } from '@/hooks/use-fixtures'
-import type { ValidationResult } from '@demokit-ai/core'
+import { useFixtureEditor } from '@/hooks/use-fixture-editor'
+import { useCreateGeneration, type FixtureWithRelations } from '@/hooks/use-fixtures'
+import { useDemoVariant, useUpdateDemoVariant } from '@/hooks/use-demos'
+import { pinsFromEdits, type RowEdit } from '@/lib/story/pins-from-edits'
+import type { DemoData, StorySpec, ValidationResult } from '@demokit-ai/core'
+import type { DemokitSchema } from './types'
 
 interface SelectedFixturePreviewProps {
   fixture: FixtureWithRelations
   projectId: string
   projectName: string
   validation: ValidationResult | undefined
+  /** Project schema — needed to validate edited rows the same way use-generation.ts does. */
+  schema?: DemokitSchema
   onNameChange: (newName: string) => void
   onRegenerate: () => void
   onClearSelection: () => void
@@ -17,11 +27,27 @@ interface SelectedFixturePreviewProps {
   onSavePreviewUrl: (url: string) => Promise<void>
 }
 
+/** Builds a blank record matching an existing record's keys/types (best-effort; falls back to `{}` when the model has no rows yet). */
+function createBlankRecord(sample: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!sample) return {}
+  return Object.fromEntries(Object.entries(sample).map(([key, value]) => [key, zeroValueFor(value)]))
+}
+
+function zeroValueFor(value: unknown): unknown {
+  if (typeof value === 'number') return 0
+  if (typeof value === 'boolean') return false
+  if (typeof value === 'string') return ''
+  if (Array.isArray(value)) return []
+  if (value && typeof value === 'object') return {}
+  return null
+}
+
 export function SelectedFixturePreview({
   fixture,
   projectId,
   projectName,
   validation,
+  schema,
   onNameChange,
   onRegenerate,
   onClearSelection,
@@ -29,7 +55,121 @@ export function SelectedFixturePreview({
   previewUrl,
   onSavePreviewUrl,
 }: SelectedFixturePreviewProps) {
-  if (!fixture.publishedGeneration) {
+  const gen = fixture.publishedGeneration
+
+  // Row editing (Task 9): edits are made against the published generation's
+  // data and saved as a new draft — never mutate what's currently published.
+  const [isEditingRows, setIsEditingRows] = useState(false)
+  const [isSavingEdits, setIsSavingEdits] = useState(false)
+
+  const editor = useFixtureEditor({
+    initialData: (gen?.data ?? {}) as DemoData,
+    schema,
+  })
+
+  const createGenerationMutation = useCreateGeneration()
+  const updateVariantMutation = useUpdateDemoVariant()
+
+  // Spec Decision 4: if this fixture was produced from a demo variant with a
+  // saved StorySpec, row-0 field edits are promoted to pins on save so a
+  // future regeneration keeps them. Skipped silently when there's no linked
+  // variant or the variant has no storySpec yet.
+  const { data: linkedVariant } = useDemoVariant(
+    projectId,
+    fixture.demoId ?? '',
+    fixture.variantId ?? ''
+  )
+  const pinsWillApply = !!linkedVariant?.storySpec
+
+  const handleCancelEdits = useCallback(() => {
+    editor.reset()
+    setIsEditingRows(false)
+  }, [editor])
+
+  const handleToggleEditable = useCallback(() => {
+    if (isEditingRows) {
+      handleCancelEdits()
+    } else {
+      setIsEditingRows(true)
+    }
+  }, [isEditingRows, handleCancelEdits])
+
+  const handleAddRecord = useCallback(
+    (model: string) => {
+      editor.addRecord(model, createBlankRecord(editor.data[model]?.[0]))
+    },
+    [editor]
+  )
+
+  const handleSaveEdits = useCallback(async () => {
+    if (!gen) return
+
+    setIsSavingEdits(true)
+    try {
+      const result = editor.validate()
+
+      await createGenerationMutation.mutateAsync({
+        projectId,
+        fixtureId: fixture.id,
+        data: {
+          label: 'Manual edit',
+          level: gen.level,
+          data: editor.data as Record<string, unknown[]>,
+          validationValid: result.valid,
+          validationErrorCount: result.errors.length,
+          validationWarningCount: result.warnings.length,
+          validationErrors: result.errors.map((e) => ({
+            type: e.type,
+            model: e.model,
+            field: e.field,
+            message: e.message,
+          })),
+          recordsByModel: Object.fromEntries(
+            Object.entries(editor.data).map(([model, rows]) => [model, rows.length])
+          ),
+          inputParameters: { editedFrom: gen.id },
+        },
+      })
+
+      if (pinsWillApply && linkedVariant && fixture.demoId && fixture.variantId) {
+        const spec = linkedVariant.storySpec as unknown as StorySpec
+        const rowEdits: RowEdit[] = editor.editHistory.map((e) => ({
+          model: e.model,
+          rowIndex: e.index,
+          field: e.field,
+          value: e.newValue,
+        }))
+        const pins = pinsFromEdits(rowEdits, spec)
+        await updateVariantMutation.mutateAsync({
+          projectId,
+          demoId: fixture.demoId,
+          variantId: fixture.variantId,
+          data: { storySpec: { ...spec, pins } },
+        })
+      }
+
+      toast.success('Saved as draft', {
+        description: 'Publish it from the Publish section when ready.',
+      })
+      editor.reset()
+      setIsEditingRows(false)
+    } finally {
+      setIsSavingEdits(false)
+    }
+  }, [
+    gen,
+    editor,
+    createGenerationMutation,
+    projectId,
+    fixture.id,
+    fixture.demoId,
+    fixture.variantId,
+    pinsWillApply,
+    linkedVariant,
+    updateVariantMutation,
+  ])
+
+  if (!gen) {
     return (
       <div className="text-center py-12">
         <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -44,7 +184,6 @@ export function SelectedFixturePreview({
     )
   }
 
-  const gen = fixture.publishedGeneration
   return (
     <FixtureDetail
       projectId={projectId}
@@ -52,8 +191,11 @@ export function SelectedFixturePreview({
       name={fixture.name}
       onNameChange={onNameChange}
       description={fixture.description || undefined}
-      data={gen.data as Record<string, Record<string, unknown>[]>}
-      code={gen.code || undefined}
+      data={editor.data}
+      // While editing, the pre-formatted TypeScript string is stale (it
+      // reflects the published generation, not live edits) — drop it so the
+      // Code tab reformats from editor.data instead.
+      code={isEditingRows ? undefined : gen.code || undefined}
       validation={validation}
       narrative={fixture.description ? { scenario: fixture.description, keyPoints: [] } : undefined}
       projectName={projectName}
@@ -74,6 +216,21 @@ export function SelectedFixturePreview({
       onSavePreviewUrl={onSavePreviewUrl}
       onDuplicate={() => {}}
       onDelete={onDelete}
+      editable={isEditingRows}
+      onToggleEditable={handleToggleEditable}
+      isDirty={editor.isDirty}
+      onFieldChange={editor.editField}
+      onDeleteRecord={editor.deleteRecord}
+      onDuplicateRecord={editor.duplicateRecord}
+      onAddRecord={handleAddRecord}
+      onUndo={editor.undo}
+      canUndo={editor.canUndo}
+      onReset={editor.reset}
+      editCount={editor.editHistory.length}
+      onSaveEdits={handleSaveEdits}
+      isSavingEdits={isSavingEdits}
+      onCancelEdits={handleCancelEdits}
+      pinsWillApply={pinsWillApply}
     />
   )
 }

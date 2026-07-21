@@ -15,6 +15,7 @@ import {
   formatAsSQL,
   formatAsCSV,
 } from "@demokit-ai/core";
+import { Button } from "@/components/ui/button";
 import {
   type PreviewSubMode,
   type ExportFormat,
@@ -60,6 +61,7 @@ export function FixtureDetail({
   previewUrl = null,
   onSavePreviewUrl,
   editable = false,
+  onToggleEditable,
   isDirty = false,
   onFieldChange,
   onDeleteRecord,
@@ -68,6 +70,11 @@ export function FixtureDetail({
   onUndo,
   canUndo = false,
   onReset,
+  editCount = 0,
+  onSaveEdits,
+  isSavingEdits = false,
+  onCancelEdits,
+  pinsWillApply = false,
 }: FixtureDetailProps) {
   const [previewSubMode, setPreviewSubMode] = useState<PreviewSubMode>("table");
   const [exportFormat, setExportFormat] = useState<ExportFormat>(initialFormat);
@@ -226,6 +233,15 @@ export function FixtureDetail({
 
   const isCurrentlySaving = saving || isSavingWithName;
 
+  const handleSaveEditsClick = useCallback(async () => {
+    if (!onSaveEdits) return;
+    try {
+      await onSaveEdits();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save edits");
+    }
+  }, [onSaveEdits]);
+
   if (loading) return <LoadingState />;
   if (!data && !code) return <EmptyState />;
 
@@ -280,6 +296,7 @@ export function FixtureDetail({
             onToggleModel={toggleModel}
             getFormattedModelContent={getFormattedModelContent}
             editable={editable}
+            onToggleEditable={onToggleEditable}
             isDirty={isDirty}
             canUndo={canUndo}
             onUndo={onUndo}
@@ -337,6 +354,44 @@ export function FixtureDetail({
           )}
         </div>
       </div>
+
+      {/* Row-editing footer — shown while "Edit rows" mode is on */}
+      {editable && (onSaveEdits || onCancelEdits) && (
+        <div className="flex items-center justify-between gap-3 px-6 py-3 bg-background border-t border-border">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {editCount > 0
+                ? `${editCount} ${editCount === 1 ? "edit" : "edits"}`
+                : isDirty
+                  ? "Unsaved changes"
+                  : "No edits yet"}
+            </span>
+            {" — saved as a new draft when you save"}
+            {pinsWillApply && (
+              <span className="block text-xs">
+                Edits to the first row are pinned so regeneration keeps them.
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {onCancelEdits && (
+              <Button variant="outline" size="sm" onClick={onCancelEdits} disabled={isSavingEdits}>
+                Cancel
+              </Button>
+            )}
+            {onSaveEdits && (
+              <Button
+                size="sm"
+                onClick={handleSaveEditsClick}
+                loading={isSavingEdits}
+                disabled={!isDirty}
+              >
+                {isSavingEdits ? "Saving…" : "Save as draft"}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Save Dialog */}
       {onSaveWithName && (

@@ -59,6 +59,10 @@ interface Fixture {
   projectId: string
   templateId: string | null
   createdById: string | null
+  /** Demo-system link (Phase 2) — set when this fixture was created from a demo variant. */
+  demoId: string | null
+  /** Variant link (Phase 2) — when set, row-0 edits are pinned onto this variant's storySpec. */
+  variantId: string | null
   name: string
   description: string | null
   publishedGenerationId: string | null

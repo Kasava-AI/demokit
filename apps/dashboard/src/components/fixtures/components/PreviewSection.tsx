@@ -5,11 +5,13 @@
  */
 
 import React from "react";
+import { Pencil } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ChevronIcon, IconButton, ActionButton } from "./icons";
 import { CodeView } from "./CodeView";
@@ -39,6 +41,7 @@ export interface PreviewSectionProps {
   getFormattedModelContent: (format: ExportFormat, modelName: string) => string;
   // Editing
   editable?: boolean;
+  onToggleEditable?: () => void;
   isDirty?: boolean;
   canUndo?: boolean;
   onUndo?: () => void;
@@ -70,6 +73,7 @@ export function PreviewSection({
   onToggleModel,
   getFormattedModelContent,
   editable = false,
+  onToggleEditable,
   isDirty = false,
   canUndo = false,
   onUndo,
@@ -126,6 +130,22 @@ export function PreviewSection({
                   Code
                 </button>
               </div>
+
+              {onToggleEditable && previewSubMode === "table" && (
+                <Button
+                  type="button"
+                  variant={editable ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleEditable();
+                  }}
+                >
+                  <Pencil className="h-3 w-3" />
+                  {editable ? "Editing" : "Edit rows"}
+                </Button>
+              )}
             </div>
           )}
         </div>

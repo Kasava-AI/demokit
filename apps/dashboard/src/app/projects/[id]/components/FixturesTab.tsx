@@ -387,6 +387,7 @@ export function FixturesTab({ project, billing }: FixturesTabProps) {
                 projectId={projectId}
                 projectName={projectName}
                 validation={savedFixtureValidation}
+                schema={schema}
                 onNameChange={handleFixtureNameChange}
                 onRegenerate={handleGeneration}
                 onClearSelection={handleClearFixtureSelection}

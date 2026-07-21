@@ -1,6 +1,6 @@
 import { AnimatedTabsList, AnimatedTabsTrigger } from "@/components/ui/tabs";
 
-export type ProjectTab = "overview" | "fixtures" | "generation-rules" | "integrations";
+export type ProjectTab = "overview" | "fixtures" | "generation-rules" | "integrations" | "coverage";
 
 interface TabNavigationProps {
   activeTab: ProjectTab;
@@ -63,6 +63,14 @@ export function TabNavigation({
               layoutId="project-tab-indicator"
             >
               Integrations
+            </AnimatedTabsTrigger>
+            <AnimatedTabsTrigger
+              value="coverage"
+              variant="underline"
+              isActive={activeTab === "coverage"}
+              layoutId="project-tab-indicator"
+            >
+              Coverage
             </AnimatedTabsTrigger>
           </AnimatedTabsList>
         </div>

@@ -11,6 +11,7 @@ dist/
 # Test coverage
 coverage/
 !**/src/app/**/coverage/
+!**/src/components/**/coverage/
 
 # IDE
 .idea/

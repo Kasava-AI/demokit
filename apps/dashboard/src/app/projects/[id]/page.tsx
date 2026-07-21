@@ -22,6 +22,7 @@ import { useStreamIntelligence } from '@/hooks/use-stream-intelligence'
 
 import { AppLayout } from '@/components/layout'
 import { Tabs } from '@/components/ui/tabs'
+import { CoverageTab } from '@/components/coverage/CoverageTab'
 
 import {
   type DemokitSchema,
@@ -216,6 +217,8 @@ export default function ProjectPage({ params, FixturesTabComponent }: ProjectPag
         <IntegrationsTab
           project={project}
         />
+
+        <CoverageTab projectId={id} />
       </Tabs>
 
       <RegenerationDialog

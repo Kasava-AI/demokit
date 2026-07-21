@@ -109,8 +109,31 @@ export interface DemoKitProviderProps {
    *   never load msw code, and it need not be installed for them.
    *
    * @default 'fetch'
+   *
+   * Fixed for the provider's lifetime: captured on first mount and never
+   * re-read. Changing it on a later render is ignored (warned once in dev)
+   * rather than tearing down and rebuilding the active transport — two
+   * transports must never coexist for the same provider instance.
    */
   transport?: 'msw' | 'fetch'
+
+  /**
+   * Options forwarded to `createMswTransport()` when `transport: 'msw'`.
+   * Ignored under `transport: 'fetch'` (the default).
+   */
+  mswOptions?: {
+    /**
+     * Path to the MSW Service Worker script.
+     * @default '/mockServiceWorker.js'
+     */
+    workerUrl?: string
+    /**
+     * Milliseconds to wait for the worker to register before treating
+     * `start()` as failed (status becomes `'unavailable'`).
+     * @default 5000
+     */
+    startTimeoutMs?: number
+  }
 
   /**
    * localStorage key for persisting demo mode state

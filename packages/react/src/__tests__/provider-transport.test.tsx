@@ -123,4 +123,98 @@ describe('provider transport option', () => {
     expect(mswModuleFactorySpy).not.toHaveBeenCalled()
     expect(createMswTransport).not.toHaveBeenCalled()
   })
+
+  it('(f) failed start: enable() leaves isDemoMode false and persists nothing (review Finding 1)', async () => {
+    // No persisted state — demoWanted is false at mount, so nothing
+    // auto-constructs; the only path to construction is the explicit
+    // enable() call below.
+    createMswTransport.mockImplementation(() => ({
+      start: vi.fn().mockRejectedValue(new Error('worker failed to start')),
+      stop: vi.fn(),
+      setDeps: vi.fn(),
+    }))
+
+    function Probe() {
+      const { enable, isDemoMode } = useDemoMode()
+      return (
+        <div>
+          <button onClick={() => enable()}>enable</button>
+          <div data-testid="demo-mode">{String(isDemoMode)}</div>
+        </div>
+      )
+    }
+
+    render(<DemoKitProvider transport="msw" fixtures={{}}><Probe /></DemoKitProvider>)
+    await act(async () => { screen.getByText('enable').click() })
+    await waitFor(() => expect(screen.getByTestId('demokit-unavailable')).toBeInTheDocument())
+
+    expect(screen.getByTestId('demo-mode').textContent).toBe('false')
+    expect(localStorage.getItem(DEFAULT_STORAGE_KEY)).toBeNull()
+  })
+
+  it('(g) unmount while start() is pending stops the in-flight instance (review Finding 2)', async () => {
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+    const stop = vi.fn()
+    let resolveStart: () => void = () => {}
+    createMswTransport.mockImplementation(() => ({
+      start: vi.fn(() => new Promise<void>((resolve) => { resolveStart = resolve })),
+      stop,
+      setDeps: vi.fn(),
+    }))
+
+    const { unmount } = render(
+      <DemoKitProvider transport="msw" fixtures={{}}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(stop).not.toHaveBeenCalled()
+
+    unmount()
+    expect(stop).toHaveBeenCalledTimes(1)
+
+    // Resolving start() after unmount must not throw, double-stop, or touch
+    // state on the torn-down provider.
+    await act(async () => { resolveStart() })
+    expect(stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('(h) changing transport after mount is ignored and warns once (review Finding 3)', async () => {
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    function Wrapper({ transport }: { transport: 'fetch' | 'msw' }) {
+      return (
+        <DemoKitProvider transport={transport} fixtures={{}}><div>app</div></DemoKitProvider>
+      )
+    }
+
+    const { rerender } = render(<Wrapper transport="fetch" />)
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+
+    rerender(<Wrapper transport="msw" />)
+    await act(async () => {})
+    rerender(<Wrapper transport="msw" />)
+    await act(async () => {})
+
+    // The prop is fixed at mount ('fetch') — a later flip to 'msw' must
+    // never import the msw module (no second, competing transport).
+    expect(mswModuleFactorySpy).not.toHaveBeenCalled()
+    expect(createMswTransport).not.toHaveBeenCalled()
+    // Warned exactly once, even though the prop stayed changed across two
+    // re-renders.
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("transport` is fixed for the provider's lifetime")
+
+    warnSpy.mockRestore()
+  })
+
+  it('(i) mswOptions are forwarded straight to createMswTransport (review Finding 4)', async () => {
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+    const options = { workerUrl: '/custom/mockServiceWorker.js', startTimeoutMs: 1234 }
+
+    render(
+      <DemoKitProvider transport="msw" mswOptions={options} fixtures={{}}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(createMswTransport).toHaveBeenCalledWith(options)
+  })
 })

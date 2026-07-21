@@ -90,6 +90,7 @@ export function DemoKitProvider({
   errorFallback,
   // Standard props
   transport = 'fetch',
+  mswOptions,
   storageKey = 'demokit-mode',
   // Left un-defaulted deliberately: `initialEnabled ?? loadDemoState(storageKey)`
   // (mirrored below and inside createDemoInterceptor) must be able to tell
@@ -134,10 +135,39 @@ export function DemoKitProvider({
   // Keep a ref to the interceptor instance
   const interceptorRef = useRef<DemoInterceptor | null>(null)
 
+  // `transport` is fixed for the provider's lifetime (Finding 3, review):
+  // captured once on first render and used EXCLUSIVELY thereafter by every
+  // branch below. If the prop changes on a later render, an effect further
+  // down warns once (dev only) and the change is otherwise ignored — this
+  // guarantees a fetch interceptor and an msw transport can never coexist
+  // for the same provider instance (which prop-driven re-branching would
+  // otherwise allow: a later `enable()`/`toggle()` call reads a live
+  // `transport` value and could construct a second, competing transport
+  // alongside one already active).
+  const transportRef = useRef(transport)
+  const warnedTransportChangeRef = useRef(false)
+
   // MSW transport instance (Task 4, `transport: 'msw'`). No interceptor is
   // ever constructed when transport === 'msw' — there is no global fetch
-  // patch under msw, only the worker's request handler.
+  // patch under msw, only the worker's request handler. Only ever assigned
+  // AFTER `start()` resolves successfully — see `mswInFlightRef` for the
+  // in-flight instance.
   const mswTransportRef = useRef<MswTransport | null>(null)
+
+  // The msw transport instance currently being constructed (createMswTransport()
+  // called, `start()` not yet settled). Assigned before `await start()` so
+  // unmount cleanup can `.stop()` this exact instance even if unmount races
+  // ahead of construction resolving (Finding 2, review) — `mswTransportRef`
+  // alone can't do this since it's only populated on success. Cleared the
+  // moment `start()` settles, one way or the other.
+  const mswInFlightRef = useRef<MswTransport | null>(null)
+
+  // Whether the provider is still mounted. `setupMswTransport`'s async
+  // continuation checks this right after `await start()` settles — if the
+  // provider unmounted while `start()` was pending, it stops the
+  // just-constructed instance and skips every state update instead of
+  // resurrecting a torn-down provider (Finding 2, review).
+  const isMountedRef = useRef(true)
 
   // Mirrors the fetch interceptor's own internal `enabled` bookkeeping.
   // Under msw there's no interceptor object to hold this, so the provider
@@ -192,6 +222,21 @@ export function DemoKitProvider({
 
   // Store the refetch function for context
   const refetchFnRef = useRef<(() => Promise<void>) | null>(null)
+
+  // Warn once (dev only) if `transport` changes after mount — it's fixed for
+  // the provider's lifetime (see `transportRef` above). Runs as an effect
+  // (not inline during render) to keep render pure; `console.warn` is a
+  // side effect.
+  useEffect(() => {
+    if (transport !== transportRef.current && !warnedTransportChangeRef.current) {
+      warnedTransportChangeRef.current = true
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+        console.warn(
+          `[DemoKit] \`transport\` is fixed for the provider's lifetime — it was captured as "${transportRef.current}" on mount and the change to "${transport}" is being ignored. Unmount and remount DemoKitProvider to switch transports.`
+        )
+      }
+    }
+  }, [transport])
 
   /**
    * Handle URL redirects when demo mode toggles.
@@ -343,12 +388,31 @@ export function DemoKitProvider({
    * `start()` rejection (missing/stale `mockServiceWorker.js`, timeout, ...)
    * never half-mocks: the transport is stopped and discarded — never
    * assigned to `mswTransportRef` — and status becomes 'unavailable'.
+   *
+   * Unmount-safety (Finding 2, review): the instance is assigned to
+   * `mswInFlightRef` BEFORE `await start()`, so unmount cleanup can stop it
+   * even if unmount races ahead of `start()` settling. Right after `start()`
+   * settles (success or failure), `isMountedRef` is checked — if the
+   * provider unmounted in the meantime, the instance is stopped and NO
+   * state update runs (no `setState` on an unmounted component, no leaked
+   * worker registration).
    */
   const setupMswTransport = useCallback(async (mergedFixtures: FixtureMap): Promise<void> => {
     mergedFixturesRef.current = mergedFixtures
 
     const { createMswTransport } = await import('@demokit-ai/msw-transport')
-    const transportInstance = createMswTransport()
+
+    if (!isMountedRef.current) {
+      // Unmounted while the dynamic import itself was pending: nothing has
+      // been constructed yet, so there's nothing to stop — just bail.
+      return
+    }
+
+    const transportInstance = createMswTransport(mswOptions)
+    // Assigned BEFORE awaiting start() so unmount cleanup can stop this
+    // exact instance even if unmount races ahead of construction resolving
+    // (Finding 2, review).
+    mswInFlightRef.current = transportInstance
 
     const effectiveDetection = effectivePreviewToken
       ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
@@ -358,9 +422,27 @@ export function DemoKitProvider({
 
     transportInstance.setDeps(buildDeps())
 
+    let startFailed = false
     try {
       await transportInstance.start()
     } catch {
+      startFailed = true
+    }
+
+    // Settled (success or failure) — no longer "in flight." Nothing between
+    // the assignment above and this line ever awaits, so if unmount raced
+    // ahead of `start()`, cleanup already ran synchronously, already called
+    // `.stop()` on this exact instance via `mswInFlightRef`, and already
+    // cleared it — there is nothing left for this continuation to tear down.
+    mswInFlightRef.current = null
+
+    if (!isMountedRef.current) {
+      // Unmounted while start() was pending: cleanup already stopped this
+      // instance — never finalize state (setState) on a torn-down provider.
+      return
+    }
+
+    if (startFailed) {
       // Never half-mock (spec §7/§10): stop and discard rather than retain
       // a half-started transport, and report the same 'unavailable' status
       // the remote-fetch-with-no-cache path uses.
@@ -384,23 +466,24 @@ export function DemoKitProvider({
     setIsPublicDemo(detectionResult.isPublicDemo)
     setIsHydrated(true)
     setStatus('ready')
-  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast])
+  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast, mswOptions])
 
   /**
    * Transport-dispatching construction: routes to the fetch interceptor or
-   * the MSW transport depending on the `transport` prop. Both
+   * the MSW transport depending on `transportRef.current` (fixed at mount —
+   * see `transportRef` above, not the reactive `transport` prop). Both
    * `ensureTransport` and `fetchAndSetup` (remote mode) call this rather
    * than `setupInterceptor` directly, so the transport choice is made in
    * exactly one place.
    */
   const setupTransport = useCallback(
     (mergedFixtures: FixtureMap): void | Promise<void> => {
-      if (transport === 'msw') {
+      if (transportRef.current === 'msw') {
         return setupMswTransport(mergedFixtures)
       }
       setupInterceptor(mergedFixtures)
     },
-    [transport, setupMswTransport, setupInterceptor]
+    [setupMswTransport, setupInterceptor]
   )
 
   /**
@@ -500,7 +583,7 @@ export function DemoKitProvider({
    * active transport exists this resolves immediately without redoing work.
    */
   const ensureTransport = useCallback((): Promise<void> => {
-    const alreadyConstructed = transport === 'msw'
+    const alreadyConstructed = transportRef.current === 'msw'
       ? mswTransportRef.current !== null
       : interceptorRef.current !== null
     if (alreadyConstructed) return Promise.resolve()
@@ -527,13 +610,15 @@ export function DemoKitProvider({
       bootstrapRef.current = null
     })
     return bootstrapRef.current
-  }, [transport, source, fixtures, fetchAndSetup, setupTransport])
+  }, [source, fixtures, fetchAndSetup, setupTransport])
 
   // Initialize on mount — demo-gated (spec §10): compute demoWanted
   // synchronously and cheaply (no interceptor construction, no fetch patch,
   // no cloud config fetch when it's false) and only bootstrap the transport
   // when demo mode is actually wanted. Non-demo users load nothing.
   useEffect(() => {
+    isMountedRef.current = true
+
     if (initializedRef.current) {
       return
     }
@@ -552,6 +637,7 @@ export function DemoKitProvider({
     }
 
     return () => {
+      isMountedRef.current = false
       reporterRef.current?.destroy()
       reporterRef.current = null
       runtimeRef.current?.destroy()
@@ -559,9 +645,14 @@ export function DemoKitProvider({
       interceptorRef.current?.destroy()
       interceptorRef.current = null
       // msw branch (Task 4): no interceptor exists, so tear down the worker
-      // directly instead.
+      // directly instead. Stop whichever instance exists — settled
+      // (mswTransportRef) or still mid-construction (mswInFlightRef; Finding
+      // 2, review — without this, an in-flight `start()` that resolves after
+      // unmount would leave the worker registered with nothing left to stop it).
       mswTransportRef.current?.stop()
       mswTransportRef.current = null
+      mswInFlightRef.current?.stop()
+      mswInFlightRef.current = null
       mswEnabledRef.current = false
       // The provider owns the session it injected into the interceptor —
       // an injected session is never cleared by the interceptor's own
@@ -587,7 +678,7 @@ export function DemoKitProvider({
     if (!merged) return
 
     mergedFixturesRef.current = merged
-    if (transport === 'msw') {
+    if (transportRef.current === 'msw') {
       // Only push fresh deps while mocking is actually active — while
       // disabled, deps stay null and the next enable()/toggle() reads
       // mergedFixturesRef.current (already updated above) via buildDeps().
@@ -597,7 +688,7 @@ export function DemoKitProvider({
     } else {
       interceptorRef.current?.setFixtures(merged)
     }
-  }, [fixtures, isHydrated, isLoading, source, transport])
+  }, [fixtures, isHydrated, isLoading, source])
 
   // --- msw-branch enable/disable/toggle (Task 4) ---
   // There is no interceptor object under msw to own "enabled" or fire
@@ -647,39 +738,52 @@ export function DemoKitProvider({
   // work fine — `enable(): void` on the context type accepts a Promise-returning
   // implementation.
   const enable = useCallback(async () => {
-    if (transport === 'msw') {
+    if (transportRef.current === 'msw') {
       if (!mswTransportRef.current) {
         await ensureTransport()
       }
-      mswEnable()
+      // Construction may have failed (status 'unavailable', mswTransportRef
+      // left null) — never fire "entering demo" side effects without a live
+      // transport (Finding 1, review: this used to call mswEnable()
+      // unconditionally, which set isDemoMode true / invalidated queries /
+      // redirected even when nothing was actually intercepting). Mirrors the
+      // fetch branch's `interceptorRef.current?.enable()`, a no-op when null.
+      if (mswTransportRef.current) {
+        mswEnable()
+      }
       return
     }
     if (!interceptorRef.current) {
       await ensureTransport()
     }
     interceptorRef.current?.enable()
-  }, [transport, ensureTransport, mswEnable])
+  }, [ensureTransport, mswEnable])
 
   const disable = useCallback((): boolean | string => {
-    if (transport === 'msw') {
+    if (transportRef.current === 'msw') {
       return mswDisable()
     }
     return interceptorRef.current?.disable() ?? true
-  }, [transport, mswDisable])
+  }, [mswDisable])
 
   const toggle = useCallback(async () => {
-    if (transport === 'msw') {
+    if (transportRef.current === 'msw') {
       if (!mswTransportRef.current) {
         await ensureTransport()
       }
-      mswToggle()
+      // Same guard as `enable()` above (Finding 1, review): don't toggle
+      // into a state that implies live interception without a constructed
+      // transport to back it.
+      if (mswTransportRef.current) {
+        mswToggle()
+      }
       return
     }
     if (!interceptorRef.current) {
       await ensureTransport()
     }
     interceptorRef.current?.toggle()
-  }, [transport, ensureTransport, mswToggle])
+  }, [ensureTransport, mswToggle])
 
   const setDemoMode = useCallback(
     (enabled: boolean) => {
@@ -693,7 +797,7 @@ export function DemoKitProvider({
   )
 
   const resetSession = useCallback(() => {
-    if (transport === 'msw') {
+    if (transportRef.current === 'msw') {
       // No interceptor's onSessionReset to wire through — the provider owns
       // both the session and the runtime reset directly.
       sessionRef.current?.clear()
@@ -701,14 +805,14 @@ export function DemoKitProvider({
       return
     }
     interceptorRef.current?.resetSession()
-  }, [transport])
+  }, [])
 
   const getSession = useCallback((): SessionState | null => {
-    if (transport === 'msw') {
+    if (transportRef.current === 'msw') {
       return mswTransportRef.current ? sessionRef.current : null
     }
     return interceptorRef.current?.getSession() ?? null
-  }, [transport])
+  }, [])
 
   const refetch = useCallback(async (): Promise<void> => {
     if (!source?.apiKey) {

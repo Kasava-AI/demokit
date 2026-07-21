@@ -154,6 +154,7 @@ interface ActionButtonProps {
   icon: IconType;
   children: React.ReactNode;
   disabled?: boolean;
+  title?: string;
 }
 
 export function ActionButton({
@@ -161,10 +162,12 @@ export function ActionButton({
   icon,
   children,
   disabled,
+  title,
 }: ActionButtonProps) {
   return (
     <button
       type="button"
+      title={title}
       className={`inline-flex items-center px-2 py-1 text-xs ${
         disabled
           ? "text-muted-foreground/50 cursor-not-allowed"

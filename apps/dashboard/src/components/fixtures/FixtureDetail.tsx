@@ -69,6 +69,7 @@ export function FixtureDetail({
   onAddRecord,
   onUndo,
   canUndo = false,
+  undoDisabledReason,
   onReset,
   editCount = 0,
   onSaveEdits,
@@ -299,6 +300,7 @@ export function FixtureDetail({
             onToggleEditable={onToggleEditable}
             isDirty={isDirty}
             canUndo={canUndo}
+            undoDisabledReason={undoDisabledReason}
             onUndo={onUndo}
             onReset={onReset}
             onFieldChange={onFieldChange}
@@ -359,12 +361,16 @@ export function FixtureDetail({
       {editable && (onSaveEdits || onCancelEdits) && (
         <div className="flex items-center justify-between gap-3 px-6 py-3 bg-background border-t border-border">
           <div className="text-sm text-muted-foreground">
+            {/* Gated on isDirty first — the same signal that gates the Save
+                button below — so the label and the button can never
+                disagree (e.g. a field edited then edited back to its
+                original value nets isDirty=false even though editCount > 0). */}
             <span className="font-medium text-foreground">
-              {editCount > 0
-                ? `${editCount} ${editCount === 1 ? "edit" : "edits"}`
-                : isDirty
-                  ? "Unsaved changes"
-                  : "No edits yet"}
+              {isDirty
+                ? editCount > 0
+                  ? `${editCount} ${editCount === 1 ? "edit" : "edits"}`
+                  : "Unsaved changes"
+                : "No changes to save"}
             </span>
             {" — saved as a new draft when you save"}
             {pinsWillApply && (

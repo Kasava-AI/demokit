@@ -99,6 +99,8 @@ export interface FixtureDetailProps {
   onUndo?: () => void
   /** Whether undo is available */
   canUndo?: boolean
+  /** Shown as the Undo button's tooltip when canUndo is false — e.g. explains that undo doesn't cover add/delete/duplicate this session */
+  undoDisabledReason?: string
   /** Called when user wants to reset changes */
   onReset?: () => void
   /** Number of edits accumulated in the current editing session (row-0 field edits + add/delete/duplicate) */

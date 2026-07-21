@@ -44,10 +44,18 @@ export interface UseFixtureEditorResult {
   reset: () => void
   /** Save changes */
   save: () => Promise<void>
-  /** Undo the last edit */
+  /** Undo the last field edit */
   undo: () => void
-  /** Whether undo is available */
+  /**
+   * Whether undo is available. `undo()` only reverses field edits — once a
+   * structural op (add/delete/duplicate) has happened this session, row
+   * identity may no longer match what's in `editHistory`, so undo is
+   * disabled rather than silently no-op-ing or reverting the wrong record.
+   * Use `reset()` to discard everything instead.
+   */
   canUndo: boolean
+  /** Whether an add/delete/duplicate has happened since the last reset — the reason `canUndo` may be false despite a non-empty edit history. */
+  hasStructuralEdit: boolean
   /** Validate current data */
   validate: () => ValidationResult
 }
@@ -87,6 +95,7 @@ export function useFixtureEditor({
   const [editHistory, setEditHistory] = useState<FieldEdit[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [validation, setValidation] = useState<ValidationResult | null>(null)
+  const [hasStructuralEdit, setHasStructuralEdit] = useState(false)
 
   // Compute isDirty by comparing with initial data
   const isDirty = useMemo(() => {
@@ -153,6 +162,7 @@ export function useFixtureEditor({
   }, [])
 
   const addRecord = useCallback((model: string, record: Record<string, unknown>) => {
+    setHasStructuralEdit(true)
     setData((prev) => {
       const modelData = prev[model] || []
       return {
@@ -163,6 +173,7 @@ export function useFixtureEditor({
   }, [])
 
   const deleteRecord = useCallback((model: string, index: number) => {
+    setHasStructuralEdit(true)
     setData((prev) => {
       const modelData = prev[model]
       if (!modelData || index < 0 || index >= modelData.length) return prev
@@ -176,6 +187,7 @@ export function useFixtureEditor({
   }, [])
 
   const duplicateRecord = useCallback((model: string, index: number) => {
+    setHasStructuralEdit(true)
     setData((prev) => {
       const modelData = prev[model]
       if (!modelData || !modelData[index]) return prev
@@ -201,6 +213,7 @@ export function useFixtureEditor({
     setData(structuredClone(initialData))
     setEditHistory([])
     setValidation(null)
+    setHasStructuralEdit(false)
   }, [initialData])
 
   const save = useCallback(async () => {
@@ -243,7 +256,11 @@ export function useFixtureEditor({
     })
   }, [])
 
-  const canUndo = editHistory.length > 0
+  // undo() only knows how to reverse FieldEdit entries — once a structural
+  // op has happened, editHistory's row indices are no longer trustworthy
+  // (see the interface doc above), so disable undo entirely rather than
+  // risk reverting the wrong record.
+  const canUndo = editHistory.length > 0 && !hasStructuralEdit
 
   return {
     data,
@@ -259,6 +276,7 @@ export function useFixtureEditor({
     save,
     undo,
     canUndo,
+    hasStructuralEdit,
     validate,
   }
 }

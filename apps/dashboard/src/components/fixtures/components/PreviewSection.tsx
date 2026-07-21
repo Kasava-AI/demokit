@@ -44,6 +44,8 @@ export interface PreviewSectionProps {
   onToggleEditable?: () => void;
   isDirty?: boolean;
   canUndo?: boolean;
+  /** Shown as the Undo button's title when canUndo is false — e.g. explains that undo doesn't cover add/delete/duplicate */
+  undoDisabledReason?: string;
   onUndo?: () => void;
   onReset?: () => void;
   onFieldChange?: (model: string, index: number, field: string, value: unknown) => void;
@@ -76,6 +78,7 @@ export function PreviewSection({
   onToggleEditable,
   isDirty = false,
   canUndo = false,
+  undoDisabledReason,
   onUndo,
   onReset,
   onFieldChange,
@@ -158,6 +161,7 @@ export function PreviewSection({
               editable={editable}
               isDirty={isDirty}
               canUndo={canUndo}
+              undoDisabledReason={undoDisabledReason}
               onUndo={onUndo}
               onReset={onReset}
               exportFormat={exportFormat}
@@ -206,6 +210,7 @@ interface PreviewControlsProps {
   editable: boolean;
   isDirty: boolean;
   canUndo: boolean;
+  undoDisabledReason?: string;
   onUndo?: () => void;
   onReset?: () => void;
   exportFormat: ExportFormat;
@@ -223,6 +228,7 @@ function PreviewControls({
   editable,
   isDirty,
   canUndo,
+  undoDisabledReason,
   onUndo,
   onReset,
   exportFormat,
@@ -246,7 +252,12 @@ function PreviewControls({
       {editable && previewSubMode === "table" && (
         <>
           {onUndo && (
-            <ActionButton onClick={onUndo} icon="undo" disabled={!canUndo}>
+            <ActionButton
+              onClick={onUndo}
+              icon="undo"
+              disabled={!canUndo}
+              title={!canUndo ? undoDisabledReason : undefined}
+            >
               Undo
             </ActionButton>
           )}

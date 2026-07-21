@@ -11,7 +11,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -64,17 +64,35 @@ export function PublishSection({
   const [note, setNote] = useState('')
   const [result, setResult] = useState<DialogResult | null>(null)
 
+  // Kept in sync with confirmTarget so an in-flight publish can tell, after
+  // its await resolves, whether the dialog has since been cancelled or
+  // reassigned to a different generation — the publish still commits
+  // server-side either way, but the UI must not show its result against the
+  // wrong (or no longer open) dialog.
+  const confirmTargetRef = useRef<FixtureGeneration | null>(null)
+  useEffect(() => {
+    confirmTargetRef.current = confirmTarget
+  }, [confirmTarget])
+
+  const openPublishDialog = (generation: FixtureGeneration) => {
+    setResult(null)
+    setConfirmTarget(generation)
+  }
+
   const handlePublish = async () => {
     if (!confirmTarget) return
+    const targetId = confirmTarget.id
+    const targetLabel = confirmTarget.label ?? confirmTarget.id.slice(0, 8)
     try {
       const payload = await publishMutation.mutateAsync({
         projectId,
         fixtureId,
-        generationId: confirmTarget.id,
+        generationId: targetId,
         note: note.trim() || undefined,
       })
+      toast.success('Published', { description: targetLabel })
+      if (confirmTargetRef.current?.id !== targetId) return
       setResult({ warnings: payload.warnings, linterFindings: payload.linterFindings })
-      toast.success('Published', { description: confirmTarget.label ?? confirmTarget.id.slice(0, 8) })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Publish failed')
     }
@@ -92,6 +110,7 @@ export function PublishSection({
       toast.error('That generation no longer exists')
       return
     }
+    setResult(null)
     setConfirmTarget(generation)
     setNote('rollback')
   }
@@ -151,7 +170,7 @@ export function PublishSection({
                     variant="outline"
                     disabled={invalid}
                     title={invalid ? 'Fix validation errors before publishing' : undefined}
-                    onClick={() => setConfirmTarget(generation)}
+                    onClick={() => openPublishDialog(generation)}
                   >
                     <Upload className="mr-1 h-3 w-3" />
                     Publish
@@ -231,15 +250,15 @@ export function PublishSection({
 
           {result && (result.warnings.length > 0 || result.linterFindings.length > 0) && (
             <div className="space-y-2 py-2 text-sm">
-              {result.warnings.map((warning) => (
-                <p key={warning} className="flex items-start gap-2 text-warning">
+              {result.warnings.map((warning, i) => (
+                <p key={`${i}-${warning}`} className="flex items-start gap-2 text-warning">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden />
                   <span>{warning}</span>
                 </p>
               ))}
-              {result.linterFindings.map((finding) => (
+              {result.linterFindings.map((finding, i) => (
                 <p
-                  key={`${finding.path}:${finding.message}`}
+                  key={`${i}-${finding.path}:${finding.message}`}
                   className="flex items-start gap-2 text-muted-foreground"
                 >
                   <span

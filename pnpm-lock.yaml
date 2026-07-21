@@ -400,6 +400,9 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      '@demokit-ai/msw-transport':
+        specifier: workspace:*
+        version: link:../msw-transport
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1

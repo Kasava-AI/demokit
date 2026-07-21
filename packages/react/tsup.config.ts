@@ -6,5 +6,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  external: ['react', 'react-dom', '@demokit-ai/core'],
+  external: ['react', 'react-dom', '@demokit-ai/core', '@demokit-ai/msw-transport'],
 })

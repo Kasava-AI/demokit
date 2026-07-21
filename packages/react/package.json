@@ -32,6 +32,7 @@
     "@demokit-ai/core": "workspace:*"
   },
   "devDependencies": {
+    "@demokit-ai/msw-transport": "workspace:*",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/node": "^22.0.0",
@@ -45,8 +46,14 @@
     "vitest": "^2.1.9"
   },
   "peerDependencies": {
+    "@demokit-ai/msw-transport": "workspace:*",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@demokit-ai/msw-transport": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18"

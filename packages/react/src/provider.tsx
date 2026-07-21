@@ -11,16 +11,19 @@ import {
   createCoverageReporter,
   detectDemoMode,
   loadDemoState,
+  saveDemoState,
   createSessionState,
   type DemoInterceptor,
   type SessionState,
   type FixtureMap,
   type DemoRuntime,
   type CoverageReporter,
+  type ResolveDeps,
 } from '@demokit-ai/core'
 import { DemoModeContext } from './context'
 import type { DemoKitProviderProps, DemoModeContextValue, DemoKitStatus } from './types'
 import { MutationBlockedToast } from './mutation-toast'
+import type { MswTransport } from '@demokit-ai/msw-transport'
 
 /** Preview sessions (spec §6): ?demo-preview=<token> on the page URL. */
 function readPreviewToken(): string | null {
@@ -86,6 +89,7 @@ export function DemoKitProvider({
   loadingFallback = null,
   errorFallback,
   // Standard props
+  transport = 'fetch',
   storageKey = 'demokit-mode',
   // Left un-defaulted deliberately: `initialEnabled ?? loadDemoState(storageKey)`
   // (mirrored below and inside createDemoInterceptor) must be able to tell
@@ -129,6 +133,25 @@ export function DemoKitProvider({
 
   // Keep a ref to the interceptor instance
   const interceptorRef = useRef<DemoInterceptor | null>(null)
+
+  // MSW transport instance (Task 4, `transport: 'msw'`). No interceptor is
+  // ever constructed when transport === 'msw' — there is no global fetch
+  // patch under msw, only the worker's request handler.
+  const mswTransportRef = useRef<MswTransport | null>(null)
+
+  // Mirrors the fetch interceptor's own internal `enabled` bookkeeping.
+  // Under msw there's no interceptor object to hold this, so the provider
+  // owns it directly. A plain ref (not React state) so enable()/disable()/
+  // toggle() read a synchronously-current value the moment ensureTransport()
+  // resolves — the same way interceptorRef.current.enable() reads the
+  // interceptor's own closure variable rather than a (possibly stale) render.
+  const mswEnabledRef = useRef(false)
+
+  // The current merged fixtures, read by buildDeps() so both transports
+  // resolve requests against the exact same fixture map. Set at construction
+  // time (setupInterceptor / setupMswTransport) and kept current by the
+  // fixtures-update effect thereafter.
+  const mergedFixturesRef = useRef<FixtureMap>({})
 
   // Track if we've initialized
   const initializedRef = useRef(false)
@@ -206,42 +229,71 @@ export function DemoKitProvider({
   }, [urlRedirects])
 
   /**
+   * Builds the `ResolveDeps` object shared by both transports (fetch
+   * interceptor and MSW), so callback/coverage wiring can never drift
+   * between them: fixtures, baseUrl, pathAliases, warnOnCatchAll,
+   * unmatchedMutations, the provider-owned session, and the same wrapped
+   * mutation/coverage callbacks (blocked-mutation toast + coverage
+   * reporter's `record()` calls) that Task 2 preserved. One function, both
+   * transports — `setupInterceptor` spreads this into `createDemoInterceptor`
+   * config, and the msw branch passes it straight to `setDeps()`.
+   *
+   * Reads the current merged fixtures from `mergedFixturesRef` rather than
+   * taking them as a parameter: both branches keep that ref current (at
+   * construction, and on every fixtures-change), so there's one source of
+   * truth for "what's currently mocked" no matter which transport is active.
+   *
+   * Deliberately a plain function, not a memoized `useCallback`: every
+   * caller already lists the underlying props (baseUrl, pathAliases, etc.)
+   * in its own dependency array, so there's nothing to gain from memoizing
+   * this indirection — it always wants the live values from the current
+   * render anyway.
+   */
+  const buildDeps = (): ResolveDeps => ({
+    fixtures: mergedFixturesRef.current,
+    baseUrl: baseUrl ?? 'http://localhost',
+    pathAliases,
+    // Same default the core interceptor applies internally when this isn't
+    // provided (dev-mode-on, prod-off) — mirrored here so ResolveDeps (which
+    // requires a concrete boolean) matches the interceptor path exactly.
+    warnOnCatchAll: warnOnCatchAll ?? (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production'),
+    unmatchedMutations: unmatchedMutations ?? 'block',
+    session: sessionRef.current as SessionState,
+    onMutationIntercepted,
+    onMutationBlocked: (ctx) => {
+      onMutationBlocked?.(ctx)
+      reporterRef.current?.record({ type: 'blocked_mutation', method: ctx.method, path: ctx.pathname })
+      if (showBlockedToast) {
+        setBlockedNotice((prev) => ({
+          text: `${ctx.method} ${ctx.pathname}`,
+          seq: (prev?.seq ?? 0) + 1,
+        }))
+      }
+    },
+    onUnmatchedRequest: (ctx) => {
+      reporterRef.current?.record({ type: 'unmatched_request', method: ctx.method, path: ctx.pathname })
+    },
+    onProjectionError: (ctx) => {
+      reporterRef.current?.record({ type: 'projection_error', method: ctx.method, path: ctx.pathname })
+    },
+  })
+
+  /**
    * Create and configure the demo interceptor
    */
   const setupInterceptor = useCallback(
     (mergedFixtures: FixtureMap) => {
+      mergedFixturesRef.current = mergedFixtures
       interceptorRef.current?.destroy()
 
       interceptorRef.current = createDemoInterceptor({
-        fixtures: mergedFixtures,
+        ...buildDeps(),
         storageKey,
         initialEnabled,
-        baseUrl,
-        session: sessionRef.current ?? undefined,
         detection: effectivePreviewToken
           ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
           : detection,
         canDisable,
-        onMutationIntercepted,
-        unmatchedMutations,
-        onMutationBlocked: (ctx) => {
-          onMutationBlocked?.(ctx)
-          reporterRef.current?.record({ type: 'blocked_mutation', method: ctx.method, path: ctx.pathname })
-          if (showBlockedToast) {
-            setBlockedNotice((prev) => ({
-              text: `${ctx.method} ${ctx.pathname}`,
-              seq: (prev?.seq ?? 0) + 1,
-            }))
-          }
-        },
-        onUnmatchedRequest: (ctx) => {
-          reporterRef.current?.record({ type: 'unmatched_request', method: ctx.method, path: ctx.pathname })
-        },
-        onProjectionError: (ctx) => {
-          reporterRef.current?.record({ type: 'projection_error', method: ctx.method, path: ctx.pathname })
-        },
-        pathAliases,
-        warnOnCatchAll,
         onSessionReset: () => {
           runtimeRef.current?.reset()
         },
@@ -271,6 +323,84 @@ export function DemoKitProvider({
       setStatus('ready')
     },
     [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
+  )
+
+  /**
+   * Constructs the MSW transport (Task 4, `transport: 'msw'`). The dynamic
+   * import only happens here — inside `ensureTransport`'s demo-gated call
+   * path — so users who never set `transport: 'msw'`, or whose demo mode
+   * never activates, never load msw code (spec §10's "demo-gated dynamic
+   * import", extended to the transport choice itself).
+   *
+   * Mirrors `setupInterceptor`'s construction contract: computes its own
+   * enabled/isPublicDemo state from detection + storage — independent of
+   * *why* `ensureTransport` was invoked (mount-time restoration of a
+   * persisted session vs. an explicit `enable()`/`toggle()` bootstrapping a
+   * not-yet-constructed transport) — then builds from the exact same
+   * `buildDeps()` the fetch interceptor uses, so both transports resolve
+   * identically.
+   *
+   * `start()` rejection (missing/stale `mockServiceWorker.js`, timeout, ...)
+   * never half-mocks: the transport is stopped and discarded — never
+   * assigned to `mswTransportRef` — and status becomes 'unavailable'.
+   */
+  const setupMswTransport = useCallback(async (mergedFixtures: FixtureMap): Promise<void> => {
+    mergedFixturesRef.current = mergedFixtures
+
+    const { createMswTransport } = await import('@demokit-ai/msw-transport')
+    const transportInstance = createMswTransport()
+
+    const effectiveDetection = effectivePreviewToken
+      ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
+      : detection
+    const detectionResult = detectDemoMode(effectiveDetection)
+    const enabledInitially = detectionResult.detected || (initialEnabled ?? loadDemoState(storageKey))
+
+    transportInstance.setDeps(buildDeps())
+
+    try {
+      await transportInstance.start()
+    } catch {
+      // Never half-mock (spec §7/§10): stop and discard rather than retain
+      // a half-started transport, and report the same 'unavailable' status
+      // the remote-fetch-with-no-cache path uses.
+      transportInstance.stop()
+      setIsHydrated(true)
+      setStatus('unavailable')
+      return
+    }
+
+    // The construction-time enabled state mirrors detection/storage exactly
+    // like the interceptor's own internal `enabled` variable — an explicit
+    // enable()/disable()/toggle() call still runs afterward (see `enable`
+    // below) and fires its side effects normally if this leaves it off.
+    if (!enabledInitially) {
+      transportInstance.setDeps(null)
+    }
+
+    mswEnabledRef.current = enabledInitially
+    mswTransportRef.current = transportInstance
+    setIsDemoMode(enabledInitially)
+    setIsPublicDemo(detectionResult.isPublicDemo)
+    setIsHydrated(true)
+    setStatus('ready')
+  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast])
+
+  /**
+   * Transport-dispatching construction: routes to the fetch interceptor or
+   * the MSW transport depending on the `transport` prop. Both
+   * `ensureTransport` and `fetchAndSetup` (remote mode) call this rather
+   * than `setupInterceptor` directly, so the transport choice is made in
+   * exactly one place.
+   */
+  const setupTransport = useCallback(
+    (mergedFixtures: FixtureMap): void | Promise<void> => {
+      if (transport === 'msw') {
+        return setupMswTransport(mergedFixtures)
+      }
+      setupInterceptor(mergedFixtures)
+    },
+    [transport, setupMswTransport, setupInterceptor]
   )
 
   /**
@@ -326,7 +456,7 @@ export function DemoKitProvider({
       remoteFixturesRef.current = remoteFixtures
 
       setRemoteVersion(response.version)
-      setupInterceptor(remoteFixtures)
+      await setupTransport(remoteFixtures)
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error))
       setRemoteError(err)
@@ -334,7 +464,7 @@ export function DemoKitProvider({
 
       // If we have local fixtures, still set up with those
       if (fixtures && Object.keys(fixtures).length > 0) {
-        setupInterceptor(fixtures)
+        await setupTransport(fixtures)
       } else {
         // No cached config to fall back to (spec §10 / §7): never half-mock —
         // report failure instead of silently constructing nothing.
@@ -352,7 +482,7 @@ export function DemoKitProvider({
     effectivePreviewToken,
     onRemoteLoad,
     onRemoteError,
-    setupInterceptor,
+    setupTransport,
     reportCoverage,
   ])
 
@@ -361,15 +491,19 @@ export function DemoKitProvider({
 
   /**
    * Lazily construct the transport (spec §10): fetch cloud config, build
-   * runtime/fixtures, and construct the interceptor with the provider-owned
-   * session — or fall back to local fixtures, or report 'unavailable'.
+   * runtime/fixtures, and construct the fetch interceptor or MSW transport
+   * (per the `transport` prop) with the provider-owned session — or fall
+   * back to local fixtures, or report 'unavailable'.
    *
    * Idempotent and single-flight via `bootstrapRef`: concurrent callers
-   * (mount + an early `enable()`) share one in-flight promise, and once an
-   * interceptor exists this resolves immediately without redoing work.
+   * (mount + an early `enable()`) share one in-flight promise, and once the
+   * active transport exists this resolves immediately without redoing work.
    */
   const ensureTransport = useCallback((): Promise<void> => {
-    if (interceptorRef.current) return Promise.resolve()
+    const alreadyConstructed = transport === 'msw'
+      ? mswTransportRef.current !== null
+      : interceptorRef.current !== null
+    if (alreadyConstructed) return Promise.resolve()
     if (bootstrapRef.current) return bootstrapRef.current
 
     setStatus('loading')
@@ -380,7 +514,7 @@ export function DemoKitProvider({
         await fetchAndSetup()
       } else if (fixtures) {
         // Local mode: use provided fixtures
-        setupInterceptor(fixtures)
+        await setupTransport(fixtures)
       } else {
         // Nothing configured to construct — bootstrap is trivially done.
         setIsHydrated(true)
@@ -393,7 +527,7 @@ export function DemoKitProvider({
       bootstrapRef.current = null
     })
     return bootstrapRef.current
-  }, [source, fixtures, fetchAndSetup, setupInterceptor])
+  }, [transport, source, fixtures, fetchAndSetup, setupTransport])
 
   // Initialize on mount — demo-gated (spec §10): compute demoWanted
   // synchronously and cheaply (no interceptor construction, no fetch patch,
@@ -424,6 +558,11 @@ export function DemoKitProvider({
       runtimeRef.current = null
       interceptorRef.current?.destroy()
       interceptorRef.current = null
+      // msw branch (Task 4): no interceptor exists, so tear down the worker
+      // directly instead.
+      mswTransportRef.current?.stop()
+      mswTransportRef.current = null
+      mswEnabledRef.current = false
       // The provider owns the session it injected into the interceptor —
       // an injected session is never cleared by the interceptor's own
       // destroy() (Task 1's ownership rule), so the provider clears it here.
@@ -437,37 +576,110 @@ export function DemoKitProvider({
   useEffect(() => {
     if (!isHydrated || isLoading) return
 
+    let merged: FixtureMap | null = null
     if (source?.apiKey && remoteFixturesRef.current) {
       // Remote mode: merge new local overrides with cached remote fixtures
-      const merged = { ...remoteFixturesRef.current, ...fixtures }
-      interceptorRef.current?.setFixtures(merged)
+      merged = { ...remoteFixturesRef.current, ...fixtures }
     } else if (fixtures) {
       // Local mode: update fixtures
-      interceptorRef.current?.setFixtures(fixtures)
+      merged = fixtures
     }
-  }, [fixtures, isHydrated, isLoading, source])
+    if (!merged) return
+
+    mergedFixturesRef.current = merged
+    if (transport === 'msw') {
+      // Only push fresh deps while mocking is actually active — while
+      // disabled, deps stay null and the next enable()/toggle() reads
+      // mergedFixturesRef.current (already updated above) via buildDeps().
+      if (mswEnabledRef.current) {
+        mswTransportRef.current?.setDeps(buildDeps())
+      }
+    } else {
+      interceptorRef.current?.setFixtures(merged)
+    }
+  }, [fixtures, isHydrated, isLoading, source, transport])
+
+  // --- msw-branch enable/disable/toggle (Task 4) ---
+  // There is no interceptor object under msw to own "enabled" or fire
+  // onEnable/onDisable side effects, so the provider does both directly:
+  // deps present = mocking active, deps null = passthrough (mirrors
+  // handler.ts's `if (!deps) return passthrough()`), and the same
+  // banner/storage/query-invalidation/redirect side effects the interceptor's
+  // onEnable/onDisable trigger.
+  const mswSetEnabled = useCallback(
+    (next: boolean) => {
+      if (mswEnabledRef.current === next) return
+      mswEnabledRef.current = next
+      mswTransportRef.current?.setDeps(next ? buildDeps() : null)
+      saveDemoState(storageKey, next)
+      setIsDemoMode(next)
+      onDemoModeChange?.(next)
+      externalQueryClient?.invalidateQueries()
+      handleUrlRedirect(next)
+    },
+    [storageKey, onDemoModeChange, externalQueryClient, handleUrlRedirect, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast]
+  )
+
+  const mswEnable = useCallback(() => {
+    mswSetEnabled(true)
+  }, [mswSetEnabled])
+
+  const mswDisable = useCallback((): boolean | string => {
+    if (!mswEnabledRef.current) return true
+    if (canDisable) {
+      const result = canDisable()
+      if (result !== true) return result
+    }
+    mswSetEnabled(false)
+    return true
+  }, [canDisable, mswSetEnabled])
+
+  const mswToggle = useCallback(() => {
+    if (mswEnabledRef.current) {
+      mswDisable()
+    } else {
+      mswEnable()
+    }
+  }, [mswEnable, mswDisable])
 
   // Async-aware (spec §10): if the transport hasn't been constructed yet,
   // bootstrap it lazily before enabling. Callers that don't await this still
   // work fine — `enable(): void` on the context type accepts a Promise-returning
   // implementation.
   const enable = useCallback(async () => {
+    if (transport === 'msw') {
+      if (!mswTransportRef.current) {
+        await ensureTransport()
+      }
+      mswEnable()
+      return
+    }
     if (!interceptorRef.current) {
       await ensureTransport()
     }
     interceptorRef.current?.enable()
-  }, [ensureTransport])
+  }, [transport, ensureTransport, mswEnable])
 
   const disable = useCallback((): boolean | string => {
+    if (transport === 'msw') {
+      return mswDisable()
+    }
     return interceptorRef.current?.disable() ?? true
-  }, [])
+  }, [transport, mswDisable])
 
   const toggle = useCallback(async () => {
+    if (transport === 'msw') {
+      if (!mswTransportRef.current) {
+        await ensureTransport()
+      }
+      mswToggle()
+      return
+    }
     if (!interceptorRef.current) {
       await ensureTransport()
     }
     interceptorRef.current?.toggle()
-  }, [ensureTransport])
+  }, [transport, ensureTransport, mswToggle])
 
   const setDemoMode = useCallback(
     (enabled: boolean) => {
@@ -481,12 +693,22 @@ export function DemoKitProvider({
   )
 
   const resetSession = useCallback(() => {
+    if (transport === 'msw') {
+      // No interceptor's onSessionReset to wire through — the provider owns
+      // both the session and the runtime reset directly.
+      sessionRef.current?.clear()
+      runtimeRef.current?.reset()
+      return
+    }
     interceptorRef.current?.resetSession()
-  }, [])
+  }, [transport])
 
   const getSession = useCallback((): SessionState | null => {
+    if (transport === 'msw') {
+      return mswTransportRef.current ? sessionRef.current : null
+    }
     return interceptorRef.current?.getSession() ?? null
-  }, [])
+  }, [transport])
 
   const refetch = useCallback(async (): Promise<void> => {
     if (!source?.apiKey) {

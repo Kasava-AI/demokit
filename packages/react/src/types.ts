@@ -99,6 +99,20 @@ export interface DemoKitProviderProps {
   // ============================================================================
 
   /**
+   * Which transport resolves demo requests against the fixture map.
+   *
+   * - `'fetch'` (default): patches `globalThis.fetch` via the core
+   *   interceptor. Works everywhere, including SSR/Node.
+   * - `'msw'`: routes requests through an MSW v2 Service Worker instead.
+   *   `@demokit-ai/msw-transport` is dynamically imported only when demo
+   *   mode actually activates, so `transport: 'fetch'` users (the default)
+   *   never load msw code, and it need not be installed for them.
+   *
+   * @default 'fetch'
+   */
+  transport?: 'msw' | 'fetch'
+
+  /**
    * localStorage key for persisting demo mode state
    * @default 'demokit-mode'
    */

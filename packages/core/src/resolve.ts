@@ -232,8 +232,15 @@ export async function resolveRequest(
 
   let rawBody: BodyInit | null | undefined = init?.body
   if (rawBody == null && input instanceof Request && method !== 'GET' && method !== 'HEAD') {
-    const text = await input.clone().text()
-    rawBody = text === '' ? undefined : text
+    try {
+      const text = await input.clone().text()
+      rawBody = text === '' ? undefined : text
+    } catch {
+      // Body already consumed, or unreadable for some other reason — treat as
+      // no body rather than throwing out of the patched fetch (mirrors
+      // parseRequestBody's own tolerance for malformed input below).
+      rawBody = undefined
+    }
   }
   const body = await parseRequestBody(rawBody, headers)
 

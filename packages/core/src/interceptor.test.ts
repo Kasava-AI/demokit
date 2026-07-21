@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createDemoInterceptor, demoResponse } from './interceptor'
+import { createSessionState } from './session'
 import type { DemoInterceptor, UnmatchedMutationContext, RequestContext } from './types'
 
 const realFetch = globalThis.fetch
@@ -303,5 +304,26 @@ describe('coverage-health callbacks', () => {
     expect(onProjectionError).toHaveBeenCalledOnce()
 
     consoleErrorSpy.mockRestore()
+  })
+})
+
+describe('session ownership on destroy', () => {
+  it('clears a self-created session on destroy', () => {
+    interceptor = createDemoInterceptor({ fixtures: {} })
+    interceptor.getSession().set('k', 'v')
+
+    interceptor.destroy()
+
+    expect(interceptor.getSession().has('k')).toBe(false)
+  })
+
+  it('leaves an injected session intact on destroy', () => {
+    const session = createSessionState()
+    session.set('k', 'v')
+    interceptor = createDemoInterceptor({ fixtures: {}, session })
+
+    interceptor.destroy()
+
+    expect(session.get('k')).toBe('v')
   })
 })

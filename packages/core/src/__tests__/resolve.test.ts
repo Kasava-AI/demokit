@@ -71,6 +71,20 @@ describe('resolveRequest', () => {
     await expect(res.json()).resolves.toEqual({ auth: 'Bearer t' })
   })
 
+  it('tolerates a Request whose body was already consumed before resolution', async () => {
+    const handler = vi.fn(({ body }) => ({ body }))
+    const req = new Request('http://localhost/api/users', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ada' }),
+    })
+    await req.text() // disturb the body stream before resolveRequest ever sees it
+    const out = await resolveRequest(deps({ fixtures: { 'POST /api/users': handler } }), req)
+    const res = (out as { kind: 'response'; response: Response }).response
+    expect(res.status).not.toBe(500)
+    await expect(res.json()).resolves.toEqual({ body: undefined })
+  })
+
   it('maps demoResponse results to their explicit status', async () => {
     const out = await resolveRequest(
       deps({ fixtures: { 'POST /api/things': () => demoResponse({ id: 'n' }, 201) } }),

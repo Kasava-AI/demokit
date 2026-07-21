@@ -86,7 +86,12 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
   let enabled = detectionResult.detected || (initialEnabled ?? loadDemoState(storageKey))
   let currentFixtures: FixtureMap = { ...initialFixtures }
 
-  // Create session state (in-memory, resets on page refresh) — or use the caller's
+  // Create session state (in-memory, resets on page refresh) — or use the caller's.
+  // An injected session is the injector's to manage: destroy() must not clear
+  // state a second transport may still be sharing (only a self-created session
+  // is torn down on destroy; resetSession() is an explicit user action and
+  // always clears, regardless of ownership).
+  const ownsSession = !config.session
   let sessionState: SessionState = config.session ?? createSessionState()
 
   // Store original fetch
@@ -218,7 +223,12 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     destroy(): void {
       restoreFetch()
       enabled = false
-      sessionState.clear()
+      // Only clear a session this interceptor created itself — an injected
+      // session belongs to whoever constructed it and may still be in use by
+      // another transport.
+      if (ownsSession) {
+        sessionState.clear()
+      }
     },
   }
 }

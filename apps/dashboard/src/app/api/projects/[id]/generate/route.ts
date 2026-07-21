@@ -235,13 +235,19 @@ export async function POST(
     let linterFindings: LinterFinding[] = []
     const scenario = narrative.scenario
     if (process.env.ANTHROPIC_API_KEY) {
-      const sample = buildNarrativeSample(result.data as DemoData)
-      linterFindings = await runNarrativeLinter({ scenario, sample })
-      if (linterFindings.length > 0) {
-        await db
-          .update(fixtureGenerations)
-          .set({ linterFindings })
-          .where(eq(fixtureGenerations.id, generation.id))
+      try {
+        const sample = buildNarrativeSample(result.data as DemoData)
+        linterFindings = await runNarrativeLinter({ scenario, sample })
+        if (linterFindings.length > 0) {
+          await db
+            .update(fixtureGenerations)
+            .set({ linterFindings })
+            .where(eq(fixtureGenerations.id, generation.id))
+        }
+      } catch (error) {
+        // Advisory only (spec §5.2.4) — a linter failure never fails the request.
+        console.warn('[DemoKit] Narrative linter skipped:', error)
+        linterFindings = []
       }
     }
 

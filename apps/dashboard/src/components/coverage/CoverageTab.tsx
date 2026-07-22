@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/table'
 import { useFixtures } from '@/hooks/use-fixtures'
 import { useCoverage } from '@/hooks/use-coverage'
+import type { CoverageDrift } from '@/hooks/use-coverage'
 import { cn } from '@/lib/utils'
 
 interface CoverageTabProps {
@@ -61,6 +62,21 @@ const EVENT_META: Record<string, { label: string; dot: string }> = {
   // the precedent already used for a similar tile in GenerateStep.tsx.
   unregistered_transform: { label: 'No transform', dot: 'bg-violet-500' },
   projection_error: { label: 'Error', dot: 'bg-destructive' },
+}
+
+/**
+ * Shape-drift kind badges (Phase 5 Task 6). `bg-warning/10 text-warning` is
+ * the same pill used for warnings elsewhere (FixtureHeader.tsx's
+ * ValidationBadge, MappingsSection.tsx) — missing_key/type_mismatch are
+ * schema drift a user should act on. extra_key/unknown_endpoint are muted:
+ * informational rather than necessarily wrong (an additional field, or a
+ * request nothing in the schema declared at all).
+ */
+const DRIFT_KIND_META: Record<string, { label: string; badgeClass: string }> = {
+  missing_key: { label: 'Missing key', badgeClass: 'bg-warning/10 text-warning' },
+  type_mismatch: { label: 'Type mismatch', badgeClass: 'bg-warning/10 text-warning' },
+  extra_key: { label: 'Extra key', badgeClass: 'bg-muted text-muted-foreground' },
+  unknown_endpoint: { label: 'Unknown endpoint', badgeClass: 'bg-muted text-muted-foreground' },
 }
 
 export function CoverageTab({ projectId }: CoverageTabProps) {
@@ -221,9 +237,85 @@ export function CoverageTab({ projectId }: CoverageTabProps) {
                 )}
               </>
             )}
+
+            {/*
+              Drift renders independently of `hasEvents` above: a schema can
+              be synced (and diffed against) even on a fixture with zero
+              events yet, and that's a distinct empty state from "no events
+              yet" — not folded into the same gate.
+            */}
+            {coverage && <DriftSection drift={coverage.drift} />}
           </>
         )}
       </div>
     </TabsContent>
+  )
+}
+
+/**
+ * Shape-drift section (spec §9.4 / Phase 5 Task 6): observed response
+ * shapes vs. the project's synced schema, sourced from the coverage route's
+ * `drift` field. Three states: no schema synced (null), schema synced with
+ * zero findings, and schema synced with findings (summary + table).
+ */
+function DriftSection({ drift }: { drift: CoverageDrift | null }) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-medium">Drift</h3>
+      {drift === null ? (
+        <p className="text-sm text-muted-foreground">
+          No schema synced yet — drift detection needs a synced schema.
+        </p>
+      ) : drift.findings.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No drift detected.</p>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            {drift.findings.length} {drift.findings.length === 1 ? 'finding' : 'findings'} across{' '}
+            {drift.observedCount} observed {drift.observedCount === 1 ? 'path' : 'paths'}
+          </p>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kind</TableHead>
+                <TableHead>Endpoint</TableHead>
+                <TableHead>Detail</TableHead>
+                <TableHead className="text-right">Occurrences</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {drift.findings.map((finding, index) => {
+                const meta = DRIFT_KIND_META[finding.kind] ?? {
+                  label: finding.kind,
+                  badgeClass: 'bg-muted text-muted-foreground',
+                }
+                return (
+                  <TableRow
+                    key={`${finding.kind}-${finding.endpointPath ?? finding.path}-${finding.key ?? ''}-${index}`}
+                  >
+                    <TableCell>
+                      <span
+                        className={cn(
+                          'inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded-full',
+                          meta.badgeClass
+                        )}
+                      >
+                        {meta.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {finding.method} {finding.endpointPath ?? finding.path}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{finding.detail}</TableCell>
+                    <TableCell className="text-right">{finding.occurrences}</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </>
+      )}
+    </div>
   )
 }

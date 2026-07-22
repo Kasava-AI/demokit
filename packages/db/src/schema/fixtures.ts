@@ -204,6 +204,21 @@ export const apiCallLogs = pgTable(
     /** Batched-report multiplier: identical events collapse client-side. */
     count: integer('count').notNull().default(1),
 
+    /**
+     * Values-free response shape (spec §9.4), attached to `unmatched_request`
+     * events by the SDK transports' passthrough shape hook. Shape: ShapeNode
+     * from @demokit-ai/core (this package stays dependency-free of core,
+     * hence the loose type — see storySpec in schema/demos.ts for the same
+     * pattern). Nullable: most event types never carry a shape.
+     *
+     * No OSS migration ships with this column by design — the ALTER TABLE
+     * rides in the cloud repo's migration (Task 6's plan references cloud
+     * 0022), which owns the hosted database. Self-hosted OSS installs pick
+     * it up whenever they next run `db:generate`/`db:migrate` against this
+     * schema.
+     */
+    shape: jsonb('shape').$type<Record<string, unknown>>(),
+
     // Response metadata
     responseTimeMs: integer('response_time_ms'),
     statusCode: integer('status_code'),

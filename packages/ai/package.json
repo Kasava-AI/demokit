@@ -27,7 +27,8 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@demokit-ai/core": "workspace:*",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "4.1.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"

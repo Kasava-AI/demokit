@@ -41,8 +41,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build packages
+        run: pnpm build:packages
+
       - name: Run tests with coverage
         run: pnpm test:coverage
+
+      - name: Run dashboard tests
+        run: CI=true pnpm --filter ./apps/dashboard test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

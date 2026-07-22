@@ -7,7 +7,8 @@ import type {
 } from './types'
 import { loadDemoState, saveDemoState, DEFAULT_STORAGE_KEY } from './storage'
 import { createSessionState, type SessionState } from './session'
-import { resolveRequest } from './resolve'
+import { resolveRequest, extractPathname } from './resolve'
+import { maybeDeriveShapeFromResponse } from './shape'
 
 export { demoResponse, isDemoResponse, createMockResponse } from './resolve'
 export type { DemoResponseValue } from './resolve'
@@ -78,6 +79,8 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     onUnmatchedRequest,
     onProjectionError,
     controlPlaneOrigin,
+    observeShapes = true,
+    onPassthroughShape,
   } = config
 
   // Auto-detect demo mode from URL
@@ -136,7 +139,38 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
         init
       )
 
-      return outcome.kind === 'passthrough' ? originalFetch!(input, init) : outcome.response
+      if (outcome.kind !== 'passthrough') {
+        return outcome.response
+      }
+
+      const res = await originalFetch!(input, init)
+
+      // Passthrough shape observation (spec §9.4): gated on `unmatched` so
+      // it fires ONLY for the unmatched-safe-method branch that also fires
+      // onUnmatchedRequest — never for the control-plane bypass, which
+      // exits resolveRequest as passthrough without setting the flag (see
+      // ResolveOutcome). Fire-and-forget, entirely after the response is
+      // already captured: no await joins this to the return path, and every
+      // step is try/caught, so a shape-hook failure can never affect the
+      // response the caller already has in hand.
+      if (outcome.unmatched && observeShapes && onPassthroughShape) {
+        void (async () => {
+          try {
+            const shape = await maybeDeriveShapeFromResponse(res)
+            if (shape) {
+              const method = (
+                init?.method ?? (input instanceof Request ? input.method : undefined) ?? 'GET'
+              ).toUpperCase()
+              const pathname = extractPathname(input, baseUrl)
+              onPassthroughShape({ method, pathname, shape })
+            }
+          } catch {
+            // Best-effort telemetry — never let a shape-hook failure surface.
+          }
+        })()
+      }
+
+      return res
     }
 
     isPatched = true

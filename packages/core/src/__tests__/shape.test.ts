@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   deriveShape,
+  maybeDeriveShapeFromResponse,
   SHAPE_MAX_DEPTH,
   SHAPE_MAX_KEYS,
   SHAPE_MAX_BYTES,
@@ -295,5 +296,89 @@ describe('ObservedShape', () => {
       path: '/api/users',
       shape: { t: 'string' },
     })
+  })
+})
+
+// Shared guard reused by the fetch interceptor's passthrough hook (this task)
+// and the msw transport (Task 4): the only other place allowed to touch a
+// live Response body under spec §8.
+describe('maybeDeriveShapeFromResponse', () => {
+  function jsonResponse(body: unknown, opts: { status?: number; withLength?: boolean } = {}): Response {
+    const { status = 200, withLength = true } = opts
+    const text = JSON.stringify(body)
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (withLength) headers['content-length'] = String(text.length)
+    return new Response(text, { status, headers })
+  }
+
+  it('derives a shape for a JSON 2xx response without consuming the original body', async () => {
+    const res = jsonResponse({ id: '1', name: 'Ada', active: true })
+
+    const shape = await maybeDeriveShapeFromResponse(res)
+
+    expect(shape).toEqual({
+      t: 'object',
+      keys: { id: { t: 'string' }, name: { t: 'string' }, active: { t: 'boolean' } },
+    })
+    // The original response must still be fully readable (clone-then-parse).
+    expect(res.bodyUsed).toBe(false)
+    await expect(res.json()).resolves.toEqual({ id: '1', name: 'Ada', active: true })
+  })
+
+  it('derives a shape when content-length is absent (only gated when present)', async () => {
+    const res = jsonResponse({ ok: true }, { withLength: false })
+
+    const shape = await maybeDeriveShapeFromResponse(res)
+
+    expect(shape).toEqual({ t: 'object', keys: { ok: { t: 'boolean' } } })
+  })
+
+  it('returns null for a non-JSON content-type', async () => {
+    const res = new Response('plain text', { status: 200, headers: { 'content-type': 'text/plain' } })
+
+    await expect(maybeDeriveShapeFromResponse(res)).resolves.toBeNull()
+    expect(res.bodyUsed).toBe(false)
+  })
+
+  it('returns null for a non-2xx status', async () => {
+    const res = jsonResponse({ error: 'nope' }, { status: 404 })
+
+    await expect(maybeDeriveShapeFromResponse(res)).resolves.toBeNull()
+    expect(res.bodyUsed).toBe(false)
+  })
+
+  it('returns null when content-length exceeds 1 MiB, without reading the body', async () => {
+    const res = new Response(JSON.stringify({ small: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json', 'content-length': String(2 * 1024 * 1024) },
+    })
+
+    await expect(maybeDeriveShapeFromResponse(res)).resolves.toBeNull()
+    expect(res.bodyUsed).toBe(false)
+  })
+
+  it('returns null for a malformed JSON body instead of throwing', async () => {
+    const res = new Response('{not json', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+
+    await expect(maybeDeriveShapeFromResponse(res)).resolves.toBeNull()
+  })
+
+  it('returns null instead of throwing when reading headers throws', async () => {
+    const hostile = {
+      ok: true,
+      headers: {
+        get(): string {
+          throw new Error('boom')
+        },
+      },
+      clone() {
+        return hostile
+      },
+    } as unknown as Response
+
+    await expect(maybeDeriveShapeFromResponse(hostile)).resolves.toBeNull()
   })
 })

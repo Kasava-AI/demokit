@@ -18,7 +18,10 @@ describe('resolveRequest', () => {
   it('passes through unmatched safe methods and fires onUnmatchedRequest', async () => {
     const onUnmatchedRequest = vi.fn()
     const out = await resolveRequest(deps({ onUnmatchedRequest }), '/api/unknown')
-    expect(out).toEqual({ kind: 'passthrough' })
+    // `unmatched: true` is the discriminant the fetch interceptor's shape hook
+    // gates on — it must be set ONLY on this branch (see the control-plane
+    // and passthrough-policy cases below, which must NOT carry it).
+    expect(out).toEqual({ kind: 'passthrough', unmatched: true })
     expect(onUnmatchedRequest).toHaveBeenCalledWith({ method: 'GET', pathname: '/api/unknown' })
   })
 
@@ -32,8 +35,10 @@ describe('resolveRequest', () => {
     expect(onMutationBlocked).toHaveBeenCalledOnce()
   })
 
-  it('passes through unmatched mutations under a passthrough policy', async () => {
+  it('passes through unmatched mutations under a passthrough policy, without the unmatched-safe discriminant', async () => {
     const out = await resolveRequest(deps({ unmatchedMutations: 'passthrough' }), '/api/unknown', { method: 'DELETE' })
+    // No `unmatched: true` here — this is the mutation-passthrough-policy
+    // branch, not the unmatched-safe-method branch the shape hook gates on.
     expect(out).toEqual({ kind: 'passthrough' })
   })
 
@@ -151,6 +156,11 @@ describe('resolveRequest', () => {
       'https://api.demokit.cloud/api/coverage',
       { method: 'POST' }
     )
+    // No `unmatched: true` here either — this is the control-plane bypass,
+    // which fires no callback at all (unlike the unmatched-safe branch,
+    // which fires onUnmatchedRequest AND carries the discriminant the fetch
+    // interceptor's shape hook gates on). Task 2 (shape observation) relies
+    // on this exact distinction to never observe DemoKit's own traffic.
     expect(out).toEqual({ kind: 'passthrough' })
     expect(onMutationBlocked).not.toHaveBeenCalled()
     expect(onUnmatchedRequest).not.toHaveBeenCalled()

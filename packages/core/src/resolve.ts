@@ -195,8 +195,23 @@ function isControlPlaneOrigin(url: string, candidate: string): boolean {
   }
 }
 
-/** Outcome of resolving a request: either let it hit the real network, or serve a mock Response. */
-export type ResolveOutcome = { kind: 'passthrough' } | { kind: 'response'; response: Response }
+/**
+ * Outcome of resolving a request: either let it hit the real network, or
+ * serve a mock Response.
+ *
+ * The passthrough variant's `unmatched` discriminant distinguishes the two
+ * distinct ways a request can pass through: an unmatched *safe* method
+ * (GET/HEAD/OPTIONS) — which also fires `onUnmatchedRequest` — carries
+ * `unmatched: true`; the control-plane bypass (checked before any matching,
+ * fires no callback at all) and the mutation-passthrough-policy branch do
+ * not. This is the single source of that distinction: the fetch
+ * interceptor's shape-observation hook (Task 2) gates on `unmatched` so it
+ * only ever observes the former, never DemoKit's own control-plane traffic.
+ * Optional and additive so the msw handler (which ignores it) is unaffected.
+ */
+export type ResolveOutcome =
+  | { kind: 'passthrough'; unmatched?: true }
+  | { kind: 'response'; response: Response }
 
 /**
  * Transport-agnostic request resolution core. Given the deps a transport
@@ -239,7 +254,7 @@ export async function resolveRequest(
   if (!match) {
     if (SAFE_METHODS.has(method)) {
       deps.onUnmatchedRequest?.({ method, pathname })
-      return { kind: 'passthrough' }
+      return { kind: 'passthrough', unmatched: true }
     }
     const blockedContext: UnmatchedMutationContext = { url: extractUrl(input, deps.baseUrl), method, pathname }
     const decision =

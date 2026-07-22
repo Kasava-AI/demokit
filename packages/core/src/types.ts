@@ -1,5 +1,6 @@
 import type { SessionState } from './session'
 import type { DataModel, Relationship } from './services/schema/types'
+import type { ShapeNode } from './shape'
 
 /**
  * Configuration for automatic demo mode detection based on URL
@@ -206,6 +207,22 @@ export interface DemoKitConfig {
    * traffic is never mistaken for demo traffic.
    */
   controlPlaneOrigin?: string
+
+  /**
+   * Observe response SHAPES (spec §9.4) on unmatched safe-method requests
+   * that pass through to the real API while demo mode is on — never
+   * values, key names and primitive type tags only (see `deriveShape`).
+   * Never observes DemoKit's own control-plane traffic.
+   * @default true
+   */
+  observeShapes?: boolean
+
+  /**
+   * Fired when `observeShapes` derived a shape from a passthrough
+   * response. The React provider wires this into the coverage reporter's
+   * `unmatched_request` events (spec §9.4).
+   */
+  onPassthroughShape?: (info: { method: string; pathname: string; shape: ShapeNode }) => void
 }
 
 /**

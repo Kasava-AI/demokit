@@ -53,4 +53,41 @@ describe('createCoverageReporter', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })
+
+  it('includes shape in the flushed wire format when the event carries one', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    const shape = { t: 'object', keys: { id: { t: 'string' } } } as const
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users', shape })
+    await vi.advanceTimersByTimeAsync(10_000)
+    const [, init] = fetchFn.mock.calls[0]!
+    expect(JSON.parse(init.body)).toEqual({
+      events: [{ type: 'unmatched_request', method: 'GET', path: '/api/users', count: 1, shape }],
+    })
+  })
+
+  it('omits shape from the wire format when the event never carried one', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    const [, init] = fetchFn.mock.calls[0]!
+    const events = JSON.parse(init.body).events as Array<Record<string, unknown>>
+    expect(events[0]).not.toHaveProperty('shape')
+  })
+
+  it('dedupe merge: last shape wins, and a later event without a shape does not clear the stored one', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    const shapeA = { t: 'string' } as const
+    const shapeB = { t: 'number' } as const
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users', shape: shapeA })
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users', shape: shapeB })
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users' }) // no shape: must not clear
+    await vi.advanceTimersByTimeAsync(10_000)
+    const [, init] = fetchFn.mock.calls[0]!
+    expect(JSON.parse(init.body)).toEqual({
+      events: [{ type: 'unmatched_request', method: 'GET', path: '/api/users', count: 3, shape: shapeB }],
+    })
+  })
 })

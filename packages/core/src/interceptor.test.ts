@@ -307,6 +307,148 @@ describe('coverage-health callbacks', () => {
   })
 })
 
+describe('passthrough shape observation (spec §9.4)', () => {
+  function jsonResponse(body: unknown, opts: { status?: number; withLength?: boolean } = {}): Response {
+    const { status = 200, withLength = true } = opts
+    const text = JSON.stringify(body)
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (withLength) headers['content-length'] = String(text.length)
+    return new Response(text, { status, headers })
+  }
+
+  /** Poll until `assertion` stops throwing, or fail after real time passes (the shape hook is fire-and-forget). */
+  async function waitFor(assertion: () => void): Promise<void> {
+    const deadline = Date.now() + 1000
+    for (;;) {
+      try {
+        assertion()
+        return
+      } catch (error) {
+        if (Date.now() > deadline) throw error
+        await new Promise((resolve) => setTimeout(resolve, 5))
+      }
+    }
+  }
+
+  it('fires onPassthroughShape for an unmatched GET returning JSON 2xx, and the caller still gets the body intact', async () => {
+    globalThis.fetch = vi.fn(async () => jsonResponse({ id: '1', name: 'Ada' })) as unknown as typeof fetch
+    const onPassthroughShape = vi.fn()
+    interceptor = createDemoInterceptor({ fixtures: {}, initialEnabled: true, onPassthroughShape })
+
+    const res = await fetch('/api/unknown')
+
+    expect(await res.json()).toEqual({ id: '1', name: 'Ada' })
+    await waitFor(() => expect(onPassthroughShape).toHaveBeenCalledOnce())
+    expect(onPassthroughShape).toHaveBeenCalledWith({
+      method: 'GET',
+      pathname: '/api/unknown',
+      shape: { t: 'object', keys: { id: { t: 'string' }, name: { t: 'string' } } },
+    })
+  })
+
+  it('does not fire onPassthroughShape for a non-JSON passthrough response', async () => {
+    globalThis.fetch = vi.fn(
+      async () => new Response('plain text', { status: 200, headers: { 'content-type': 'text/plain' } })
+    ) as unknown as typeof fetch
+    const onPassthroughShape = vi.fn()
+    interceptor = createDemoInterceptor({ fixtures: {}, initialEnabled: true, onPassthroughShape })
+
+    await fetch('/api/unknown')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(onPassthroughShape).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onPassthroughShape for a 4xx passthrough response', async () => {
+    globalThis.fetch = vi.fn(async () => jsonResponse({ error: 'nope' }, { status: 404 })) as unknown as typeof fetch
+    const onPassthroughShape = vi.fn()
+    interceptor = createDemoInterceptor({ fixtures: {}, initialEnabled: true, onPassthroughShape })
+
+    await fetch('/api/unknown')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(onPassthroughShape).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onPassthroughShape when content-length exceeds 1 MiB', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ small: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'content-length': String(2 * 1024 * 1024) },
+        })
+    ) as unknown as typeof fetch
+    const onPassthroughShape = vi.fn()
+    interceptor = createDemoInterceptor({ fixtures: {}, initialEnabled: true, onPassthroughShape })
+
+    await fetch('/api/unknown')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(onPassthroughShape).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onPassthroughShape when observeShapes is false', async () => {
+    globalThis.fetch = vi.fn(async () => jsonResponse({ id: '1' })) as unknown as typeof fetch
+    const onPassthroughShape = vi.fn()
+    interceptor = createDemoInterceptor({
+      fixtures: {},
+      initialEnabled: true,
+      observeShapes: false,
+      onPassthroughShape,
+    })
+
+    await fetch('/api/unknown')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(onPassthroughShape).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onPassthroughShape for a control-plane passthrough request (the negative case)', async () => {
+    const spy = vi.fn(async () => jsonResponse({ ok: true }))
+    globalThis.fetch = spy as unknown as typeof fetch
+    const onPassthroughShape = vi.fn()
+    const onUnmatchedRequest = vi.fn()
+    interceptor = createDemoInterceptor({
+      fixtures: {},
+      initialEnabled: true,
+      controlPlaneOrigin: 'https://api.demokit.cloud/api',
+      onPassthroughShape,
+      onUnmatchedRequest,
+    })
+
+    // Same origin as controlPlaneOrigin: bypasses matching silently, before
+    // onUnmatchedRequest ever fires — the shape hook must never see it,
+    // distinguishing it from an ordinary unmatched-safe passthrough.
+    await fetch('https://api.demokit.cloud/api/coverage')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(spy).toHaveBeenCalledOnce()
+    expect(onUnmatchedRequest).not.toHaveBeenCalled()
+    expect(onPassthroughShape).not.toHaveBeenCalled()
+  })
+
+  it('never lets a shape-hook failure escape — the response is still returned intact with no unhandled rejection', async () => {
+    globalThis.fetch = vi.fn(async () => jsonResponse({ id: '1' })) as unknown as typeof fetch
+    const onUnhandledRejection = vi.fn()
+    process.on('unhandledRejection', onUnhandledRejection)
+    const onPassthroughShape = vi.fn(() => {
+      throw new Error('boom from onPassthroughShape')
+    })
+    interceptor = createDemoInterceptor({ fixtures: {}, initialEnabled: true, onPassthroughShape })
+
+    try {
+      const res = await fetch('/api/unknown')
+      expect(await res.json()).toEqual({ id: '1' })
+      await waitFor(() => expect(onPassthroughShape).toHaveBeenCalledOnce())
+      // Give any (incorrectly) unswallowed rejection a chance to surface.
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(onUnhandledRejection).not.toHaveBeenCalled()
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
+  })
+})
+
 describe('session ownership on destroy', () => {
   it('clears a self-created session on destroy', () => {
     interceptor = createDemoInterceptor({ fixtures: {} })

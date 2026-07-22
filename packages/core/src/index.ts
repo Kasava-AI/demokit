@@ -38,7 +38,14 @@ export type {
 } from './coverage'
 
 // Shape-drift detection (spec §9.4): values-free response shape descriptor
-export { deriveShape, SHAPE_MAX_DEPTH, SHAPE_MAX_KEYS, SHAPE_MAX_BYTES } from './shape'
+export {
+  deriveShape,
+  maybeDeriveShapeFromResponse,
+  SHAPE_MAX_DEPTH,
+  SHAPE_MAX_KEYS,
+  SHAPE_MAX_BYTES,
+  SHAPE_MAX_RESPONSE_BYTES,
+} from './shape'
 export type { ShapeNode, ObservedShape } from './shape'
 
 // Session state management

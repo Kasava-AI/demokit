@@ -5,6 +5,8 @@
  * at the seams that construct events (pathname, not url). Reporting must
  * never break the host app: every failure is swallowed.
  */
+import type { ShapeNode } from './shape'
+
 export type CoverageEventType =
   | 'unmatched_request'
   | 'blocked_mutation'
@@ -15,6 +17,13 @@ export interface CoverageEvent {
   type: CoverageEventType
   method: string
   path: string
+  /**
+   * Values-free response shape (spec §9.4), attached to `unmatched_request`
+   * events by the fetch/msw transports' passthrough shape hook. Dedupe
+   * merge is last-wins: a later event for the same key without a shape does
+   * NOT clear a previously stored one.
+   */
+  shape?: ShapeNode
 }
 
 export interface CoverageReporterOptions {
@@ -76,8 +85,14 @@ export function createCoverageReporter(options: CoverageReporterOptions): Covera
       if (destroyed) return
       const key = `${event.type} ${event.method} ${event.path}`
       const existing = pending.get(key)
-      if (existing) existing.count += 1
-      else pending.set(key, { ...event, count: 1 })
+      if (existing) {
+        existing.count += 1
+        // Last-wins: a later event without a shape must not clear one
+        // already stored for this key (product call #3).
+        if (event.shape !== undefined) existing.shape = event.shape
+      } else {
+        pending.set(key, { ...event, count: 1 })
+      }
       if (pending.size >= maxBatch) void flush()
     },
     flush,

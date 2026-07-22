@@ -30,6 +30,8 @@ export const SHAPE_MAX_DEPTH = 4
 export const SHAPE_MAX_KEYS = 40
 /** Serialized shape byte (JSON.stringify length) budget; over this -> null. */
 export const SHAPE_MAX_BYTES = 4096
+/** Response body size budget for shape observation (declared content-length only; see maybeDeriveShapeFromResponse). */
+export const SHAPE_MAX_RESPONSE_BYTES = 1024 * 1024
 
 /**
  * Derive a values-free shape descriptor for `value`.
@@ -103,4 +105,44 @@ function buildShapeNode(value: unknown, depth: number): ShapeNode | null {
 
   // undefined, function, symbol, bigint, NaN, etc. — no representable shape.
   return null
+}
+
+/**
+ * Guarded shape derivation for a live `Response` — the only other seam
+ * (besides `deriveShape` itself) allowed to touch a response body under
+ * spec §8's privacy constraint. Shared by the fetch interceptor's
+ * passthrough shape hook (Task 2) and the msw transport (Task 4), so both
+ * transports apply identical guards.
+ *
+ * Guards, in order: 2xx status, `content-type: application/json`,
+ * declared `content-length` <= 1 MiB (only when the header is present —
+ * absent is not treated as oversized), then clones the response (so the
+ * caller's original body stream is never disturbed) and parses the clone.
+ *
+ * Every step is try/caught: a malformed body, a hostile Response-like
+ * object, or any other failure while reading it yields `null` rather than
+ * throwing. This must never be able to break the passthrough response path
+ * it observes.
+ */
+export async function maybeDeriveShapeFromResponse(response: Response): Promise<ShapeNode | null> {
+  try {
+    if (!response.ok) return null
+
+    const contentType = response.headers.get('content-type') ?? ''
+    if (!contentType.includes('application/json')) return null
+
+    const contentLength = response.headers.get('content-length')
+    if (contentLength !== null) {
+      const length = Number(contentLength)
+      if (Number.isFinite(length) && length > SHAPE_MAX_RESPONSE_BYTES) return null
+    }
+
+    const text = await response.clone().text()
+    const parsed = JSON.parse(text)
+    return deriveShape(parsed)
+  } catch {
+    // Defense in depth: shape observation is best-effort telemetry and must
+    // never surface a failure into the passthrough response path.
+    return null
+  }
 }

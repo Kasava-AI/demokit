@@ -1,6 +1,7 @@
 import { setupWorker, type SetupWorker } from 'msw/browser'
 import type { ResolveDeps } from '@demokit-ai/core'
 import { createMswRequestHandler } from './handler'
+import { attachBypassObserver, type BypassResponseInfo } from './bypass-observer'
 
 export { createMswRequestHandler } from './handler'
 
@@ -13,12 +14,27 @@ export interface MswTransport {
 export interface MswTransportOptions {
   workerUrl?: string
   startTimeoutMs?: number
+  /**
+   * Raw observation hook: fired for every request msw bypassed straight to
+   * the real network (msw's `response:bypass` life-cycle event). Subscribed
+   * at construction, so it observes bypassed responses for this transport's
+   * whole lifetime; unsubscribed (inert) once `stop()` runs. The transport
+   * does not derive a shape from the response itself — that's provider
+   * policy — it only forwards the `{request, response}` pair.
+   */
+  onBypassResponse?: (info: BypassResponseInfo) => void
 }
 
 export function createMswTransport(options: MswTransportOptions = {}): MswTransport {
-  const { workerUrl = '/mockServiceWorker.js', startTimeoutMs = 5000 } = options
+  const { workerUrl = '/mockServiceWorker.js', startTimeoutMs = 5000, onBypassResponse } = options
   let deps: ResolveDeps | null = null
   const worker: SetupWorker = setupWorker(createMswRequestHandler(() => deps))
+
+  // Subscribed here (construction), not inside start() — the hook observes
+  // bypassed responses regardless of start()/stop() churn timing, mirroring
+  // deps' own construction-time wiring below. detach() runs in stop() so a
+  // stopped transport is fully inert.
+  const bypassObserver = onBypassResponse ? attachBypassObserver(worker.events, onBypassResponse) : null
 
   return {
     async start() {
@@ -41,7 +57,10 @@ export function createMswTransport(options: MswTransportOptions = {}): MswTransp
         clearTimeout(timer)
       }
     },
-    stop() { worker.stop() },
+    stop() {
+      bypassObserver?.detach()
+      worker.stop()
+    },
     setDeps(next) { deps = next },
   }
 }

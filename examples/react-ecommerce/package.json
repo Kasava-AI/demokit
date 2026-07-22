@@ -1,0 +1,36 @@
+{
+  "name": "react-ecommerce",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "DemoKit example: a Vite React SPA wired to the msw transport, runnable offline with no cloud apiKey",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@demokit-ai/core": "workspace:*",
+    "@demokit-ai/msw-transport": "workspace:*",
+    "@demokit-ai/react": "workspace:*",
+    "msw": "^2.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

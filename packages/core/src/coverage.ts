@@ -79,8 +79,19 @@ export function createCoverageReporter(options: CoverageReporterOptions): Covera
 
   async function flush(): Promise<void> {
     if (pending.size === 0 || !fetchFn) return
-    const events = [...pending.values()]
+    // F4 fix (Phase 5 final review, round 2): a shape can arrive via
+    // `attachShape` before its counting `record()` call, creating a
+    // zero-count placeholder (see `attachShape` doc above). That's fine
+    // within a batch — the next `record()` bumps it to 1 — but if a flush
+    // lands in the gap, the placeholder would otherwise ship as a
+    // `count: 0` wire event. The cloud ingest validates `count >= 1` for
+    // every event and rejects the WHOLE batch on one violator, silently
+    // losing every other event in the window. Drop zero-count entries here
+    // instead of sending or carrying them over: an orphaned shape is
+    // costless to lose, since it re-derives on the endpoint's next request.
+    const events = [...pending.values()].filter((event) => event.count > 0)
     pending.clear()
+    if (events.length === 0) return
     try {
       await fetchFn(url, {
         method: 'POST',

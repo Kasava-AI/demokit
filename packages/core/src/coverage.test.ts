@@ -133,4 +133,36 @@ describe('createCoverageReporter', () => {
     await vi.advanceTimersByTimeAsync(10_000)
     expect(fetchFn).not.toHaveBeenCalled()
   })
+
+  // F4 regression (Phase 5 final review, round 2 — introduced by the F1 fix
+  // above): `attachShape` can create a zero-count placeholder when a shape
+  // arrives before its counting `record()` call. That's harmless within a
+  // batch (the next `record()` bumps it to 1), but if a flush lands in the
+  // gap the placeholder would otherwise ship as a `count: 0` wire event —
+  // the cloud ingest validates `count: min(1)` and 400s the WHOLE batch on
+  // one such orphan, silently losing every other event in the window.
+  // `flush()` must drop zero-count entries instead of sending or carrying
+  // them over; an orphaned shape is costless to lose since it re-derives on
+  // the endpoint's next request.
+  it('drops a zero-count orphan entry at flush, never shipping it on the wire', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/orders' })
+    reporter.attachShape('GET', '/api/users', { t: 'string' }) // orphan: no matching record() this batch
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+    const [, init] = fetchFn.mock.calls[0]!
+    const events = JSON.parse(init.body).events as Array<Record<string, unknown>>
+    expect(events).toEqual([{ type: 'unmatched_request', method: 'GET', path: '/api/orders', count: 1 }])
+    expect(events.find((e) => e.path === '/api/users')).toBeUndefined()
+    expect(events.some((e) => e.count === 0)).toBe(false)
+  })
+
+  it('skips the network call entirely when every pending entry is a zero-count orphan', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    reporter.attachShape('GET', '/api/users', { t: 'string' }) // orphan only, no record() at all
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
 })

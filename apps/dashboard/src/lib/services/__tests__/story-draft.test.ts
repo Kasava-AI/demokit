@@ -240,6 +240,50 @@ describe('createStoryDraftGeneration', () => {
     expect(result.unreviewedRowCount).toBe(2)
   })
 
+  it('ci_fill + allowBootstrapPublish: false never publishes on an already-published fixture either — no publish write of any kind', async () => {
+    const mock = createMockDb({ id: 'fixture-1', publishedGenerationId: 'gen-existing' })
+    mockGenerateFromStorySpec.mockReturnValue(makeGenerationResult({
+      validation: { valid: true, errors: [], warnings: [], stats: { totalRecords: 2, recordsByModel: { Customer: 2 }, relationshipsChecked: 0, typeChecks: 0, durationMs: 1 } },
+    }))
+
+    const result = await createStoryDraftGeneration({
+      db: mock.db,
+      projectId: 'project-1',
+      fixtureId: 'fixture-1',
+      schema,
+      spec,
+      source: 'ci_fill',
+      allowBootstrapPublish: false,
+    })
+
+    // CI fills are unreviewed by definition, same as the never-published case.
+    expect(mock.insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'ci_fill',
+        unreviewedRows: { Customer: ['c1', 'c2'] },
+      })
+    )
+
+    // No publish write of any kind: the transaction (which is the only path
+    // that touches `publishes` or `publishedGenerationId`) must never run.
+    expect(mock.transaction).not.toHaveBeenCalled()
+    expect(mock.txInsert).not.toHaveBeenCalled()
+    expect(mock.txInsertValues).not.toHaveBeenCalled()
+    expect(mock.txUpdate).not.toHaveBeenCalled()
+
+    // Only the draft pointer moves — publishedGenerationId is left untouched
+    // (the mock db never even receives a `publishedGenerationId` write).
+    expect(mock.update).toHaveBeenCalledWith(fixtures)
+    expect(mock.updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ draftGenerationId: 'gen-1' })
+    )
+    expect(mock.updateSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ publishedGenerationId: expect.anything() })
+    )
+
+    expect(result.unreviewedRowCount).toBe(2)
+  })
+
   it('swallows a narrative linter failure to an empty array and does not throw', async () => {
     process.env.ANTHROPIC_API_KEY = 'test-key'
     const mock = createMockDb({ id: 'fixture-1', publishedGenerationId: 'gen-existing' })

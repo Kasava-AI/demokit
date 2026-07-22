@@ -169,6 +169,51 @@ describe('classifySchemaDiff', () => {
     ])
   })
 
+  it('classifies a new required property on an existing model as breaking', () => {
+    const updated = clone(BASE)
+    updated.models.User!.properties!.apiKey = prop('apiKey', 'string', { required: true })
+
+    const result = classifySchemaDiff(BASE, updated)
+
+    expect(result.changes).toEqual([
+      {
+        severity: 'breaking',
+        kind: 'property_required_added',
+        model: 'User',
+        property: 'apiKey',
+        detail: '`User.apiKey` added as a required property',
+      },
+    ])
+    expect(result.hasBreaking).toBe(true)
+    expect(result.hasAdditive).toBe(false)
+  })
+
+  it('emits both property_type_changed and property_required_added for one modified property', () => {
+    const updated = clone(BASE)
+    updated.models.Order!.properties!.total = prop('total', 'string', { required: true })
+
+    const result = classifySchemaDiff(BASE, updated)
+
+    expect(result.changes).toEqual([
+      {
+        severity: 'breaking',
+        kind: 'property_type_changed',
+        model: 'Order',
+        property: 'total',
+        detail: '`Order.total` type changed: number → string',
+      },
+      {
+        severity: 'breaking',
+        kind: 'property_required_added',
+        model: 'Order',
+        property: 'total',
+        detail: '`Order.total` is now required',
+      },
+    ])
+    expect(result.hasBreaking).toBe(true)
+    expect(result.hasAdditive).toBe(false)
+  })
+
   it('classifies a removed endpoint as breaking', () => {
     const updated = clone(BASE)
     updated.endpoints = updated.endpoints.filter(

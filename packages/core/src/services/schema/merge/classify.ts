@@ -8,8 +8,8 @@
  *
  * v1 has no rename detection: a renamed model/property/endpoint shows up as
  * a removal (breaking) plus an addition (additive), not a single "renamed"
- * change. That's called out in each affected `detail` string isn't needed
- * beyond this note, since the two entries are self-explanatory on their own.
+ * change. The two entries are self-explanatory on their own, so no special
+ * "renamed" wording is added to either `detail` string.
  */
 
 import type { DemokitSchema, Endpoint, PropertyDef } from '../types'
@@ -69,9 +69,10 @@ export interface ClassifiedDiff {
  * changes (spec §9.1).
  *
  * Breaking: model removed, property removed, property type changed,
- * property newly required, endpoint removed.
- * Additive: new model, new property on an existing model (required or not
- * — v1 does not distinguish), new endpoint.
+ * property newly required (including a brand-new property that's required
+ * from day one on an existing model), endpoint removed.
+ * Additive: new model, new optional property on an existing model, new
+ * endpoint.
  *
  * @param base - The prior schema version.
  * @param updated - The new schema version.
@@ -176,6 +177,22 @@ function classifyPropertyDiff(modelName: string, propDiff: PropertyDiff): Classi
   }
 
   if (change === 'added') {
+    // A brand-new property that's required from day one is breaking for an
+    // existing model: rows/callers that predate it now violate the contract.
+    // One change, one entry — this replaces property_added rather than
+    // supplementing it (there's no "old value" to diff against).
+    if (propDiff.newValue?.required) {
+      return [
+        {
+          severity: 'breaking',
+          kind: 'property_required_added',
+          model: modelName,
+          property: propertyName,
+          detail: `\`${modelName}.${propertyName}\` added as a required property`,
+        },
+      ]
+    }
+
     return [
       {
         severity: 'additive',

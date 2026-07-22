@@ -60,6 +60,7 @@ function makeGeneration(overrides: Partial<FixtureGeneration> & { id: string }):
     fixtureId: "fixture-1",
     label: null,
     level: "narrative-driven",
+    source: "dashboard",
     data: null,
     code: null,
     validationValid: true,
@@ -114,6 +115,34 @@ describe("PublishSection", () => {
     expect(screen.getByText("Published")).toBeTruthy();
     expect(screen.getByText("v2")).toBeTruthy();
     expect(screen.getByText("Draft")).toBeTruthy();
+  });
+
+  it("shows a CI fill · unreviewed annotation on generations from CI auto-fill", () => {
+    const ciFill = makeGeneration({ id: "gen-ci-1", label: "ci-1", source: "ci_fill" });
+    const dashboard = makeGeneration({ id: "gen-ci-2", label: "ci-2", source: "dashboard" });
+
+    mockUseFixtureGenerations.mockReturnValue({
+      data: [ciFill, dashboard],
+      isLoading: false,
+      error: null,
+    });
+    mockUsePublishHistory.mockReturnValue({ data: [], error: null });
+    mockUsePublishGeneration.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
+
+    render(
+      <PublishSection
+        projectId="project-1"
+        fixtureId="fixture-1"
+        publishedGenerationId={null}
+        draftGenerationId={null}
+        previewUrl={null}
+        onSavePreviewUrl={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/CI fill · unreviewed/)).toBeTruthy();
+    // Only the ci_fill row gets the annotation.
+    expect(screen.getAllByText(/CI fill · unreviewed/)).toHaveLength(1);
   });
 
   it("disables the Publish button with a validation tooltip when the generation failed validation", () => {

@@ -35,6 +35,8 @@ interface FixtureGeneration {
   fixtureId: string
   label: string | null
   level: GenerationLevel
+  /** Provenance (Phase 4 Task 8): 'ci_fill' rows are unreviewed until a human publishes. */
+  source: 'dashboard' | 'ci_fill'
   data: Record<string, unknown[]> | null
   code: string | null
   validationValid: boolean | null

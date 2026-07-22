@@ -12,7 +12,6 @@ import type {
   CreateDemoSetInput,
   UpdateDemoSetInput,
 } from '@/lib/api/schemas'
-import type { ValidationResult } from '@demokit-ai/core'
 
 // ============================================================================
 // Types
@@ -602,7 +601,9 @@ export function useWriteStorySpec() {
 
 export interface GenerateStoryResponse {
   generation: Record<string, unknown>
-  validation: ValidationResult
+  /** Only `valid` is deterministically reconstructable post-persistence; see story-draft.ts. */
+  validation: { valid: boolean; errors: unknown[] }
+  warnings: string[]
 }
 
 /**

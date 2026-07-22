@@ -238,6 +238,7 @@ export function PublishSection({
                   <span className="text-xs text-muted-foreground">
                     {statusLabel}
                     {invalid ? ' · failed validation' : ''}
+                    {generation.source === 'ci_fill' ? ' · CI fill · unreviewed' : ''}
                   </span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

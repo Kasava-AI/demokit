@@ -102,6 +102,19 @@ export const fixtureGenerations = pgTable(
     // Generation level used (L1/L2/L3)
     level: generationLevel('level').notNull().default('relationship-valid'),
 
+    /**
+     * Provenance (Phase 4 Task 8): 'dashboard' = a human clicked Generate;
+     * 'ci_fill' = DemoKit Cloud's CI auto-fill (Task 13) landed this draft
+     * without a person in the loop. Badged in the dashboard so a "CI fill"
+     * row reads as unreviewed until a human publishes it.
+     *
+     * No OSS migration ships with this column by design — the ALTER TABLE
+     * rides in the cloud repo's migration 0021 (Task 10), which owns the
+     * hosted database. Self-hosted OSS installs pick it up whenever they
+     * next run `db:generate`/`db:migrate` against this schema.
+     */
+    source: text('source').notNull().default('dashboard').$type<'dashboard' | 'ci_fill'>(),
+
     // The actual generated data (moved from fixtures table)
     data: jsonb('data').$type<Record<string, unknown[]>>(),
 

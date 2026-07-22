@@ -2,30 +2,23 @@
  * Deterministic StorySpec execution (spec §5.2 step 2): no LLM. Lands as a
  * draft generation (spec §6); rows are marked unreviewed when the fixture
  * already serves a published generation. Reused later by CI auto-fill.
+ *
+ * The actual generation write, linter run, and draft/publish split live in
+ * createStoryDraftGeneration (lib/services/story-draft.ts, Phase 4 Task 8)
+ * so DemoKit Cloud's CI auto-fill can call the same logic directly. This
+ * route just resolves auth/schema/spec and shapes the HTTP response.
  */
 import { NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/api/auth'
 import { getDb } from '@/lib/api/db'
 import { unauthorized, notFound, badRequest, handleError } from '@/lib/api/utils'
 import { generateStoryRequestSchema } from '@/lib/api/schemas'
-import { projects, projectSources, fixtures, fixtureGenerations, demoVariants, demos, publishes, eq, and } from '@db'
-import { generateFromStorySpec, parseStorySpec } from '@demokit-ai/core'
-import type { DemokitSchema, DemoData } from '@demokit-ai/core'
-import { buildNarrativeSample, runNarrativeLinter, type LinterFinding } from '@demokit-ai/ai'
+import { projects, projectSources, fixtures, fixtureGenerations, demoVariants, demos, eq, and } from '@db'
+import { parseStorySpec } from '@demokit-ai/core'
+import type { DemokitSchema } from '@demokit-ai/core'
+import { createStoryDraftGeneration } from '@/lib/services/story-draft'
 
 type RouteParams = { params: Promise<{ id: string; fixtureId: string }> }
-
-function collectRowIds(data: Record<string, Record<string, unknown>[]>): Record<string, string[]> {
-  const result: Record<string, string[]> = {}
-  for (const [model, rows] of Object.entries(data)) {
-    const ids = rows
-      .map((row) => row.id ?? row.ID ?? row._id)
-      .filter((id): id is string | number => id !== undefined && id !== null)
-      .map(String)
-    if (ids.length > 0) result[model] = ids
-  }
-  return result
-}
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
@@ -83,84 +76,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       )
     }
 
-    const startTime = Date.now()
-    const baseTimestamp = body.baseTimestamp ?? Date.now()
-    const result = generateFromStorySpec(schema, spec, { baseTimestamp })
-    const durationMs = Date.now() - startTime
+    const draft = await createStoryDraftGeneration({
+      db,
+      projectId: id,
+      fixtureId,
+      schema,
+      spec,
+      source: 'dashboard',
+      baseTimestamp: body.baseTimestamp,
+      allowBootstrapPublish: true,
+      publishedById: user.id,
+    })
 
-    const hasPublished = !!fixture.publishedGenerationId
-    const { totalRecords, recordsByModel } = result.metadata
+    // Re-fetch: the service owns the write (including the linter's
+    // follow-up update), so the route reads back the row it just landed.
+    const generation = await db.query.fixtureGenerations.findFirst({
+      where: eq(fixtureGenerations.id, draft.generationId),
+    })
 
-    const [generation] = await db
-      .insert(fixtureGenerations)
-      .values({
-        fixtureId,
-        label: `Story: ${spec.scenario.slice(0, 80)}`,
-        level: 'relationship-valid',
-        data: result.data as Record<string, unknown[]>,
-        validationValid: result.validation.valid,
-        validationErrorCount: result.validation.errors.length,
-        validationWarningCount: result.validation.warnings.length,
-        validationErrors: result.validation.errors.map((e) => ({
-          type: e.type,
-          model: e.model,
-          field: e.field,
-          message: e.message,
-        })),
-        recordCount: totalRecords,
-        recordsByModel,
-        inputParameters: { storySpec: spec, baseTimestamp },
-        unreviewedRows: hasPublished ? collectRowIds(result.data as Record<string, Record<string, unknown>[]>) : null,
-        status: 'completed',
-        startedAt: new Date(startTime),
-        completedAt: new Date(),
-        durationMs,
-      })
-      .returning()
-
-    // Advisory narrative linter (spec §5.2.4): inline (serverless-safe),
-    // silent no-op without a key, and never blocks or fails the request.
-    let linterFindings: LinterFinding[] = []
-    if (process.env.ANTHROPIC_API_KEY) {
-      try {
-        const sample = buildNarrativeSample(result.data as DemoData, { spec })
-        linterFindings = await runNarrativeLinter({ scenario: spec.scenario, sample })
-        if (linterFindings.length > 0) {
-          await db
-            .update(fixtureGenerations)
-            .set({ linterFindings })
-            .where(eq(fixtureGenerations.id, generation.id))
-        }
-      } catch (error) {
-        // Advisory only (spec §5.2.4) — a linter failure never fails the request.
-        console.warn('[DemoKit] Narrative linter skipped:', error)
-        linterFindings = []
-      }
-    }
-
-    // Draft/publish split (spec §6) — same semantics as the generations POST.
-    if (!hasPublished && result.validation.valid) {
-      await db.transaction(async (tx) => {
-        await tx.insert(publishes).values({
-          fixtureId,
-          generationId: generation.id,
-          previousGenerationId: null,
-          publishedById: user.id,
-          note: 'initial publish',
-        })
-        await tx
-          .update(fixtures)
-          .set({ publishedGenerationId: generation.id, updatedAt: new Date() })
-          .where(eq(fixtures.id, fixtureId))
-      })
-    } else {
-      await db
-        .update(fixtures)
-        .set({ draftGenerationId: generation.id, updatedAt: new Date() })
-        .where(eq(fixtures.id, fixtureId))
-    }
-
-    return NextResponse.json({ generation: { ...generation, linterFindings }, validation: result.validation }, { status: 201 })
+    return NextResponse.json(
+      {
+        generation: { ...generation, linterFindings: draft.linterFindings },
+        validation: { valid: generation?.validationValid ?? true, errors: generation?.validationErrors ?? [] },
+        warnings: draft.warnings,
+      },
+      { status: 201 }
+    )
   } catch (error) {
     return handleError(error, 'POST /api/projects/[id]/fixtures/[fixtureId]/generate-story')
   }

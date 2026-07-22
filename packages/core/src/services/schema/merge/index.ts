@@ -17,3 +17,11 @@ export {
   type SchemaDiffItem,
   type PropertyDiff,
 } from './schema-merger'
+
+export {
+  classifySchemaDiff,
+  type ChangeSeverity,
+  type ChangeKind,
+  type ClassifiedChange,
+  type ClassifiedDiff,
+} from './classify'

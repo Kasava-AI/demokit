@@ -120,6 +120,15 @@ export {
   type PropertyDiff,
 } from './merge'
 
+// Schema diff severity classification (breaking vs additive, spec §9.1)
+export {
+  classifySchemaDiff,
+  type ChangeSeverity,
+  type ChangeKind,
+  type ClassifiedChange,
+  type ClassifiedDiff,
+} from './merge'
+
 // Error handling utilities
 export {
   SchemaParseError,

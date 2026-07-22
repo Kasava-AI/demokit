@@ -40,13 +40,20 @@ export const SHAPE_MAX_BYTES = 4096
  * NEVER records values — type tags and key names only.
  */
 export function deriveShape(value: unknown): ShapeNode | null {
-  const node = buildShapeNode(value, 0)
-  if (node === null) return null
+  try {
+    const node = buildShapeNode(value, 0)
+    if (node === null) return null
 
-  const serialized = JSON.stringify(node)
-  if (serialized.length > SHAPE_MAX_BYTES) return null
+    const serialized = JSON.stringify(node)
+    if (serialized.length > SHAPE_MAX_BYTES) return null
 
-  return node
+    return node
+  } catch {
+    // Defense in depth: a throwing getter on the observed value (or any
+    // other unexpected failure while walking it) must never escape and
+    // break the host app. Treat it the same as "no useful shape."
+    return null
+  }
 }
 
 /**
@@ -70,13 +77,22 @@ function buildShapeNode(value: unknown, depth: number): ShapeNode | null {
   }
 
   if (isObject(value)) {
-    if (depth >= SHAPE_MAX_DEPTH) return { t: 'object', keys: {} }
+    // Collapsed depth-capped objects are marked `truncated: true` too — not
+    // because keys were clipped, but so a collapsed node (real keys exist
+    // but were never looked at) stays distinguishable from a genuinely empty
+    // object. Task 5's drift classifier would otherwise read `keys: {}` at
+    // depth >= SHAPE_MAX_DEPTH as "missing_key" for anything nested there.
+    if (depth >= SHAPE_MAX_DEPTH) return { t: 'object', keys: {}, truncated: true }
     const obj = value as Record<string, unknown>
     const allKeys = Object.keys(obj)
     const truncated = allKeys.length > SHAPE_MAX_KEYS
     const consideredKeys = allKeys.slice(0, SHAPE_MAX_KEYS)
 
-    const keys: Record<string, ShapeNode> = {}
+    // Object.create(null): a literal own-property named "__proto__" (as
+    // JSON.parse produces — a real data property, not the accessor) must
+    // become a real key in the shape rather than silently reassigning this
+    // accumulator's [[Prototype]] via Object.prototype's __proto__ setter.
+    const keys: Record<string, ShapeNode> = Object.create(null)
     for (const key of consideredKeys) {
       const childShape = buildShapeNode(obj[key], depth + 1)
       if (childShape !== null) keys[key] = childShape

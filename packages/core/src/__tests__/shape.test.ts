@@ -122,7 +122,7 @@ describe('deriveShape - depth collapse', () => {
     return node
   }
 
-  it('collapses an object beyond SHAPE_MAX_DEPTH to a bare object (no keys)', () => {
+  it('collapses an object beyond SHAPE_MAX_DEPTH to a bare object marked truncated', () => {
     const value = nestObject(SHAPE_MAX_DEPTH + 1, 'sentinel-leaf-value')
     const shape = deriveShape(value)
     expect(shape).not.toBeNull()
@@ -134,7 +134,15 @@ describe('deriveShape - depth collapse', () => {
       if (node?.t !== 'object') throw new Error('expected object shape')
       node = node.keys.child
     }
-    expect(node).toEqual({ t: 'object', keys: {} })
+    // truncated: true here signals "real keys existed but were never looked
+    // at" — distinct from a genuinely empty object, which must NOT set it
+    // (see the sibling test below). Without this, Task 5's drift classifier
+    // would read collapsed nodes as missing_key false positives.
+    expect(node).toEqual({ t: 'object', keys: {}, truncated: true })
+  })
+
+  it('does NOT mark a genuinely empty object as truncated', () => {
+    expect(deriveShape({})).toEqual({ t: 'object', keys: {} })
   })
 
   it('collapses an array beyond SHAPE_MAX_DEPTH to a bare array (no items)', () => {
@@ -218,6 +226,60 @@ describe('deriveShape - privacy (spec §8)', () => {
     expect(serialized).toContain('"name"')
     expect(serialized).toContain('"tags"')
     expect(serialized).toContain('"address"')
+  })
+})
+
+describe('deriveShape - __proto__ own-property handling', () => {
+  it('shapes a literal __proto__ own property without polluting the accumulator', () => {
+    // JSON.parse's own-property "__proto__" is a real data property (not the
+    // Object.prototype accessor) — this is exactly what real JSON.parse
+    // output looks like when a response body has a "__proto__" field.
+    const value = JSON.parse('{"__proto__": {"x": 1}, "a": "s"}') as Record<string, unknown>
+    expect(Object.getPrototypeOf(value)).toBe(Object.prototype) // sanity: not actually polluted going in
+
+    const shape = deriveShape(value)
+    expect(shape).not.toBeNull()
+    if (shape?.t !== 'object') throw new Error('expected object shape')
+
+    // The key must show up in the shape...
+    expect(shape.keys.__proto__).toEqual({ t: 'object', keys: { x: { t: 'number' } } })
+    expect(shape.keys.a).toEqual({ t: 'string' })
+    expect(Object.keys(shape.keys).sort()).toEqual(['__proto__', 'a'])
+
+    // ...and must not have polluted anything: the accumulator has no
+    // prototype at all (Object.create(null)), so JSON.stringify (which only
+    // looks at own enumerable properties) round-trips it cleanly.
+    expect(Object.getPrototypeOf(shape.keys)).toBeNull()
+    const serialized = JSON.stringify(shape)
+    expect(serialized).toContain('"__proto__"')
+
+    // Note: a non-computed `{ __proto__: ... }` object-literal key sets the
+    // literal's *prototype* rather than creating an own property (a distinct
+    // gotcha from the accumulator bug above) — a COMPUTED key (`['__proto__']`)
+    // is required to build a genuine own "__proto__" property to compare
+    // against, matching what JSON.parse(serialized) actually yields.
+    const roundTripped = JSON.parse(serialized)
+    const expectedKeys = {
+      a: { t: 'string' },
+      ['__proto__']: { t: 'object', keys: { x: { t: 'number' } } },
+    }
+    expect(roundTripped).toEqual({ t: 'object', keys: expectedKeys })
+    expect(Object.keys(roundTripped.keys).sort()).toEqual(['__proto__', 'a'])
+  })
+})
+
+describe('deriveShape - throw-safety', () => {
+  it('returns null instead of throwing when a property getter throws', () => {
+    const value: Record<string, unknown> = { ok: 'fine' }
+    Object.defineProperty(value, 'bad', {
+      enumerable: true,
+      get(): unknown {
+        throw new Error('boom')
+      },
+    })
+
+    expect(() => deriveShape(value)).not.toThrow()
+    expect(deriveShape(value)).toBeNull()
   })
 })
 

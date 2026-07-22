@@ -5,6 +5,7 @@ import {
   SHAPE_MAX_KEYS,
   SHAPE_MAX_BYTES,
   type ObservedShape,
+  type ShapeNode,
 } from '../shape'
 
 describe('deriveShape - constants', () => {
@@ -128,10 +129,9 @@ describe('deriveShape - depth collapse', () => {
 
     // Walk exactly SHAPE_MAX_DEPTH ".keys.child" hops from the root; the node
     // reached there was built at depth === SHAPE_MAX_DEPTH and must collapse.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let node: any = shape
+    let node: ShapeNode | null | undefined = shape
     for (let i = 0; i < SHAPE_MAX_DEPTH; i++) {
-      expect(node.t).toBe('object')
+      if (node?.t !== 'object') throw new Error('expected object shape')
       node = node.keys.child
     }
     expect(node).toEqual({ t: 'object', keys: {} })
@@ -142,10 +142,9 @@ describe('deriveShape - depth collapse', () => {
     const shape = deriveShape(value)
     expect(shape).not.toBeNull()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let node: any = shape
+    let node: ShapeNode | null | undefined = shape
     for (let i = 0; i < SHAPE_MAX_DEPTH; i++) {
-      expect(node.t).toBe('array')
+      if (node?.t !== 'array') throw new Error('expected array shape')
       node = node.items
     }
     expect(node).toEqual({ t: 'array' })

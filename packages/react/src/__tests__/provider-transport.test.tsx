@@ -2,14 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import React from 'react'
 
-const { createDemoInterceptor, fetchCloudFixtures } = vi.hoisted(() => ({
+const { createDemoInterceptor, fetchCloudFixtures, createCoverageReporter } = vi.hoisted(() => ({
   createDemoInterceptor: vi.fn(),
   fetchCloudFixtures: vi.fn(),
+  createCoverageReporter: vi.fn(),
 }))
 vi.mock('@demokit-ai/core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@demokit-ai/core')>()),
   createDemoInterceptor: (...a: unknown[]) => createDemoInterceptor(...a),
   fetchCloudFixtures: (...a: unknown[]) => fetchCloudFixtures(...a),
+  createCoverageReporter: (...a: unknown[]) => createCoverageReporter(...a),
 }))
 
 // A dedicated spy on the mock *factory* itself (not just the exported
@@ -54,11 +56,20 @@ function mswTransportStub() {
   }
 }
 
+function reporterStub() {
+  return {
+    record: vi.fn(),
+    flush: vi.fn().mockResolvedValue(undefined),
+    destroy: vi.fn(),
+  }
+}
+
 beforeEach(() => {
   localStorage.clear()
   createDemoInterceptor.mockReset().mockImplementation(() => interceptorStub())
   createMswTransport.mockReset().mockImplementation(() => mswTransportStub())
   fetchCloudFixtures.mockReset()
+  createCoverageReporter.mockReset().mockImplementation(() => reporterStub())
   mswModuleFactorySpy.mockClear()
 })
 afterEach(() => vi.restoreAllMocks())
@@ -327,6 +338,225 @@ describe('provider transport option', () => {
     expect(firstStop).toHaveBeenCalledOnce()
     expect(firstStop.mock.invocationCallOrder[0]).toBeLessThan(
       createMswTransport.mock.invocationCallOrder[1]
+    )
+  })
+})
+
+// Phase 5 Task 4: shape observation wiring. Policy identity is the point —
+// shapes flow ONLY when the coverage reporter exists (remote mode,
+// reportCoverage !== false, no preview token) AND observeShapes !== false,
+// and both transports must honor the exact same gate.
+describe('shape observation wiring (Phase 5 Task 4)', () => {
+  it('(o) msw: a bypassed JSON response records an unmatched_request event with a shape into the reporter', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    const reporter = reporterStub()
+    createCoverageReporter.mockImplementation(() => reporter)
+
+    let capturedOptions: { onBypassResponse?: (info: { request: Request; response: Response }) => void } = {}
+    createMswTransport.mockImplementation((options: typeof capturedOptions) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" source={{ apiKey: 'dk_live_test', apiUrl: 'https://cp.example.com/api' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeInstanceOf(Function)
+
+    const request = new Request('http://localhost/api/widgets')
+    const response = new Response(JSON.stringify({ id: 'w1', name: 'Widget' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+    capturedOptions.onBypassResponse!({ request, response })
+
+    await waitFor(() => expect(reporter.record).toHaveBeenCalledOnce())
+    expect(reporter.record).toHaveBeenCalledWith({
+      type: 'unmatched_request',
+      method: 'GET',
+      path: '/api/widgets',
+      shape: expect.objectContaining({ t: 'object' }),
+    })
+  })
+
+  it('(p) msw: observeShapes=false constructs the transport without an onBypassResponse hook', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    let capturedOptions: Record<string, unknown> = {}
+    createMswTransport.mockImplementation((options: Record<string, unknown>) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" observeShapes={false} source={{ apiKey: 'dk_live_test' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeUndefined()
+  })
+
+  it('(q) msw: a preview session constructs the transport without an onBypassResponse hook (no reporter)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    let capturedOptions: Record<string, unknown> = {}
+    createMswTransport.mockImplementation((options: Record<string, unknown>) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" source={{ apiKey: 'dk_live_test', previewToken: 'preview-tok' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeUndefined()
+  })
+
+  it('(r) msw: local-fixtures-only mode (no source, hence no reporter) never wires the hook, regardless of observeShapes', async () => {
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    let capturedOptions: Record<string, unknown> = {}
+    createMswTransport.mockImplementation((options: Record<string, unknown>) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" fixtures={{}}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeUndefined()
+  })
+
+  it('(s) msw: a bypassed response from the control-plane origin is never recorded', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    const reporter = reporterStub()
+    createCoverageReporter.mockImplementation(() => reporter)
+
+    let capturedOptions: { onBypassResponse?: (info: { request: Request; response: Response }) => void } = {}
+    createMswTransport.mockImplementation((options: typeof capturedOptions) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" source={{ apiKey: 'dk_live_test', apiUrl: 'https://cp.example.com/api' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+
+    const controlPlaneRequest = new Request('https://cp.example.com/api/coverage', { method: 'POST' })
+    const controlPlaneResponse = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+    const normalRequest = new Request('http://localhost/api/widgets')
+    const normalResponse = new Response(JSON.stringify({ id: 'w1' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+
+    // Fire the control-plane bypass first, then a normal one — waiting for
+    // the normal one to land proves timing isn't the reason the
+    // control-plane one is absent, and the final call-count assertion below
+    // proves the control-plane one never recorded at all.
+    capturedOptions.onBypassResponse!({ request: controlPlaneRequest, response: controlPlaneResponse })
+    capturedOptions.onBypassResponse!({ request: normalRequest, response: normalResponse })
+
+    await waitFor(() =>
+      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/widgets' }))
+    )
+    expect(reporter.record).toHaveBeenCalledTimes(1)
+  })
+
+  it('(t) fetch: interceptor config carries observeShapes: true + onPassthroughShape wired to the reporter', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    render(
+      <DemoKitProvider source={{ apiKey: 'dk_live_test' }}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+    expect(createDemoInterceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ observeShapes: true, onPassthroughShape: expect.any(Function) })
+    )
+  })
+
+  it('(u) fetch: invoking the wired onPassthroughShape callback records into the reporter', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    const reporter = reporterStub()
+    createCoverageReporter.mockImplementation(() => reporter)
+
+    render(
+      <DemoKitProvider source={{ apiKey: 'dk_live_test' }}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+
+    const config = createDemoInterceptor.mock.calls[0]![0] as {
+      onPassthroughShape: (info: { method: string; pathname: string; shape: unknown }) => void
+    }
+    config.onPassthroughShape({ method: 'GET', pathname: '/api/widgets', shape: { t: 'object', keys: {} } })
+
+    expect(reporter.record).toHaveBeenCalledWith({
+      type: 'unmatched_request',
+      method: 'GET',
+      path: '/api/widgets',
+      shape: { t: 'object', keys: {} },
+    })
+  })
+
+  it('(v) fetch: observeShapes=false yields observeShapes: false in the interceptor config', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    render(
+      <DemoKitProvider observeShapes={false} source={{ apiKey: 'dk_live_test' }}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+    expect(createDemoInterceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ observeShapes: false })
+    )
+  })
+
+  it('(w) fetch: a preview session yields observeShapes: false in the interceptor config (no reporter)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    render(
+      <DemoKitProvider source={{ apiKey: 'dk_live_test', previewToken: 'preview-tok' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+    expect(createDemoInterceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ observeShapes: false })
+    )
+  })
+
+  it('(x) fetch: local-fixtures-only mode (no source, hence no reporter) yields observeShapes: false regardless of the observeShapes prop', async () => {
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    render(
+      <DemoKitProvider fixtures={{}}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+    expect(createDemoInterceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ observeShapes: false })
     )
   })
 })

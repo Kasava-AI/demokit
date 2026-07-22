@@ -186,8 +186,20 @@ export interface ResolveDeps {
   controlPlaneOrigin?: string
 }
 
-/** True if `url`'s origin matches `candidate`'s origin. Never throws — malformed input is treated as no match, falling through to normal resolution. */
-function isControlPlaneOrigin(url: string, candidate: string): boolean {
+/**
+ * True if `url`'s origin matches `candidate`'s origin. Never throws —
+ * malformed input is treated as no match, falling through to normal
+ * resolution.
+ *
+ * Exported (not just used internally by `resolveRequest` below) so the msw
+ * transport's shape-observation hook (Task 4, `@demokit-ai/react`'s
+ * `handleMswBypassResponse`) can apply the exact same control-plane check
+ * against msw's `response:bypass` event — which fires for ALL bypassed
+ * traffic, including control-plane requests the msw catch-all already
+ * passes through silently — without re-implementing origin comparison and
+ * risking it drifting from this one.
+ */
+export function isControlPlaneOrigin(url: string, candidate: string): boolean {
   try {
     return new URL(url).origin === new URL(candidate).origin
   } catch {

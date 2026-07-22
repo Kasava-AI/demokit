@@ -13,6 +13,8 @@ import {
   loadDemoState,
   saveDemoState,
   createSessionState,
+  maybeDeriveShapeFromResponse,
+  isControlPlaneOrigin,
   DEFAULT_API_URL,
   type DemoInterceptor,
   type SessionState,
@@ -109,6 +111,7 @@ export function DemoKitProvider({
   pathAliases,
   warnOnCatchAll,
   reportCoverage = true,
+  observeShapes = true,
   // Query cache
   queryClient: externalQueryClient,
   // URL redirects
@@ -289,6 +292,15 @@ export function DemoKitProvider({
     }
   }, [urlRedirects])
 
+  // DemoKit's own control-plane API origin (the coverage reporter's and
+  // `fetchCloudFixtures`'s `apiUrl`) — computed once per render so
+  // `buildDeps()`'s `ResolveDeps.controlPlaneOrigin` below and the msw
+  // bypass-shape hook (Task 4, `handleMswBypassResponse` inside
+  // `setupMswTransport`) derive the exact same value instead of drifting.
+  // Only set in remote mode — local-fixtures-only users never have a
+  // `source`, hence no control-plane traffic exists to bypass.
+  const controlPlaneOrigin = source ? (source.apiUrl ?? DEFAULT_API_URL) : undefined
+
   /**
    * Builds the `ResolveDeps` object shared by both transports (fetch
    * interceptor and MSW), so callback/coverage wiring can never drift
@@ -328,9 +340,8 @@ export function DemoKitProvider({
     // call happens to predate by construction order), so without this an
     // unmatched POST to the reporter's own endpoint gets 409'd and
     // self-recorded as a fresh blocked_mutation event: a self-sustaining
-    // flush loop. Only set in remote mode — local-fixtures-only users never
-    // have a `source`, hence no control-plane traffic exists to bypass.
-    controlPlaneOrigin: source ? (source.apiUrl ?? DEFAULT_API_URL) : undefined,
+    // flush loop.
+    controlPlaneOrigin,
     onMutationIntercepted,
     onMutationBlocked: (ctx) => {
       onMutationBlocked?.(ctx)
@@ -358,12 +369,25 @@ export function DemoKitProvider({
       mergedFixturesRef.current = mergedFixtures
       interceptorRef.current?.destroy()
 
+      // Shape observation (spec §9.4, Task 4): shapes are reporter cargo —
+      // no reporter (local-fixtures-only mode, `reportCoverage: false`, or a
+      // preview session all leave `reporterRef.current` null) means no
+      // observation at all, regardless of the `observeShapes` prop. Passing
+      // `observeShapes: false` (rather than always passing `true` and
+      // relying on `onPassthroughShape`'s optional chaining alone) also
+      // stops the interceptor from deriving a shape at all when nothing
+      // would ever consume it.
+      const shapeObservationEnabled = observeShapes !== false && reporterRef.current !== null
+
       interceptorRef.current = createDemoInterceptor({
         ...buildDeps(),
         storageKey,
         initialEnabled,
         detection: effectiveDetection,
         canDisable,
+        observeShapes: shapeObservationEnabled,
+        onPassthroughShape: ({ method, pathname, shape }) =>
+          reporterRef.current?.record({ type: 'unmatched_request', method, path: pathname, shape }),
         onSessionReset: () => {
           runtimeRef.current?.reset()
         },
@@ -392,7 +416,7 @@ export function DemoKitProvider({
       setIsHydrated(true)
       setStatus('ready')
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect, source]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect, source, observeShapes]
   )
 
   /**
@@ -449,7 +473,52 @@ export function DemoKitProvider({
       return
     }
 
-    const transportInstance = createMswTransport(mswOptions)
+    // Shape observation (spec §9.4, Task 4): identical policy to the fetch
+    // branch's `setupInterceptor` — shapes are reporter cargo, so no
+    // reporter means no observation regardless of `observeShapes`. When
+    // disabled, `mswOptions` is forwarded completely unmodified (never even
+    // wrapped in a new object) so behavior for callers who never touch
+    // shape observation is byte-for-byte identical to before this feature
+    // existed.
+    const shapeObservationEnabled = observeShapes !== false && reporterRef.current !== null
+
+    // msw's `response:bypass` life-cycle event fires for EVERY request the
+    // catch-all passed through — including DemoKit's own control-plane
+    // traffic (the coverage reporter's flush, `fetchCloudFixtures`'s GET),
+    // which the catch-all already bypasses silently (Phase 4 F1) but which
+    // still reaches this hook. `isControlPlaneOrigin` is the exact same
+    // check `resolveRequest` applies internally, imported (not
+    // reimplemented) so the two can never drift apart.
+    const handleMswBypassResponse = ({ request, response }: { request: Request; response: Response }): void => {
+      if (controlPlaneOrigin && isControlPlaneOrigin(request.url, controlPlaneOrigin)) return
+
+      // Fire-and-forget, entirely after msw has already resolved the
+      // response to the original caller (mirrors the fetch interceptor's
+      // own passthrough-shape hook): every step try/caught so a shape-hook
+      // failure can never surface into the passthrough response path it
+      // observes.
+      void (async () => {
+        try {
+          const shape = await maybeDeriveShapeFromResponse(response)
+          if (shape) {
+            reporterRef.current?.record({
+              type: 'unmatched_request',
+              method: request.method,
+              path: new URL(request.url).pathname,
+              shape,
+            })
+          }
+        } catch {
+          // Best-effort telemetry — never let a shape-hook failure surface.
+        }
+      })()
+    }
+
+    const transportInstance = createMswTransport(
+      shapeObservationEnabled
+        ? { ...(mswOptions ?? {}), onBypassResponse: handleMswBypassResponse }
+        : mswOptions
+    )
     // Assigned BEFORE awaiting start() so unmount cleanup can stop this
     // exact instance even if unmount races ahead of construction resolving
     // (Finding 2, review).
@@ -509,7 +578,7 @@ export function DemoKitProvider({
     setIsPublicDemo(detectionResult.isPublicDemo)
     setIsHydrated(true)
     setStatus('ready')
-  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast, mswOptions, source])
+  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast, mswOptions, source, observeShapes])
 
   /**
    * Transport-dispatching construction: routes to the fetch interceptor or

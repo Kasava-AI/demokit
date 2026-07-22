@@ -222,6 +222,21 @@ export interface DemoKitProviderProps {
    */
   reportCoverage?: boolean
 
+  /**
+   * Observe response SHAPES (spec §9.4) on unmatched requests that pass
+   * through to the real API while demo mode is on — never values, key names
+   * and primitive type tags only. Wired into the coverage reporter's
+   * `unmatched_request` events on whichever transport is active (`fetch` or
+   * `msw`), so shape drift shows up identically either way.
+   *
+   * Shapes are reporter cargo: they're only ever observed when the coverage
+   * reporter exists (`reportCoverage` is true and this isn't a preview
+   * session). Setting `reportCoverage: false`, or being in a preview
+   * session, disables shape observation too — regardless of this prop.
+   * @default true
+   */
+  observeShapes?: boolean
+
   // ============================================================================
   // Query Cache Integration
   // ============================================================================

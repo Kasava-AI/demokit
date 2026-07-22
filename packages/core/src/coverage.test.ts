@@ -90,4 +90,47 @@ describe('createCoverageReporter', () => {
       events: [{ type: 'unmatched_request', method: 'GET', path: '/api/users', count: 3, shape: shapeB }],
     })
   })
+
+  // F1 regression (Phase 5 final review): the provider wires TWO callbacks
+  // for the same real unmatched request — `onUnmatchedRequest` (counting)
+  // and the shape hook (`onPassthroughShape` / `handleMswBypassResponse`).
+  // Before this fix both called `record()`, so one real request produced
+  // `count: 2`. `attachShape` is the merge-only counterpart the shape hooks
+  // now call instead: it sets/creates the entry's shape WITHOUT
+  // incrementing `count`, and the merge must hold regardless of which of
+  // the two callbacks happens to fire first.
+  it('attachShape merges a shape onto an existing pending record without incrementing count (record-then-attach)', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    const shape = { t: 'object', keys: { id: { t: 'string' } } } as const
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users' })
+    reporter.attachShape('GET', '/api/users', shape)
+    await vi.advanceTimersByTimeAsync(10_000)
+    const [, init] = fetchFn.mock.calls[0]!
+    expect(JSON.parse(init.body)).toEqual({
+      events: [{ type: 'unmatched_request', method: 'GET', path: '/api/users', count: 1, shape }],
+    })
+  })
+
+  it('attachShape creates a zero-count entry that a later record() bumps to 1 (attach-then-record, order-independent)', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    const shape = { t: 'object', keys: { id: { t: 'string' } } } as const
+    reporter.attachShape('GET', '/api/users', shape)
+    reporter.record({ type: 'unmatched_request', method: 'GET', path: '/api/users' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    const [, init] = fetchFn.mock.calls[0]!
+    expect(JSON.parse(init.body)).toEqual({
+      events: [{ type: 'unmatched_request', method: 'GET', path: '/api/users', count: 1, shape }],
+    })
+  })
+
+  it('attachShape is a no-op after destroy, mirroring record()', async () => {
+    const fetchFn = okFetch()
+    const reporter = createCoverageReporter({ apiKey: 'dk_live_x', apiUrl: 'https://c.test/api', fetchFn })
+    reporter.destroy()
+    reporter.attachShape('GET', '/api/users', { t: 'string' })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
 })

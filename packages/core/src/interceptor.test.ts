@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createDemoInterceptor, demoResponse } from './interceptor'
+import { createCoverageReporter } from './coverage'
 import { createSessionState } from './session'
 import type { DemoInterceptor, UnmatchedMutationContext, RequestContext } from './types'
 
@@ -446,6 +447,84 @@ describe('passthrough shape observation (spec §9.4)', () => {
     } finally {
       process.off('unhandledRejection', onUnhandledRejection)
     }
+  })
+})
+
+// F1 regression (Phase 5 final review): one real unmatched safe-method
+// request that returns JSON 2xx used to produce TWO `reporter.record()`
+// calls with the same dedupe key — `onUnmatchedRequest` (counting) and the
+// shape hook (`onPassthroughShape`) both called `record()` — so `count`
+// came out 2 for a single request. This is the full-chain test the review
+// found missing: it drives a REAL interceptor (`createDemoInterceptor` /
+// `resolveRequest`, not a directly-invoked callback) wired to a REAL
+// coverage reporter (only its own network flush is fetch-mocked, via
+// `fetchFn` — the app-level `globalThis.fetch` the interceptor patches is a
+// separate, real network stub), so both callbacks fire exactly as they do
+// in production and the flushed batch is asserted end-to-end.
+describe('coverage reporter full-chain (F1 regression: no double-count when a shape is observed)', () => {
+  /** Poll until `assertion` stops throwing (the shape hook is fire-and-forget). */
+  async function waitFor(assertion: () => void): Promise<void> {
+    const deadline = Date.now() + 1000
+    for (;;) {
+      try {
+        assertion()
+        return
+      } catch (error) {
+        if (Date.now() > deadline) throw error
+        await new Promise((resolve) => setTimeout(resolve, 5))
+      }
+    }
+  }
+
+  it('flushes exactly one event with count 1 and the shape present for a single unmatched JSON-2xx GET', async () => {
+    const body = { id: '1', name: 'Ada' }
+    const text = JSON.stringify(body)
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(text, {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'content-length': String(text.length) },
+        })
+    ) as unknown as typeof fetch
+
+    const reporterFetchFn = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
+    const reporter = createCoverageReporter({
+      apiKey: 'dk_live_x',
+      apiUrl: 'https://c.test/api',
+      fetchFn: reporterFetchFn,
+    })
+    // Spy wrapper so the test can deterministically wait for the
+    // fire-and-forget shape hook to have merged in before flushing —
+    // without changing what's actually wired (still `reporter.attachShape`,
+    // the same merge-only call the provider makes at both shape call-sites).
+    const attachShapeSpy = vi.fn(reporter.attachShape.bind(reporter))
+
+    interceptor = createDemoInterceptor({
+      fixtures: {},
+      initialEnabled: true,
+      onUnmatchedRequest: (ctx) => reporter.record({ type: 'unmatched_request', method: ctx.method, path: ctx.pathname }),
+      onPassthroughShape: ({ method, pathname, shape }) => attachShapeSpy(method, pathname, shape),
+    })
+
+    const res = await fetch('/api/unknown')
+    expect(await res.json()).toEqual(body)
+
+    await waitFor(() => expect(attachShapeSpy).toHaveBeenCalledOnce())
+
+    await reporter.flush()
+    reporter.destroy()
+
+    expect(reporterFetchFn).toHaveBeenCalledOnce()
+    const [, init] = reporterFetchFn.mock.calls[0]! as [string, RequestInit]
+    const events = JSON.parse(init.body as string).events as Array<Record<string, unknown>>
+    expect(events).toHaveLength(1)
+    expect(events[0]).toEqual({
+      type: 'unmatched_request',
+      method: 'GET',
+      path: '/api/unknown',
+      count: 1,
+      shape: { t: 'object', keys: { id: { t: 'string' }, name: { t: 'string' } } },
+    })
   })
 })
 

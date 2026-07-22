@@ -387,8 +387,14 @@ export function DemoKitProvider({
         detection: effectiveDetection,
         canDisable,
         observeShapes: shapeObservationEnabled,
+        // F1 fix (Phase 5 final review): this fires for the SAME request
+        // `onUnmatchedRequest` already recorded (fetch's shape hook only
+        // runs when `outcome.unmatched` is set, which onUnmatchedRequest's
+        // own call-site also gates on) — calling `record()` here too used
+        // to double the dedupe key's `count`. `attachShape` is merge-only:
+        // it sets the shape without incrementing `count`.
         onPassthroughShape: ({ method, pathname, shape }) =>
-          reporterRef.current?.record({ type: 'unmatched_request', method, path: pathname, shape }),
+          reporterRef.current?.attachShape(method, pathname, shape),
         onSessionReset: () => {
           runtimeRef.current?.reset()
         },
@@ -530,12 +536,13 @@ export function DemoKitProvider({
         try {
           const shape = await maybeDeriveShapeFromResponse(response)
           if (shape) {
-            reporterRef.current?.record({
-              type: 'unmatched_request',
-              method: request.method,
-              path: new URL(request.url).pathname,
-              shape,
-            })
+            // F1 fix (Phase 5 final review): merge-only, same reasoning as
+            // the fetch branch's `onPassthroughShape` above — the guards
+            // just above (mswEnabledRef/SAFE_METHODS/control-plane) mirror
+            // exactly what gates `resolveRequest`'s own `onUnmatchedRequest`
+            // call for this request, so calling the counting `record()`
+            // here too would double `count` for the same dedupe key.
+            reporterRef.current?.attachShape(request.method, new URL(request.url).pathname, shape)
           }
         } catch {
           // Best-effort telemetry — never let a shape-hook failure surface.

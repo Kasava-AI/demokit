@@ -39,6 +39,19 @@ export interface CoverageReporterOptions {
 
 export interface CoverageReporter {
   record(event: CoverageEvent): void
+  /**
+   * Merge-only shape attachment (F1 fix, Phase 5 final review): sets or
+   * creates the `unmatched_request` entry's shape WITHOUT incrementing
+   * `count`. The provider's shape hooks (fetch's `onPassthroughShape`, msw's
+   * bypass-response hook) call this instead of `record()` — `record()`
+   * itself is reserved for `onUnmatchedRequest`'s own counting call, so one
+   * real request produces exactly one count no matter whether a shape was
+   * also observed for it. Order-independent: if the shape arrives before
+   * the counting `record()` call for the same key, a zero-count placeholder
+   * is created and the subsequent `record()` bumps it to 1; if it arrives
+   * after, it merges onto the existing count without changing it.
+   */
+  attachShape(method: string, path: string, shape: ShapeNode): void
   flush(): Promise<void>
   destroy(): void
 }
@@ -92,6 +105,17 @@ export function createCoverageReporter(options: CoverageReporterOptions): Covera
         if (event.shape !== undefined) existing.shape = event.shape
       } else {
         pending.set(key, { ...event, count: 1 })
+      }
+      if (pending.size >= maxBatch) void flush()
+    },
+    attachShape(method: string, path: string, shape: ShapeNode): void {
+      if (destroyed) return
+      const key = `unmatched_request ${method} ${path}`
+      const existing = pending.get(key)
+      if (existing) {
+        existing.shape = shape
+      } else {
+        pending.set(key, { type: 'unmatched_request', method, path, shape, count: 0 })
       }
       if (pending.size >= maxBatch) void flush()
     },

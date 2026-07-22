@@ -59,6 +59,7 @@ function mswTransportStub() {
 function reporterStub() {
   return {
     record: vi.fn(),
+    attachShape: vi.fn(),
     flush: vi.fn().mockResolvedValue(undefined),
     destroy: vi.fn(),
   }
@@ -347,7 +348,7 @@ describe('provider transport option', () => {
 // reportCoverage !== false, no preview token) AND observeShapes !== false,
 // and both transports must honor the exact same gate.
 describe('shape observation wiring (Phase 5 Task 4)', () => {
-  it('(o) msw: a bypassed JSON response records an unmatched_request event with a shape into the reporter', async () => {
+  it('(o) msw: a bypassed JSON response attaches a shape to the unmatched_request event, merge-only (F1: no double-count)', async () => {
     fetchCloudFixtures.mockResolvedValue(cloudResponse())
     localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
 
@@ -375,13 +376,17 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     })
     capturedOptions.onBypassResponse!({ request, response })
 
-    await waitFor(() => expect(reporter.record).toHaveBeenCalledOnce())
-    expect(reporter.record).toHaveBeenCalledWith({
-      type: 'unmatched_request',
-      method: 'GET',
-      path: '/api/widgets',
-      shape: expect.objectContaining({ t: 'object' }),
-    })
+    // F1 fix: the shape hook calls the merge-only `attachShape`, never the
+    // counting `record()` — `record()` stays reserved for
+    // `onUnmatchedRequest`'s own call so a single request's count isn't
+    // doubled by also observing a shape for it.
+    await waitFor(() => expect(reporter.attachShape).toHaveBeenCalledOnce())
+    expect(reporter.attachShape).toHaveBeenCalledWith(
+      'GET',
+      '/api/widgets',
+      expect.objectContaining({ t: 'object' })
+    )
+    expect(reporter.record).not.toHaveBeenCalled()
   })
 
   it('(p) msw: observeShapes=false constructs the transport without an onBypassResponse hook', async () => {
@@ -477,9 +482,9 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     capturedOptions.onBypassResponse!({ request: normalRequest, response: normalResponse })
 
     await waitFor(() =>
-      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/widgets' }))
+      expect(reporter.attachShape).toHaveBeenCalledWith('GET', '/api/widgets', expect.anything())
     )
-    expect(reporter.record).toHaveBeenCalledTimes(1)
+    expect(reporter.attachShape).toHaveBeenCalledTimes(1)
   })
 
   it('(t) fetch: interceptor config carries observeShapes: true + onPassthroughShape wired to the reporter', async () => {
@@ -495,7 +500,7 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     )
   })
 
-  it('(u) fetch: invoking the wired onPassthroughShape callback records into the reporter', async () => {
+  it('(u) fetch: invoking the wired onPassthroughShape callback attaches the shape merge-only, never via record() (F1)', async () => {
     fetchCloudFixtures.mockResolvedValue(cloudResponse())
     localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
 
@@ -512,12 +517,8 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     }
     config.onPassthroughShape({ method: 'GET', pathname: '/api/widgets', shape: { t: 'object', keys: {} } })
 
-    expect(reporter.record).toHaveBeenCalledWith({
-      type: 'unmatched_request',
-      method: 'GET',
-      path: '/api/widgets',
-      shape: { t: 'object', keys: {} },
-    })
+    expect(reporter.attachShape).toHaveBeenCalledWith('GET', '/api/widgets', { t: 'object', keys: {} })
+    expect(reporter.record).not.toHaveBeenCalled()
   })
 
   it('(v) fetch: observeShapes=false yields observeShapes: false in the interceptor config', async () => {
@@ -598,9 +599,7 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     // proves the guard below actually turns observation off, rather than it
     // having never been wired in the first place.
     capturedOptions.onBypassResponse!(bypassTo('/api/before'))
-    await waitFor(() =>
-      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/before' }))
-    )
+    await waitFor(() => expect(reporter.attachShape).toHaveBeenCalledWith('GET', '/api/before', expect.anything()))
 
     // Toggle demo mode off. The worker/observer stays alive across this
     // (only stop() on unmount/refetch detaches it) — the hook itself must
@@ -617,15 +616,15 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     // in-flight async derivation.
     await act(async () => { screen.getByText('toggle').click() })
     capturedOptions.onBypassResponse!(bypassTo('/api/after'))
-    await waitFor(() =>
-      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/after' }))
-    )
+    await waitFor(() => expect(reporter.attachShape).toHaveBeenCalledWith('GET', '/api/after', expect.anything()))
 
     // Exactly two recordings total (before + after) — the while-disabled
     // one never happened.
-    expect(reporter.record).toHaveBeenCalledTimes(2)
-    expect(reporter.record).not.toHaveBeenCalledWith(
-      expect.objectContaining({ path: '/api/while-disabled' })
+    expect(reporter.attachShape).toHaveBeenCalledTimes(2)
+    expect(reporter.attachShape).not.toHaveBeenCalledWith(
+      'GET',
+      '/api/while-disabled',
+      expect.anything()
     )
   })
 
@@ -666,10 +665,8 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
     capturedOptions.onBypassResponse!({ request: mutationRequest, response: mutationResponse })
     capturedOptions.onBypassResponse!({ request: safeRequest, response: safeResponse })
 
-    await waitFor(() =>
-      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ method: 'GET' }))
-    )
-    expect(reporter.record).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(reporter.attachShape).toHaveBeenCalledWith('GET', expect.anything(), expect.anything()))
+    expect(reporter.attachShape).toHaveBeenCalledTimes(1)
   })
 
   it('(aa) msw: reportCoverage=false constructs the transport without an onBypassResponse hook (no reporter)', async () => {

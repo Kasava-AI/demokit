@@ -1,0 +1,15 @@
+---
+'@demokit-ai/msw-transport': minor
+'@demokit-ai/core': minor
+'@demokit-ai/react': minor
+'create-demokit': minor
+'@demokit-ai/db': minor
+---
+
+Phase 4: MSW transport, as an alternative to the fetch-patching interceptor.
+
+- **`@demokit-ai/msw-transport` (new package)**: an MSW v2 Service Worker adapter over the shared resolver. `createMswTransport()` returns `start()`/`stop()`/`setDeps()`, backed by `createMswRequestHandler()`; both are built on `resolveRequest` so the fixture-matching and response-shaping logic is identical to the fetch interceptor. `start()` races the worker's registration against a `startTimeoutMs` (default 5000ms) so a missing or stale `mockServiceWorker.js` fails loudly instead of half-mocking.
+- **`@demokit-ai/core`**: extracts the transport-agnostic `resolveRequest`/`createMockResponse` core (plus `ResolveDeps`/`ResolveOutcome` types) out of the fetch interceptor so the msw transport can share it; `detectDemoMode` is now exported from the package root. `DemoKitConfig` gains `session?: SessionState` so multiple transports can share one session across a single demo run. Adds `classifySchemaDiff` (spec §9.1), which layers breaking-vs-additive severity over `diffSchemas` — a new required property now classifies as breaking, not additive. The fetch interceptor only clears sessions it created itself, and tolerates `Request` bodies that throw on read instead of crashing.
+- **`@demokit-ai/react`**: `DemoKitProviderProps` gains a `transport?: 'fetch' | 'msw'` prop (default `'fetch'`) and `mswOptions` (`workerUrl`, `startTimeoutMs`). `@demokit-ai/msw-transport` is dynamically imported only once demo mode actually activates, so `transport: 'fetch'` users never load msw code and don't need it installed. The transport choice is captured on first mount and fixed for the provider's lifetime — changing it on a later render is a no-op (dev warning), since two transports must never coexist on one provider instance. The context value gains a `status: DemoKitStatus` (`'idle' | 'loading' | 'ready' | 'unavailable'`) tracking the lazy bootstrap, and demo mode no longer reports itself active without a live transport behind it.
+- **`@demokit-ai/create-demokit`**: `--transport <fetch|msw>` flag (default `fetch`). Under `--transport msw`, the CLI copies the target project's own installed `msw/mockServiceWorker.js` into `public/mockServiceWorker.js` (resolved from the project's `node_modules`, not this package's), generates a provider wired with `transport="msw"`, and surfaces an actionable error naming `pnpm add -D msw` if msw isn't installed. The install summary persists a "keep this in sync when upgrading msw" note for the copied worker file.
+- **`@demokit-ai/db`**: `fixtureGenerations` gains a `source` column (`'dashboard' | 'ci_fill'`, default `'dashboard'`) marking whether a generation was a human-triggered draft or landed via automated CI fill. No migration ships in this OSS package for the column — the hosted dashboard's cloud repo owns that ALTER TABLE; self-hosted installs pick up the schema change on their next `db:generate`/`db:migrate`.

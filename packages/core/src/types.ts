@@ -197,6 +197,15 @@ export interface DemoKitConfig {
    * one session across a single demo run.
    */
   session?: SessionState
+
+  /**
+   * DemoKit's own control-plane API origin (the coverage reporter's and
+   * `fetchCloudFixtures`'s `apiUrl`) — passed straight through to
+   * `resolveRequest`'s `ResolveDeps.controlPlaneOrigin`. Requests to this
+   * origin bypass matching and mutation policy entirely, so DemoKit's own
+   * traffic is never mistaken for demo traffic.
+   */
+  controlPlaneOrigin?: string
 }
 
 /**

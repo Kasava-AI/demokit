@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import React from 'react'
 
-const { createDemoInterceptor } = vi.hoisted(() => ({
+const { createDemoInterceptor, fetchCloudFixtures } = vi.hoisted(() => ({
   createDemoInterceptor: vi.fn(),
+  fetchCloudFixtures: vi.fn(),
 }))
 vi.mock('@demokit-ai/core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@demokit-ai/core')>()),
   createDemoInterceptor: (...a: unknown[]) => createDemoInterceptor(...a),
+  fetchCloudFixtures: (...a: unknown[]) => fetchCloudFixtures(...a),
 }))
 
 // A dedicated spy on the mock *factory* itself (not just the exported
@@ -28,7 +30,12 @@ vi.mock('@demokit-ai/msw-transport', () => {
 })
 
 import { DemoKitProvider, useDemoMode } from '../index'
-import { DEFAULT_STORAGE_KEY } from '@demokit-ai/core'
+import { DEFAULT_STORAGE_KEY, DEFAULT_API_URL } from '@demokit-ai/core'
+
+/** Minimal valid CloudFixtureResponse — no models/relationships, so createDemoRuntime returns null and the legacy createRemoteFixtures(response, fixtures) path is used. */
+function cloudResponse() {
+  return { data: {}, mappings: [], version: '1' }
+}
 
 function interceptorStub() {
   return {
@@ -51,6 +58,7 @@ beforeEach(() => {
   localStorage.clear()
   createDemoInterceptor.mockReset().mockImplementation(() => interceptorStub())
   createMswTransport.mockReset().mockImplementation(() => mswTransportStub())
+  fetchCloudFixtures.mockReset()
   mswModuleFactorySpy.mockClear()
 })
 afterEach(() => vi.restoreAllMocks())
@@ -216,5 +224,109 @@ describe('provider transport option', () => {
     )
     await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
     expect(createMswTransport).toHaveBeenCalledWith(options)
+  })
+
+  it('(j) buildDeps threads controlPlaneOrigin from source.apiUrl into the msw transport (final review F1)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+    const setDeps = vi.fn()
+    createMswTransport.mockImplementation(() => ({
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn(),
+      setDeps,
+    }))
+
+    render(
+      <DemoKitProvider transport="msw" source={{ apiKey: 'dk_live_test', apiUrl: 'https://cp.example.com/api' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(setDeps).toHaveBeenCalledWith(
+      expect.objectContaining({ controlPlaneOrigin: 'https://cp.example.com/api' })
+    )
+  })
+
+  it('(k) buildDeps threads controlPlaneOrigin from source.apiUrl into the interceptor config (final review F1)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    render(
+      <DemoKitProvider source={{ apiKey: 'dk_live_test', apiUrl: 'https://cp.example.com/api' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+    expect(createDemoInterceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ controlPlaneOrigin: 'https://cp.example.com/api' })
+    )
+  })
+
+  it('(l) controlPlaneOrigin falls back to DEFAULT_API_URL when source.apiUrl is omitted', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    render(
+      <DemoKitProvider source={{ apiKey: 'dk_live_test' }}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+    expect(createDemoInterceptor).toHaveBeenCalledWith(
+      expect.objectContaining({ controlPlaneOrigin: DEFAULT_API_URL })
+    )
+  })
+
+  it('(m) a preview URL (?demo-preview=tok) bootstraps the transport with no persisted state (final review F2)', async () => {
+    // No localStorage.setItem — demoWanted must come entirely from the
+    // preview-augmented detection the mount gate now shares with the
+    // constructors, not from persisted state.
+    window.history.pushState({}, '', '/?demo-preview=preview-tok')
+    try {
+      render(<DemoKitProvider fixtures={{}}><div>app</div></DemoKitProvider>)
+      await waitFor(() => expect(createDemoInterceptor).toHaveBeenCalledOnce())
+      // The augmented detection must reach the interceptor's own config too,
+      // so its internal enabled/isPublicDemo computation matches what the
+      // mount gate saw (same effectiveDetection, single source of truth).
+      expect(createDemoInterceptor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detection: expect.objectContaining({ queryParams: expect.arrayContaining(['demo-preview']) }),
+        })
+      )
+    } finally {
+      window.history.pushState({}, '', '/')
+    }
+  })
+
+  it('(n) refetch() under msw stops the previous instance before constructing the replacement (final review F3)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    const firstStop = vi.fn()
+    const firstSetDeps = vi.fn()
+    createMswTransport
+      .mockImplementationOnce(() => ({ start: vi.fn().mockResolvedValue(undefined), stop: firstStop, setDeps: firstSetDeps }))
+      .mockImplementationOnce(() => ({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn(), setDeps: vi.fn() }))
+
+    function RefetchButton() {
+      const { refetch } = useDemoMode()
+      return <button onClick={() => refetch()}>refetch</button>
+    }
+
+    render(
+      <DemoKitProvider transport="msw" source={{ apiKey: 'dk_live_test' }}><RefetchButton /></DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(firstStop).not.toHaveBeenCalled()
+
+    await act(async () => { screen.getByText('refetch').click() })
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledTimes(2))
+
+    // Old instance stopped/discarded (deps nulled first) — and that
+    // teardown happened BEFORE the replacement was constructed, never
+    // leaving two live instances.
+    expect(firstSetDeps).toHaveBeenCalledWith(null)
+    expect(firstStop).toHaveBeenCalledOnce()
+    expect(firstStop.mock.invocationCallOrder[0]).toBeLessThan(
+      createMswTransport.mock.invocationCallOrder[1]
+    )
   })
 })

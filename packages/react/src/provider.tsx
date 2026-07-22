@@ -13,6 +13,7 @@ import {
   loadDemoState,
   saveDemoState,
   createSessionState,
+  DEFAULT_API_URL,
   type DemoInterceptor,
   type SessionState,
   type FixtureMap,
@@ -220,6 +221,21 @@ export function DemoKitProvider({
   // the other.
   const effectivePreviewToken = source?.previewToken ?? previewToken
 
+  // Detection augmented with the `demo-preview` query param (spec §6): a
+  // preview URL (`?demo-preview=<token>`) must auto-enable demo mode exactly
+  // like a `detection.queryParams` match, whether or not the caller
+  // configured `detection` at all. Computed once here — not separately
+  // inside each constructor — so the mount gate below and both transport
+  // constructors all read the exact same effective detection. Previously
+  // this augmentation existed only inside `setupInterceptor`/
+  // `setupMswTransport`, downstream of the mount gate; the gate itself
+  // never saw `?demo-preview`, so a fresh browser opening a preview URL
+  // constructed no transport at all (review F2 — the load-bearing half of
+  // the preview flow was silently dead post-gating).
+  const effectiveDetection = effectivePreviewToken
+    ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
+    : detection
+
   // Store the refetch function for context
   const refetchFnRef = useRef<(() => Promise<void>) | null>(null)
 
@@ -304,6 +320,17 @@ export function DemoKitProvider({
     warnOnCatchAll: warnOnCatchAll ?? (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production'),
     unmatchedMutations: unmatchedMutations ?? 'block',
     session: sessionRef.current as SessionState,
+    // Review F1: DemoKit's own control-plane traffic (the coverage
+    // reporter's `POST {apiUrl}/coverage` flush, `fetchCloudFixtures`'s
+    // `GET {apiUrl}/fixtures`) must never be resolved as demo traffic — a
+    // Service Worker transport sees ALL page network traffic (unlike a
+    // patched `fetch` reference, which the fetch transport's own reporter
+    // call happens to predate by construction order), so without this an
+    // unmatched POST to the reporter's own endpoint gets 409'd and
+    // self-recorded as a fresh blocked_mutation event: a self-sustaining
+    // flush loop. Only set in remote mode — local-fixtures-only users never
+    // have a `source`, hence no control-plane traffic exists to bypass.
+    controlPlaneOrigin: source ? (source.apiUrl ?? DEFAULT_API_URL) : undefined,
     onMutationIntercepted,
     onMutationBlocked: (ctx) => {
       onMutationBlocked?.(ctx)
@@ -335,9 +362,7 @@ export function DemoKitProvider({
         ...buildDeps(),
         storageKey,
         initialEnabled,
-        detection: effectivePreviewToken
-          ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
-          : detection,
+        detection: effectiveDetection,
         canDisable,
         onSessionReset: () => {
           runtimeRef.current?.reset()
@@ -367,7 +392,7 @@ export function DemoKitProvider({
       setIsHydrated(true)
       setStatus('ready')
     },
-    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect]
+    [storageKey, initialEnabled, baseUrl, onDemoModeChange, detection, effectivePreviewToken, canDisable, onMutationIntercepted, unmatchedMutations, onMutationBlocked, showBlockedToast, pathAliases, warnOnCatchAll, externalQueryClient, handleUrlRedirect, source]
   )
 
   /**
@@ -396,9 +421,25 @@ export function DemoKitProvider({
    * provider unmounted in the meantime, the instance is stopped and NO
    * state update runs (no `setState` on an unmounted component, no leaked
    * worker registration).
+   *
+   * Destroy-first (final review F3): a second call into this function —
+   * `refetch()` in remote+msw mode is the only real-world case — must stop
+   * and discard any existing LIVE transport before constructing its
+   * replacement, mirroring `setupInterceptor`'s `interceptorRef.current?.destroy()`.
+   * Without this, two live `setupWorker` instances would exist against one
+   * service worker (undefined MSW behavior), and the stale instance's
+   * handler still holds its old `deps` and could win a race and serve
+   * stale fixtures.
    */
   const setupMswTransport = useCallback(async (mergedFixtures: FixtureMap): Promise<void> => {
     mergedFixturesRef.current = mergedFixtures
+
+    if (mswTransportRef.current) {
+      mswTransportRef.current.setDeps(null)
+      mswTransportRef.current.stop()
+      mswTransportRef.current = null
+      mswEnabledRef.current = false
+    }
 
     const { createMswTransport } = await import('@demokit-ai/msw-transport')
 
@@ -414,9 +455,6 @@ export function DemoKitProvider({
     // (Finding 2, review).
     mswInFlightRef.current = transportInstance
 
-    const effectiveDetection = effectivePreviewToken
-      ? { ...detection, queryParams: [...(detection?.queryParams ?? ['demo']), 'demo-preview'] }
-      : detection
     const detectionResult = detectDemoMode(effectiveDetection)
     const enabledInitially = detectionResult.detected || (initialEnabled ?? loadDemoState(storageKey))
 
@@ -443,9 +481,14 @@ export function DemoKitProvider({
     }
 
     if (startFailed) {
-      // Never half-mock (spec §7/§10): stop and discard rather than retain
-      // a half-started transport, and report the same 'unavailable' status
-      // the remote-fetch-with-no-cache path uses.
+      // Never half-mock (spec §7/§10): null deps before stop (review F6) —
+      // a late-activating worker (stale-but-eventually-compatible
+      // mockServiceWorker.js past the timeout) must never find live deps to
+      // serve stale fixtures from behind an 'unavailable' UI — then stop
+      // and discard rather than retain a half-started transport, and report
+      // the same 'unavailable' status the remote-fetch-with-no-cache path
+      // uses.
+      transportInstance.setDeps(null)
       transportInstance.stop()
       setIsHydrated(true)
       setStatus('unavailable')
@@ -466,7 +509,7 @@ export function DemoKitProvider({
     setIsPublicDemo(detectionResult.isPublicDemo)
     setIsHydrated(true)
     setStatus('ready')
-  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast, mswOptions])
+  }, [detection, effectivePreviewToken, initialEnabled, storageKey, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast, mswOptions, source])
 
   /**
    * Transport-dispatching construction: routes to the fetch interceptor or
@@ -624,8 +667,12 @@ export function DemoKitProvider({
     }
     initializedRef.current = true
 
+    // Effective (preview-augmented) detection — review F2: a bare `detection`
+    // read here would never see `?demo-preview=<token>` (the augmentation
+    // used to exist only inside the constructors, downstream of this gate),
+    // so a fresh browser opening a preview URL would construct nothing.
     const demoWanted =
-      detectDemoMode(detection).detected || (initialEnabled ?? loadDemoState(storageKey))
+      detectDemoMode(effectiveDetection).detected || (initialEnabled ?? loadDemoState(storageKey))
 
     if (demoWanted) {
       void ensureTransport()
@@ -708,7 +755,7 @@ export function DemoKitProvider({
       externalQueryClient?.invalidateQueries()
       handleUrlRedirect(next)
     },
-    [storageKey, onDemoModeChange, externalQueryClient, handleUrlRedirect, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast]
+    [storageKey, onDemoModeChange, externalQueryClient, handleUrlRedirect, baseUrl, pathAliases, warnOnCatchAll, unmatchedMutations, onMutationIntercepted, onMutationBlocked, showBlockedToast, source]
   )
 
   const mswEnable = useCallback(() => {

@@ -171,6 +171,28 @@ export interface ResolveDeps {
   onMutationBlocked?: DemoKitConfig['onMutationBlocked']
   onUnmatchedRequest?: DemoKitConfig['onUnmatchedRequest']
   onProjectionError?: DemoKitConfig['onProjectionError']
+  /**
+   * DemoKit's own control-plane API origin (the same `apiUrl` the coverage
+   * reporter POSTs to and `fetchCloudFixtures` GETs from) — a URL or bare
+   * origin string. Any request whose origin matches is passed through
+   * BEFORE fixture matching or mutation policy, silently (no
+   * `onUnmatchedRequest`/`onMutationBlocked` call): DemoKit's own traffic is
+   * never demo traffic. Without this, a Service Worker transport (which
+   * sees all page network traffic, unlike a patched `fetch` reference) can
+   * catch the reporter's own `POST {apiUrl}/coverage` as an unmatched
+   * mutation, block it with a 409, and record the block as a fresh
+   * coverage event — a self-sustaining flush loop.
+   */
+  controlPlaneOrigin?: string
+}
+
+/** True if `url`'s origin matches `candidate`'s origin. Never throws — malformed input is treated as no match, falling through to normal resolution. */
+function isControlPlaneOrigin(url: string, candidate: string): boolean {
+  try {
+    return new URL(url).origin === new URL(candidate).origin
+  } catch {
+    return false
+  }
 }
 
 /** Outcome of resolving a request: either let it hit the real network, or serve a mock Response. */
@@ -190,6 +212,18 @@ export async function resolveRequest(
   const method = (
     init?.method ?? (input instanceof Request ? input.method : undefined) ?? 'GET'
   ).toUpperCase()
+
+  // Control-plane bypass (spec §7/§8 corollary): checked before any fixture
+  // matching or mutation policy, and silently — DemoKit's own traffic to its
+  // own API is never demo traffic, so it never generates coverage events or
+  // blocked-mutation callbacks either.
+  if (deps.controlPlaneOrigin) {
+    const url = extractUrl(input, deps.baseUrl)
+    if (isControlPlaneOrigin(url, deps.controlPlaneOrigin)) {
+      return { kind: 'passthrough' }
+    }
+  }
+
   const pathname = extractPathname(input, deps.baseUrl)
 
   let match = findMatchingPattern(deps.fixtures, method, pathname)

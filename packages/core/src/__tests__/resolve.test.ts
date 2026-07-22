@@ -136,6 +136,47 @@ describe('resolveRequest', () => {
       expect.objectContaining({ method: 'PUT', pattern: 'PUT /api/users/:id', params: { id: '7' } })
     )
   })
+
+  // Phase 4 final review, F1: a POST to DemoKit's own control-plane API
+  // (the coverage reporter's `{apiUrl}/coverage` flush) must never be
+  // resolved as demo traffic — under a Service Worker transport, which sees
+  // all page network traffic, an unmatched POST would otherwise 409 and
+  // self-record as a blocked_mutation coverage event into the very reporter
+  // that sent it: a self-sustaining flush loop.
+  it('passes through a request to controlPlaneOrigin before matching or mutation policy', async () => {
+    const onMutationBlocked = vi.fn()
+    const onUnmatchedRequest = vi.fn()
+    const out = await resolveRequest(
+      deps({ onMutationBlocked, onUnmatchedRequest, controlPlaneOrigin: 'https://api.demokit.cloud/api' }),
+      'https://api.demokit.cloud/api/coverage',
+      { method: 'POST' }
+    )
+    expect(out).toEqual({ kind: 'passthrough' })
+    expect(onMutationBlocked).not.toHaveBeenCalled()
+    expect(onUnmatchedRequest).not.toHaveBeenCalled()
+  })
+
+  it('still resolves normally for a different origin even with controlPlaneOrigin set', async () => {
+    const onMutationBlocked = vi.fn()
+    const out = await resolveRequest(
+      deps({ onMutationBlocked, controlPlaneOrigin: 'https://api.demokit.cloud/api' }),
+      'https://my-app.example.com/api/coverage',
+      { method: 'POST' }
+    )
+    expect(out.kind).toBe('response')
+    expect(onMutationBlocked).toHaveBeenCalledOnce()
+  })
+
+  it('does not bypass a relative-path request when controlPlaneOrigin is a different origin', async () => {
+    const onMutationBlocked = vi.fn()
+    const out = await resolveRequest(
+      deps({ onMutationBlocked, controlPlaneOrigin: 'https://api.demokit.cloud/api' }),
+      '/api/coverage',
+      { method: 'POST' }
+    )
+    expect(out.kind).toBe('response')
+    expect(onMutationBlocked).toHaveBeenCalledOnce()
+  })
 })
 
 describe('createMockResponse', () => {

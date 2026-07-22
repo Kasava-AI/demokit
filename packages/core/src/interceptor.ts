@@ -77,6 +77,7 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
     onSessionReset,
     onUnmatchedRequest,
     onProjectionError,
+    controlPlaneOrigin,
   } = config
 
   // Auto-detect demo mode from URL
@@ -129,6 +130,7 @@ export function createDemoInterceptor(config: DemoKitConfig): DemoInterceptor {
           onMutationBlocked,
           onUnmatchedRequest,
           onProjectionError,
+          controlPlaneOrigin,
         },
         input,
         init

@@ -33,8 +33,8 @@ function resolveWorkerScriptSource(projectRoot: string): string {
     pkgJsonPath = require.resolve('msw/package.json', { paths: [projectRoot] })
   } catch {
     throw new Error(
-      'msw is not installed in this project. Install it (it should be added automatically ' +
-        'when scaffolding with --transport msw) before copying its worker script.'
+      'msw is not installed in this project — run `pnpm add -D msw` (or npm/yarn equivalent) ' +
+        'and re-run create-demokit.'
     )
   }
 

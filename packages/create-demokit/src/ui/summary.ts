@@ -24,6 +24,12 @@ export function printSummary(result: CliResult, cloud: boolean) {
         : pc.dim('-')
       const actionLabel = file.action === 'skipped' ? pc.dim('(skipped)') : ''
       lines.push(`  ${icon} ${file.path} ${actionLabel}`)
+      // Generic — any file kind's description surfaces here (e.g. the msw
+      // worker copy's "keep this in sync when upgrading msw" note), not
+      // just a special case for one file.
+      if (file.description) {
+        lines.push(`      ${pc.dim(file.description)}`)
+      }
     }
     lines.push('')
   }

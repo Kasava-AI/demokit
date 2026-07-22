@@ -111,6 +111,8 @@ describe('copyWorkerScript', () => {
     // project's own package.json instead of depending on directory walking.)
     createFakeMswPackage(projectRoot, { blockAllExports: true })
 
-    await expect(copyWorkerScript(projectRoot)).rejects.toThrow(/msw/i)
+    await expect(copyWorkerScript(projectRoot)).rejects.toThrow(
+      /msw is not installed.*pnpm add -D msw.*re-run create-demokit/i
+    )
   })
 })

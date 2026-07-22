@@ -134,7 +134,8 @@ function parseAppRouterRoute(
   const parsedModels: DataModel[] = []
   const parsedEndpoints: Endpoint[] = []
 
-  // Extract API path from file path
+  // Extract API path from file path, converting Next.js bracket dynamic
+  // segments to the schema's brace template form (see `extractApiPath`).
   // e.g., app/api/users/[id]/route.ts -> /api/users/{id}
   const apiPath = extractApiPath(filePath)
 
@@ -334,11 +335,42 @@ function parseServerActions(
 }
 
 /**
+ * Convert Next.js bracket dynamic-segment notation to the schema's brace
+ * template form, so downstream consumers (e.g. `detectShapeDrift`'s
+ * `toMatcherPath`, which only recognizes `{param}`) can match observed
+ * request paths against these endpoints.
+ *
+ * - `[id]` -> `{id}` (dynamic segment)
+ * - `[...slug]` -> `{slug}` (catch-all)
+ * - `[[...slug]]` -> `{slug}` (optional catch-all)
+ *
+ * The catch-all forms collapse to the same single-segment `{param}`
+ * template as a plain dynamic segment. That's a known lossy mapping: a
+ * real catch-all matches one or more path segments
+ * (`/api/files/a/b/c`), but the schema's brace grammar (and the `:param`
+ * -> `[^/]+` regex it lowers to in `matcher.ts`) has no multi-segment
+ * param representation, and inventing one is out of scope here. An
+ * observed multi-segment catch-all request therefore still won't match
+ * this template — only single-segment catch-all requests will.
+ *
+ * Order matters: the more specific (longer bracket run) patterns must be
+ * replaced before the plain `[id]` pattern, since `[[...slug]]` and
+ * `[...slug]` both contain a `[...]`-shaped substring that the plain
+ * pattern would otherwise mangle.
+ */
+function convertBracketsToBraces(path: string): string {
+  return path
+    .replace(/\[\[\.\.\.(\w+)\]\]/g, '{$1}') // optional catch-all: [[...slug]]
+    .replace(/\[\.\.\.(\w+)\]/g, '{$1}') // catch-all: [...slug]
+    .replace(/\[(\w+)\]/g, '{$1}') // dynamic segment: [id]
+}
+
+/**
  * Extract API path from App Router file path.
  */
 function extractApiPath(filePath: string): string {
-  // app/api/users/[id]/route.ts -> /api/users/[id]
-  // app/api/[...slug]/route.ts -> /api/[...slug]
+  // app/api/users/[id]/route.ts -> /api/users/{id}
+  // app/api/[...slug]/route.ts -> /api/{slug}
   // Handle both relative (app/api/...) and absolute (/src/app/api/...) paths
 
   // Normalize path separators and find the app/api portion
@@ -347,8 +379,7 @@ function extractApiPath(filePath: string): string {
   // Match app/api/... up to route.ts
   const match = normalizedPath.match(/app(\/api\/.+?)\/route\.ts$/)
   if (match && match[1]) {
-    // Keep the original bracket notation for the path
-    return match[1]
+    return convertBracketsToBraces(match[1])
   }
   return '/api/unknown'
 }
@@ -357,11 +388,11 @@ function extractApiPath(filePath: string): string {
  * Extract API path from Pages Router file path.
  */
 function extractPagesApiPath(filePath: string): string {
-  // pages/api/users/[id].ts -> /api/users/[id]
+  // pages/api/users/[id].ts -> /api/users/{id}
   const normalizedPath = filePath.replace(/\\/g, '/')
   const match = normalizedPath.match(/pages(\/api\/.+?)\.tsx?$/)
   if (match && match[1]) {
-    return match[1]
+    return convertBracketsToBraces(match[1])
   }
   return '/api/unknown'
 }

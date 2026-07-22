@@ -27,10 +27,14 @@ function endpoint(
   return { method, path, pathParams: [], queryParams: [], responses, tags: [] }
 }
 
-/** Build a minimal DemokitSchema. */
-function schema(models: Record<string, DataModel>, endpoints: Endpoint[]): DemokitSchema {
+/** Build a minimal DemokitSchema. `info` overrides let tests set `baseUrl`. */
+function schema(
+  models: Record<string, DataModel>,
+  endpoints: Endpoint[],
+  info: Partial<DemokitSchema['info']> = {}
+): DemokitSchema {
   return {
-    info: { title: 'Test API', version: '1.0.0' },
+    info: { title: 'Test API', version: '1.0.0', ...info },
     endpoints,
     models,
     relationships: [],
@@ -256,6 +260,10 @@ describe('detectShapeDrift', () => {
   })
 
   it('matches a templated endpoint path against an observed path carrying an unmapped base prefix', () => {
+    // Legacy case: no `info.baseUrl`, so the layered matcher falls through
+    // to its last candidate, the `/api` guess. Same rationale as before the
+    // layered rewrite — `/api` just moved from "the only fallback" to
+    // "last in an ordered, deduped candidate list".
     const templatedSchema = schema(
       { User: USER_MODEL },
       [endpoint('GET', '/users/{id}', jsonResponse(USER_REF))]
@@ -268,6 +276,63 @@ describe('detectShapeDrift', () => {
 
     expect(result.matchedCount).toBe(1)
     expect(result.findings).toEqual([])
+  })
+
+  it('matches via the schema-declared server base path (info.baseUrl) before falling back to /api', () => {
+    const baseUrlSchema = schema(
+      { User: USER_MODEL },
+      [endpoint('GET', '/users/{id}', jsonResponse(USER_REF))],
+      { baseUrl: 'https://x.com/v1' }
+    )
+
+    const result = detectShapeDrift(
+      [observed('GET', '/v1/users/42', cleanUserShape())],
+      baseUrlSchema
+    )
+
+    expect(result.matchedCount).toBe(1)
+    expect(result.findings).toEqual([])
+  })
+
+  it('matches an observed path with two unmapped base segments via the bounded strip fallback', () => {
+    // No candidate matches `/api/v2/users/42` directly (base-path candidates
+    // are '', '/api' here — neither combined with the declared path has a
+    // "v2" segment). Strip 1 -> '/v2/users/42' still fails every candidate.
+    // Strip 2 -> '/users/42' matches the no-prefix candidate.
+    const templatedSchema = schema(
+      { User: USER_MODEL },
+      [endpoint('GET', '/users/{id}', jsonResponse(USER_REF))]
+    )
+
+    const result = detectShapeDrift(
+      [observed('GET', '/api/v2/users/42', cleanUserShape())],
+      templatedSchema
+    )
+
+    expect(result.matchedCount).toBe(1)
+    expect(result.findings).toEqual([])
+  })
+
+  it('does not let the strip fallback conjure a false match for an unrelated path', () => {
+    // A 1-segment literal template ('/widgets') against a 3-segment
+    // unrelated path. Stripping 1 or 2 segments off '/foo/bar/baz' never
+    // produces a remainder whose literal segments line up with 'widgets',
+    // at any base-path candidate ('', '/api') — the strip fallback must not
+    // manufacture a match here.
+    const widgetsSchema = schema(
+      {},
+      [endpoint('GET', '/widgets', jsonResponse(USER_REF))]
+    )
+
+    const result = detectShapeDrift(
+      [observed('GET', '/foo/bar/baz', { t: 'object', keys: {} })],
+      widgetsSchema
+    )
+
+    expect(result.matchedCount).toBe(0)
+    expect(result.findings).toEqual([
+      expect.objectContaining({ kind: 'unknown_endpoint', method: 'GET', path: '/foo/bar/baz' }),
+    ])
   })
 
   it('unwraps a declared array-of-model response and the observed array before comparing keys', () => {

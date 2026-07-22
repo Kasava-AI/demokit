@@ -46,15 +46,23 @@ export interface ShapeDriftReport {
 }
 
 /**
- * Default base path assumed when a declared endpoint path fails to match an
- * observed pathname directly. OpenAPI-derived `Endpoint.path` values are
- * often declared relative to the API's base path (e.g. `/users/{id}`) while
- * observed requests hit the fully-served path (e.g. `/api/users/42`).
- * `/api` is this codebase's own convention for that base path — see
- * `inferMappingsFromModels`'s `basePath` default in
- * packages/ai/src/lib/schema-to-mappings.ts (~line 457).
+ * Legacy base-path guess, tried last. Lifted from `inferMappingsFromModels`'s
+ * `basePath` default in packages/ai/src/lib/schema-to-mappings.ts (~line
+ * 457) — that default exists for a different problem (inventing plausible
+ * REST paths when there's no schema at all) and is kept here only as a
+ * last-resort fallback now that `schema.info.baseUrl` (real, already-parsed
+ * data — see `baseUrlPathPrefix`) is tried first.
  */
 const DEFAULT_BASE_PATH = '/api'
+
+/**
+ * Bound on how many leading path segments the strip fallback (see
+ * `findEndpoint`) will remove from an observed pathname. Kept small and
+ * fixed so an unrelated path can't "walk into" a short template purely by
+ * shedding enough segments — 2 covers the common `/api/v2/...` shape
+ * without turning the matcher into an open-ended fuzzy search.
+ */
+const MAX_BASE_PATH_STRIPS = 2
 
 /**
  * Convert OpenAPI-style `{param}` path placeholders to the `:param` syntax
@@ -77,22 +85,94 @@ function buildPatternMap(endpoints: Endpoint[], prefix: string): Record<string, 
 }
 
 /**
- * Find the schema endpoint matching an observed method+path. Tries the
- * declared path as-is first, then retries with the codebase's default base
- * path prefixed (see `DEFAULT_BASE_PATH`) so templated endpoints declared
- * without their serving prefix still match. Swallows pattern-parse errors
- * from malformed endpoint paths rather than letting one bad schema entry
- * abort the whole report.
+ * Extract the path component of a schema's declared server base URL
+ * (`SchemaInfo.baseUrl`, from OpenAPI's `servers[0].url`), if present and
+ * parseable. `new URL(url, 'http://_')` accepts both absolute URLs
+ * (`https://api.example.com/v1`) and origin-relative ones (`/v1`) the same
+ * way. A root or trailing-slash-only path contributes nothing (returns
+ * `null`, same as "not present") since it composes to an empty prefix.
+ */
+function baseUrlPathPrefix(baseUrl: string | undefined): string | null {
+  if (!baseUrl) return null
+  try {
+    const pathname = new URL(baseUrl, 'http://_').pathname.replace(/\/$/, '')
+    return pathname || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ordered, deduped base-path candidates to try when matching an endpoint:
+ * the schema's own declared server base path first (real data), then no
+ * prefix, then the legacy `/api` guess last.
+ */
+function basePathCandidates(schema: DemokitSchema): string[] {
+  const raw = [baseUrlPathPrefix(schema.info.baseUrl), '', DEFAULT_BASE_PATH]
+  const seen = new Set<string>()
+  const candidates: string[] = []
+  for (const prefix of raw) {
+    if (prefix === null || seen.has(prefix)) continue
+    seen.add(prefix)
+    candidates.push(prefix)
+  }
+  return candidates
+}
+
+/** Try every base-path candidate against `pathname` as given (no segment stripping). */
+function matchWithBasePaths(schema: DemokitSchema, method: string, pathname: string): Endpoint | null {
+  for (const prefix of basePathCandidates(schema)) {
+    const patterns = buildPatternMap(schema.endpoints, prefix)
+    const match = findMatchingPattern(patterns, method, pathname)
+    if (match) return patterns[match[0]] ?? null
+  }
+  return null
+}
+
+/**
+ * Strip `count` leading path segments from `pathname`.
+ * @example stripLeadingSegments('/api/v2/users/42', 2) -> '/users/42'
+ * Returns `null` if there aren't `count` segments to strip (nothing left to
+ * try), which is how the caller knows to stop.
+ */
+function stripLeadingSegments(pathname: string, count: number): string | null {
+  let remainder = pathname
+  for (let i = 0; i < count; i++) {
+    const match = remainder.match(/^\/[^/]+(\/.*)?$/)
+    if (!match?.[1]) return null
+    remainder = match[1]
+  }
+  return remainder
+}
+
+/**
+ * Find the schema endpoint matching an observed method+path.
+ *
+ * Layered strategy: try every base-path candidate (§`basePathCandidates`)
+ * against the pathname as observed; if none match, strip up to
+ * `MAX_BASE_PATH_STRIPS` leading segments off the observed pathname
+ * (`/v1/users/42` -> `/users/42`, or two strips for `/api/v2/users/42`) and
+ * retry every candidate against each stripped remainder. A strip-match is
+ * still a full anchored template match of the remainder — `matchUrl`'s
+ * regex is always `^...$`, so this can't partially match. Bounded at 2
+ * strips by design: deep enough for the common `/api/v2` shape, shallow
+ * enough that an unrelated path can't spuriously align with a short
+ * template purely by shedding segments.
+ *
+ * Swallows pattern-parse errors from malformed endpoint paths rather than
+ * letting one bad schema entry abort the whole report.
  */
 function findEndpoint(schema: DemokitSchema, method: string, pathname: string): Endpoint | null {
   try {
-    const direct = buildPatternMap(schema.endpoints, '')
-    const directMatch = findMatchingPattern(direct, method, pathname)
-    if (directMatch) return direct[directMatch[0]] ?? null
+    const direct = matchWithBasePaths(schema, method, pathname)
+    if (direct) return direct
 
-    const prefixed = buildPatternMap(schema.endpoints, DEFAULT_BASE_PATH)
-    const prefixedMatch = findMatchingPattern(prefixed, method, pathname)
-    if (prefixedMatch) return prefixed[prefixedMatch[0]] ?? null
+    for (let strips = 1; strips <= MAX_BASE_PATH_STRIPS; strips++) {
+      const stripped = stripLeadingSegments(pathname, strips)
+      if (stripped === null) break
+      const match = matchWithBasePaths(schema, method, stripped)
+      if (match) return match
+    }
 
     return null
   } catch {

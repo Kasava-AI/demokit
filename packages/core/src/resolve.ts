@@ -8,6 +8,19 @@ import type {
 import { findMatchingPattern } from './matcher'
 import type { SessionState } from './session'
 
+/**
+ * HTTP methods `resolveRequest` treats as safe (never blocked by mutation
+ * policy; the only methods whose unmatched passthrough sets
+ * `ResolveOutcome.unmatched: true`, below).
+ *
+ * Re-exported from `index.ts` (not just used internally) so
+ * `@demokit-ai/react`'s msw shape-observation hook
+ * (`handleMswBypassResponse`) can gate on the exact same set — msw's
+ * `response:bypass` event carries no `unmatched` discriminant of its own
+ * (see `ResolveOutcome`'s doc comment), so the provider reproduces "unmatched
+ * safe method" by checking `SAFE_METHODS` directly instead of hardcoding a
+ * second `new Set(['GET', 'HEAD', 'OPTIONS'])` that could drift from this one.
+ */
 export const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /**

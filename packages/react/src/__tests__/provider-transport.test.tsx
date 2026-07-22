@@ -559,4 +559,151 @@ describe('shape observation wiring (Phase 5 Task 4)', () => {
       expect.objectContaining({ observeShapes: false })
     )
   })
+
+  it('(y) msw: after enable then disable, bypassed responses are no longer recorded (review Finding 1 — disabled-state leak)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    const reporter = reporterStub()
+    createCoverageReporter.mockImplementation(() => reporter)
+
+    let capturedOptions: { onBypassResponse?: (info: { request: Request; response: Response }) => void } = {}
+    createMswTransport.mockImplementation((options: typeof capturedOptions) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    function ToggleButton() {
+      const { toggle } = useDemoMode()
+      return <button onClick={() => toggle()}>toggle</button>
+    }
+
+    render(
+      <DemoKitProvider transport="msw" source={{ apiKey: 'dk_live_test' }}>
+        <ToggleButton />
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeInstanceOf(Function)
+
+    const bypassTo = (path: string) => ({
+      request: new Request(`http://localhost${path}`),
+      response: new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    })
+
+    // Sanity: while still enabled, a bypass IS observed and recorded — this
+    // proves the guard below actually turns observation off, rather than it
+    // having never been wired in the first place.
+    capturedOptions.onBypassResponse!(bypassTo('/api/before'))
+    await waitFor(() =>
+      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/before' }))
+    )
+
+    // Toggle demo mode off. The worker/observer stays alive across this
+    // (only stop() on unmount/refetch detaches it) — the hook itself must
+    // bail once mswEnabledRef.current flips false, exactly as the review's
+    // `enable → disable → bypassed request → NO record, NO derivation` case
+    // demands.
+    await act(async () => { screen.getByText('toggle').click() })
+    capturedOptions.onBypassResponse!(bypassTo('/api/while-disabled'))
+
+    // Toggle back on and fire a third, distinctly-pathed bypass — waiting
+    // for THIS one to land proves enough time has passed for the
+    // while-disabled derivation to have completed too, had it (incorrectly)
+    // been allowed to run — it's not a synchronous assertion racing an
+    // in-flight async derivation.
+    await act(async () => { screen.getByText('toggle').click() })
+    capturedOptions.onBypassResponse!(bypassTo('/api/after'))
+    await waitFor(() =>
+      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/after' }))
+    )
+
+    // Exactly two recordings total (before + after) — the while-disabled
+    // one never happened.
+    expect(reporter.record).toHaveBeenCalledTimes(2)
+    expect(reporter.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/api/while-disabled' })
+    )
+  })
+
+  it('(z) msw: a passthrough-policy mutation bypass is never recorded — only safe methods are (review Finding 2 — safe-method gate)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    const reporter = reporterStub()
+    createCoverageReporter.mockImplementation(() => reporter)
+
+    let capturedOptions: { onBypassResponse?: (info: { request: Request; response: Response }) => void } = {}
+    createMswTransport.mockImplementation((options: typeof capturedOptions) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" unmatchedMutations="passthrough" source={{ apiKey: 'dk_live_test' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+
+    const mutationRequest = new Request('http://localhost/api/widgets', { method: 'POST' })
+    const mutationResponse = new Response(JSON.stringify({ id: 'w1' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+    const safeRequest = new Request('http://localhost/api/widgets')
+    const safeResponse = new Response(JSON.stringify({ id: 'w1' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+
+    // Fire the mutation bypass first, then a safe-method one — waiting for
+    // the safe one to land proves timing isn't why the mutation is absent,
+    // and the final call-count assertion proves the mutation never recorded.
+    capturedOptions.onBypassResponse!({ request: mutationRequest, response: mutationResponse })
+    capturedOptions.onBypassResponse!({ request: safeRequest, response: safeResponse })
+
+    await waitFor(() =>
+      expect(reporter.record).toHaveBeenCalledWith(expect.objectContaining({ method: 'GET' }))
+    )
+    expect(reporter.record).toHaveBeenCalledTimes(1)
+  })
+
+  it('(aa) msw: reportCoverage=false constructs the transport without an onBypassResponse hook (no reporter)', async () => {
+    fetchCloudFixtures.mockResolvedValue(cloudResponse())
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    let capturedOptions: Record<string, unknown> = {}
+    createMswTransport.mockImplementation((options: Record<string, unknown>) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" reportCoverage={false} source={{ apiKey: 'dk_live_test' }}>
+        <div>app</div>
+      </DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeUndefined()
+  })
+
+  it('(bb) msw: local-fixtures-only mode with observeShapes={false} explicitly still never wires the hook (extends (r)\'s "regardless" claim)', async () => {
+    localStorage.setItem(DEFAULT_STORAGE_KEY, 'true')
+
+    let capturedOptions: Record<string, unknown> = {}
+    createMswTransport.mockImplementation((options: Record<string, unknown>) => {
+      capturedOptions = options ?? {}
+      return mswTransportStub()
+    })
+
+    render(
+      <DemoKitProvider transport="msw" observeShapes={false} fixtures={{}}><div>app</div></DemoKitProvider>
+    )
+    await waitFor(() => expect(createMswTransport).toHaveBeenCalledOnce())
+    expect(capturedOptions.onBypassResponse).toBeUndefined()
+  })
 })

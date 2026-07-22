@@ -25,7 +25,7 @@ export { createDemoInterceptor, demoResponse, isDemoResponse, detectDemoMode } f
 export type { DemoResponseValue } from './interceptor'
 
 // Transport-agnostic request resolution core (fetch interceptor + MSW share this)
-export { resolveRequest, createMockResponse, isControlPlaneOrigin } from './resolve'
+export { resolveRequest, createMockResponse, isControlPlaneOrigin, SAFE_METHODS } from './resolve'
 export type { ResolveDeps, ResolveOutcome } from './resolve'
 
 // Coverage-health reporter (spec §8)

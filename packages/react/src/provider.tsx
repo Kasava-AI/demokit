@@ -15,6 +15,7 @@ import {
   createSessionState,
   maybeDeriveShapeFromResponse,
   isControlPlaneOrigin,
+  SAFE_METHODS,
   DEFAULT_API_URL,
   type DemoInterceptor,
   type SessionState,
@@ -489,7 +490,35 @@ export function DemoKitProvider({
     // still reaches this hook. `isControlPlaneOrigin` is the exact same
     // check `resolveRequest` applies internally, imported (not
     // reimplemented) so the two can never drift apart.
+    //
+    // Two more guards close the gap review Finding 1/2 identified — without
+    // them this hook's observed population would NOT match the fetch
+    // branch's:
+    //
+    // 1. `mswEnabledRef.current` — while demo mode is toggled off, `deps` is
+    //    null and `handler.ts`'s catch-all bails to `passthrough()` for
+    //    EVERY real request without ever calling `resolveRequest` (no
+    //    `unmatched` discriminant is even computed). The worker stays
+    //    registered the whole time (only `stop()` on unmount/refetch detaches
+    //    this observer), so without this check every real page request would
+    //    have its shape derived and reported while demo mode is off. The
+    //    fetch branch has no equivalent gap: `interceptor.ts`'s patched fetch
+    //    bails (`if (!enabled) return originalFetch(...)`) before
+    //    `resolveRequest` — and therefore before its shape hook — is ever
+    //    reached, so it never observes anything while disabled.
+    // 2. `SAFE_METHODS` — mirrors the fetch branch's gate on
+    //    `outcome.unmatched === true`, which `resolveRequest` only ever sets
+    //    for the safe-method unmatched-passthrough branch (never for the
+    //    `unmatchedMutations: 'passthrough'` policy branch, which passes
+    //    through without that flag). `response:bypass` carries no such
+    //    discriminant, so this reproduces "unmatched safe method" directly:
+    //    a non-safe method either gets blocked (no bypass at all) or, under
+    //    the passthrough policy, bypasses without ever being the fetch
+    //    branch's observed population — imported from core (not
+    //    reimplemented) so the two sets can never drift.
     const handleMswBypassResponse = ({ request, response }: { request: Request; response: Response }): void => {
+      if (!mswEnabledRef.current) return
+      if (!SAFE_METHODS.has(request.method.toUpperCase())) return
       if (controlPlaneOrigin && isControlPlaneOrigin(request.url, controlPlaneOrigin)) return
 
       // Fire-and-forget, entirely after msw has already resolved the

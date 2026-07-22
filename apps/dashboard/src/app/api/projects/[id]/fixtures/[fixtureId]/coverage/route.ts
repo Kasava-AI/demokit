@@ -3,10 +3,11 @@
  * what's unmapped — grouped from api_call_logs over the last 7 days.
  *
  * Phase 5 Task 6 adds shape-drift-on-read: recent `unmatched_request` rows
- * that carry a Task 1 `ShapeNode` are reduced to one observation per
- * distinct method+path pair and diffed against the project's synced schema
- * via Task 5's `detectShapeDrift`. Additive response change only — existing
- * consumers of `totals`/`topPaths` are unaffected.
+ * that carry a Task 1 `ShapeNode` are reduced (via SQL `DISTINCT ON`, see
+ * the query below) to one observation per distinct method+path pair and
+ * diffed against the project's synced schema via Task 5's
+ * `detectShapeDrift`. Additive response change only — existing consumers of
+ * `totals`/`topPaths` are unaffected.
  */
 import { NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/api/auth'
@@ -24,27 +25,37 @@ type DriftRow = DriftFinding & { occurrences: number }
 type CoverageDrift = Omit<ShapeDriftReport, 'findings'> & { findings: DriftRow[] }
 
 /**
- * Bounded select of recent shape-observed rows before the latest-per-pair
- * reduction below (`latestShapePerPath`) — large enough to still find up to
- * `MAX_DISTINCT_SHAPE_PATHS` distinct pairs under heavy duplicate traffic
- * from the same endpoint, small enough to keep the query itself cheap. This
- * expresses the "bounded select then reduce in JS" half of the brief's
- * latest-per-pair requirement (the alternative — a `DISTINCT ON` /
- * `row_number() OVER (...)` window query — would work too, but this keeps
- * the query in the same plain-chain drizzle style as `totals`/`topPaths`
- * above).
+ * Cap on distinct (method, path) pairs fed into `detectShapeDrift` — applied
+ * as the outer query's SQL `LIMIT` below (the primary enforcement) and
+ * again defensively in `latestShapePerPath` (belt-and-suspenders: makes the
+ * route provably capped even if a future change to the query loses the SQL
+ * `LIMIT`, and keeps the cap unit-testable without a live Postgres).
  */
-const SHAPE_ROWS_SELECT_LIMIT = 1000
-
-/** Cap on distinct (method, path) pairs fed into `detectShapeDrift`. */
 const MAX_DISTINCT_SHAPE_PATHS = 200
 
 /**
- * Reduce recency-ordered rows (latest timestamp first) to one ObservedShape
- * per distinct method+path pair — the most recent shape for that pair wins,
- * matching the coverage reporter's own last-wins dedupe semantics
- * (packages/core/src/coverage.ts) — capped at MAX_DISTINCT_SHAPE_PATHS
- * distinct pairs.
+ * Reduce rows to one ObservedShape per distinct method+path pair, capped at
+ * MAX_DISTINCT_SHAPE_PATHS.
+ *
+ * Latest-per-pair dedup is now done in SQL (`DISTINCT ON`, see the query
+ * below) rather than here — an earlier version of this route selected a
+ * bounded window of *raw* rows (ordered by raw event recency, not per-pair)
+ * before reducing in JS. Under skewed traffic (one or a few chatty
+ * endpoints dominating the window), that raw-row window could be entirely
+ * consumed before a genuinely-recent but low-frequency pair's only row was
+ * ever seen, silently dropping that endpoint's drift from the report even
+ * though it was within the 7-day window — a pair's survival depended on
+ * *someone else's* request volume, not its own recency. `DISTINCT ON`
+ * operates over the full WHERE-filtered set, so every distinct pair in the
+ * window is considered regardless of how many raw events any other pair
+ * generated.
+ *
+ * This function is now a defensive no-op in the common case (its input has
+ * already been deduped and recency-capped by the query) — kept because it
+ * makes the route provably correct against a duplicate or oversized input
+ * without needing a live Postgres to exercise `DISTINCT ON` against, and
+ * costs nothing meaningful since it only ever sees a small, already-bounded
+ * row set.
  */
 function latestShapePerPath(
   rows: Array<{ method: string | null; path: string | null; shape: unknown }>
@@ -147,11 +158,21 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     let drift: CoverageDrift | null = null
     if (schema) {
-      const shapeRows = await db
-        .select({
+      // One row per distinct (method, path) pair, holding that pair's
+      // LATEST shape — `DISTINCT ON` requires its leading `ORDER BY`
+      // columns to match the `DISTINCT ON` list, so `timestamp DESC` as the
+      // tiebreaker is what makes "one row per pair" mean "the latest row
+      // for that pair" rather than an arbitrary one. This subquery is
+      // evaluated over the *entire* WHERE-filtered set (every matching row
+      // in the 7-day window) — not a bounded raw-row prefix — so a pair
+      // can't be crowded out by another pair's request volume (see
+      // `latestShapePerPath`'s doc comment for the bug this replaces).
+      const latestPerPair = db
+        .selectDistinctOn([apiCallLogs.method, apiCallLogs.path], {
           method: apiCallLogs.method,
           path: apiCallLogs.path,
           shape: apiCallLogs.shape,
+          timestamp: apiCallLogs.timestamp,
         })
         .from(apiCallLogs)
         .where(
@@ -162,8 +183,22 @@ export async function GET(request: Request, { params }: RouteParams) {
             isNotNull(apiCallLogs.shape)
           )
         )
-        .orderBy(desc(apiCallLogs.timestamp))
-        .limit(SHAPE_ROWS_SELECT_LIMIT)
+        .orderBy(apiCallLogs.method, apiCallLogs.path, desc(apiCallLogs.timestamp))
+        .as('latest_shape_per_pair')
+
+      // `DISTINCT ON`'s own output is ordered by (method, path) — i.e.
+      // alphabetically, not by recency. Re-sort by timestamp here before
+      // capping so the pairs kept under MAX_DISTINCT_SHAPE_PATHS are the
+      // 200 MOST RECENT pairs, not just the first 200 alphabetically.
+      const shapeRows = await db
+        .select({
+          method: latestPerPair.method,
+          path: latestPerPair.path,
+          shape: latestPerPair.shape,
+        })
+        .from(latestPerPair)
+        .orderBy(desc(latestPerPair.timestamp))
+        .limit(MAX_DISTINCT_SHAPE_PATHS)
 
       const observed = latestShapePerPath(shapeRows)
       const report = detectShapeDrift(observed, schema)

@@ -26,11 +26,15 @@ the catalog, cart, and orders.
 - **Demo mode off**: this example ships no real server, so every fetch fails
   with "backend unreachable." That's intentional — flip demo mode back on to
   see data again.
-- **Checkout with demo mode off**: `POST /api/orders` fails the same way as
-  the GETs (no backend to reach). This is the point — the blocked-mutation
-  guard (a mock 409 for mutations that match no fixture) only applies while
-  demo mode is *on*; with it off, every request just passes straight through
-  to the real network.
+- **Checkout with demo mode off**: `POST /api/orders` and the `GET` pages
+  fail for different underlying reasons — Vite's dev server serves the SPA
+  shell (a 200 with `index.html`, not JSON) for unmatched `GET`s, while a
+  `POST` to the same unmatched path gets a real 404 — but the app shows the
+  same "enable demo mode" hint either way. That's the point: the
+  blocked-mutation guard (a mock 409 for mutations that match no fixture)
+  only applies while demo mode is *on*; with it off, every request just
+  passes straight through to the real network, whatever shape that failure
+  takes.
 - **Cancel an order** (demo mode on): deletes the order and cascades to
   delete its `OrderItem` rows in the store, via the FK relationships declared
   in `demo-config.ts`.

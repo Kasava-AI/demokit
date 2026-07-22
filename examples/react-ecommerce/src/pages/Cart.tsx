@@ -87,9 +87,10 @@ export function Cart({ lines, onChangeQty, onRemove, onCheckedOut }: CartProps) 
       {error && (
         <div className="hint" style={{ marginTop: 16 }}>
           <strong>Checkout failed</strong>
-          {error === 'backend unreachable'
-            ? 'Demo mode is off, so POST /api/orders has no real backend to reach — the blocked-mutation guard only protects requests while demo mode is on. Turn on Demo Mode to complete checkout.'
-            : error}
+          Demo mode is off, so POST /api/orders has no real backend to reach — the
+          blocked-mutation guard only protects requests while demo mode is on. Turn on Demo
+          Mode to complete checkout.
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>{error}</div>
         </div>
       )}
 

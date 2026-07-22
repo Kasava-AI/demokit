@@ -129,6 +129,14 @@ export {
   type ClassifiedDiff,
 } from './merge'
 
+// Shape-drift classifier (spec §9.4): observed response shapes vs synced IR
+export {
+  detectShapeDrift,
+  type DriftKind,
+  type DriftFinding,
+  type ShapeDriftReport,
+} from './drift'
+
 // Error handling utilities
 export {
   SchemaParseError,

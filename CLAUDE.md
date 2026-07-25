@@ -1,6 +1,8 @@
 # DemoKit OSS
 
 > **For Claude**: This is the open-source DemoKit SDK - a framework for turning real SaaS apps into interactive product demos by intercepting API calls and returning mock data.
+>
+> **UI work: two rule sets, and they are opposites.** [apps/dashboard/](apps/dashboard/) is a normal token-locked Next app. [packages/react/](packages/react/) renders inside **other people's apps** and follows guest rules. See § Design skills below before touching either.
 
 ## Quick Reference
 
@@ -150,6 +152,32 @@ pnpm test:coverage
 3. **Keep SSR-safe**: All code should work server-side
 4. **Minimize bundle size**: Keep dependencies minimal
 5. **TypeScript first**: Full type safety required
+
+## Design skills — what to use, where and when
+
+Order: **structure → specifics → motion**. `hallmark` before any layout code (new surface, redesign, or auditing UI you didn't write) → `impeccable critique` → fix → `impeccable polish` once it's functional → `emil-design-eng` last, for motion. `impeccable audit` on inherited UI and before review. Neither hallmark nor emil is installed here: `npx skills add nutlope/hallmark`, `npx skills add emilkowalski/skills --skill emil-design-eng`.
+
+### `apps/dashboard/` — normal token-locked app rules
+
+- **The theme is already chosen.** The tokens in [apps/dashboard/src/app/globals.css](apps/dashboard/src/app/globals.css) *are* the theme. Skills contribute structure, hierarchy, spacing rhythm, motion, and their quality gates — never a palette, a `font-family`, or an inline hex/OKLCH. Hallmark's 22-theme catalog and `impeccable colorize` are off.
+- **This app is on `framer-motion`.** Never add `motion` alongside it — same library, two package names, and having both ships two `AnimatePresence` contexts that can't coordinate exits.
+- **Quiet wins.** `impeccable distill` / `quieter` / `normalize` are the aligned passes; `bolder` and `delight` belong to the marketing site.
+
+### `packages/react/` — guest rules, which invert the above
+
+`banner`, `toggle`, `powered-by`, and `mutation-toast` render inside **someone else's application**. Every one of them styles itself with inline `style` objects plus a `demokit-*` className hook, and accepts `className` / `style` overrides.
+
+- **That is the design, not technical debt.** A Tailwind class or a `var(--token)` would resolve against the *consumer's* stylesheet, or not at all. Any skill that proposes Tailwind, a global stylesheet, or a design-token system in this package is wrong. Keep the inline-style pattern.
+- **Hard-coded values are correct here.** There is no token to reference. The "no inline hex" rule that governs the dashboard does not apply.
+- **Assume a hostile CSS environment** — global resets, aggressive `z-index`, `!important`, transitions on `*`. Set what you depend on explicitly rather than inheriting it.
+- **Bundle size is a design constraint.** Development Tip #4 above outranks any skill's component cookbook: don't pull in an animation library, an icon set, or a headless-UI dependency for a banner.
+- **Keep it SSR-safe** (Tip #3). Skills reach for `window` and `matchMedia` freely; guard them.
+
+### Never, in either place
+
+`redesign-existing-projects` (opens by replacing the font and collapsing the palette), `brandkit` (designs a brand that already exists), `design-taste-frontend` and `imagegen-frontend-web` (marketing-site skills — their vocabulary is hero, CTA, and landing section, and there's no target here).
+
+Repo-wide routing, plus the rules for DemoKit Cloud and the marketing site, is in the monorepo root's `CLAUDE.md` — one directory up, outside this git repo.
 
 ## Related Projects
 
